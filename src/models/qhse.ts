@@ -1,6 +1,6 @@
 import { getDashboard } from '@/services/qhse/dashboard';
 import type { DashboardData } from '@/types/qhse';
-import { withSimulatedGdsAlarm } from '@/utils/dashboardScenario';
+import { withAlarmStatus, withSimulatedGdsAlarm } from '@/utils/dashboardScenario';
 import { useCallback, useState } from 'react';
 
 export default function useQhseModel() {
@@ -29,5 +29,20 @@ export default function useQhseModel() {
     });
   }, []);
 
-  return { dashboard, loading, loadDashboard, simulateGdsAlarm };
+  const confirmAlarm = useCallback((eventId: string) => {
+    setDashboard((current) => (current ? withAlarmStatus(current, eventId, '已确认') : current));
+  }, []);
+
+  const startEmergency = useCallback((eventId: string) => {
+    setDashboard((current) => (current ? withAlarmStatus(current, eventId, '处置中') : current));
+  }, []);
+
+  return {
+    dashboard,
+    loading,
+    loadDashboard,
+    simulateGdsAlarm,
+    confirmAlarm,
+    startEmergency,
+  };
 }

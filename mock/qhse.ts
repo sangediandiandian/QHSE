@@ -1,4 +1,41 @@
-import type { DashboardData } from '../src/types/qhse';
+import type { DashboardData, GdsPoint } from '../src/types/qhse';
+
+const areaCatalog = [
+  ['area-01', '常减压装置', 'CDU'],
+  ['area-02', '催化裂化装置', 'FCC'],
+  ['area-03', '加氢装置', 'HCU'],
+  ['area-04', '硫磺回收装置', 'SRU'],
+  ['area-05', '储罐区', 'TANK'],
+  ['area-06', '油品装卸区', 'LOAD'],
+] as const;
+
+const gdsPoints: GdsPoint[] = Array.from({ length: 30 }, (_, index) => {
+  const number = index + 1;
+  const [areaId, areaName, areaCode] = areaCatalog[index % areaCatalog.length];
+  const code = number === 1 ? 'GDS-101' : `GDS-${areaCode}-${String(number).padStart(2, '0')}`;
+  const offline = number === 12 || number === 24;
+  const fault = number === 18;
+  const level2 = number === 8 || number === 20;
+  const level1 = number === 5 || number === 14 || number === 27;
+  const rising = number === 2 || number === 23;
+  const currentValue = level2 ? 45 + (number % 4) : level1 ? 28 + (number % 5) : rising ? 24 : 4 + (number % 9);
+  return {
+    id: number === 1 ? 'gds-101' : `gds-${number}`,
+    code,
+    name: `${areaName}${number % 2 ? '泵区' : '管廊'}探测器`,
+    areaId,
+    areaName,
+    equipmentName: number % 2 ? `P-${100 + number} 机泵` : `PL-${200 + number} 管线`,
+    gasType: number % 10 === 0 ? '硫化氢' : number % 13 === 0 ? '氧气' : '可燃气体',
+    currentValue,
+    unit: number % 10 === 0 ? 'ppm' : number % 13 === 0 ? '%VOL' : '%LEL',
+    alarmLevel1: number % 10 === 0 ? 10 : number % 13 === 0 ? 19.5 : 25,
+    alarmLevel2: number % 10 === 0 ? 20 : number % 13 === 0 ? 23.5 : 40,
+    onlineStatus: offline ? 'offline' : fault ? 'fault' : 'online',
+    alarmStatus: level2 ? 'level2' : level1 ? 'level1' : rising ? 'trend' : 'normal',
+    trend: [7, 8, 9, 11, 13, currentValue].map((value) => Math.max(0, value + (number % 3) - 1)),
+  };
+});
 
 const dashboard: DashboardData = {
   updatedAt: '2026-07-11 08:32:18',
@@ -133,6 +170,7 @@ const dashboard: DashboardData = {
     { label: '08:20', gds: 29, voc: 54, mes: 58 },
     { label: '08:30', gds: 38, voc: 56, mes: 62 },
   ],
+  gdsPoints,
 };
 
 export default {

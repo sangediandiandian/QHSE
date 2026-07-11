@@ -25,7 +25,27 @@ export interface AlarmEvent {
   level: RiskLevel;
   value: string;
   occurredAt: string;
-  status: '待确认' | '处置中' | '监控中';
+  status: '待确认' | '已确认' | '处置中' | '监控中';
+}
+
+export type GdsAlarmStatus = 'normal' | 'level1' | 'level2' | 'trend';
+export type DeviceOnlineStatus = 'online' | 'offline' | 'fault';
+
+export interface GdsPoint {
+  id: string;
+  code: string;
+  name: string;
+  areaId: string;
+  areaName: string;
+  equipmentName: string;
+  gasType: '可燃气体' | '硫化氢' | '氧气';
+  currentValue: number;
+  unit: '%LEL' | 'ppm' | '%VOL';
+  alarmLevel1: number;
+  alarmLevel2: number;
+  onlineStatus: DeviceOnlineStatus;
+  alarmStatus: GdsAlarmStatus;
+  trend: number[];
 }
 
 export interface TrendPoint {
@@ -53,4 +73,5 @@ export interface DashboardData {
   areas: PlantArea[];
   alarms: AlarmEvent[];
   trend: TrendPoint[];
+  gdsPoints: GdsPoint[];
 }

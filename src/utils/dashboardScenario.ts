@@ -39,5 +39,33 @@ export function withSimulatedGdsAlarm(
     trend: current.trend.map((point, index) =>
       index === current.trend.length - 1 ? { ...point, gds: 45, mes: 71 } : point,
     ),
+    gdsPoints: current.gdsPoints.map((point) =>
+      point.id === 'gds-101'
+        ? {
+            ...point,
+            currentValue: 45,
+            alarmStatus: 'level2' as const,
+            trend: [8, 12, 18, 26, 36, 45],
+          }
+        : point,
+    ),
+  };
+}
+
+export function withAlarmStatus(
+  current: DashboardData,
+  eventId: string,
+  status: '已确认' | '处置中',
+) {
+  return {
+    ...current,
+    alarms: current.alarms.map((alarm) => (alarm.id === eventId ? { ...alarm, status } : alarm)),
+    metrics: {
+      ...current.metrics,
+      pendingWarnings:
+        status === '已确认'
+          ? Math.max(0, current.metrics.pendingWarnings - 1)
+          : current.metrics.pendingWarnings,
+    },
   };
 }

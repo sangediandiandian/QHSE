@@ -40,7 +40,7 @@ export default [
       {
         path: '/monitoring/gds',
         name: 'GDS 监测',
-        component: './ModulePlaceholder',
+        component: './Monitoring/GDS',
       },
       {
         path: '/monitoring/voc',
@@ -58,11 +58,11 @@ export default [
     name: '综合预警',
     icon: 'alert',
     path: '/warnings',
-    component: './ModulePlaceholder',
+    component: './WarningCenter',
   },
   {
     path: '/warnings/:id',
-    component: './ModulePlaceholder',
+    component: './WarningDetail',
     hideInMenu: true,
   },
   {

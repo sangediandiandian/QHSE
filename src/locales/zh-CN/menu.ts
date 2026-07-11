@@ -1,4 +1,10 @@
 export default {
+  'menu.综合驾驶舱': '综合驾驶舱',
+  'menu.监测中心': '监测中心',
+  'menu.监测中心.GDS 监测': 'GDS 监测',
+  'menu.监测中心.VOC 监测': 'VOC 监测',
+  'menu.监测中心.MES 关联': 'MES 关联',
+  'menu.综合预警': '综合预警',
   'menu.welcome': '欢迎',
   'menu.more-blocks': '更多区块',
   'menu.home': '首页',
