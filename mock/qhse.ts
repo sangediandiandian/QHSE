@@ -1,5 +1,6 @@
 import type {
   DashboardData,
+  CommunicationTask,
   GdsPoint,
   MesTag,
   MesUnit,
@@ -111,6 +112,24 @@ const mesTags: MesTag[] = mesTagSeeds.map(([id, code, name, processStep, paramet
   status: id === 'mes-pt-302' ? 'warning' : 'normal',
   trend: [0.96, 0.98, 0.97, 1.01, 1, 1].map((factor) => Math.round(value * factor * 100) / 100),
 }));
+
+const communicationTasks: CommunicationTask[] = [
+  {
+    id: 'comm-001', eventId: 'evt-001', eventTitle: '可燃气体浓度持续上升',
+    receiver: '王强', receiverRole: '岗位操作员', channel: 'App消息', sendTime: '08:28:45',
+    deliveryStatus: '已送达', confirmStatus: '未确认', retryCount: 0, escalationLevel: 0,
+  },
+  {
+    id: 'comm-002', eventId: 'evt-002', eventTitle: 'RTO 出口浓度接近限值',
+    receiver: '周敏', receiverRole: '环保管理人员', channel: 'App消息', sendTime: '08:19:10',
+    deliveryStatus: '已送达', confirmStatus: '已确认', confirmTime: '08:19:42', retryCount: 0, escalationLevel: 0,
+  },
+  {
+    id: 'comm-003', eventId: 'evt-003', eventTitle: '泵出口压力偏高',
+    receiver: '陈涛', receiverRole: '生产调度', channel: '短信', sendTime: '08:11:40',
+    deliveryStatus: '已送达', confirmStatus: '已确认', confirmTime: '08:12:08', retryCount: 0, escalationLevel: 0,
+  },
+];
 
 const dashboard: DashboardData = {
   updatedAt: '2026-07-11 08:32:18',
@@ -250,6 +269,7 @@ const dashboard: DashboardData = {
   vocFacilities,
   mesTags,
   mesUnits,
+  communicationTasks,
 };
 
 export default {

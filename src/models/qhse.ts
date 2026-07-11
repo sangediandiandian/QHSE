@@ -2,6 +2,8 @@ import { getDashboard } from '@/services/qhse/dashboard';
 import type { DashboardData } from '@/types/qhse';
 import {
   withAlarmStatus,
+  withCommunicationConfirmation,
+  withCommunicationEscalation,
   withSimulatedGdsAlarm,
   withSimulatedJointAlarm,
   withSimulatedVocAlarm,
@@ -61,6 +63,22 @@ export default function useQhseModel() {
     ) : current);
   }, []);
 
+  const advanceCommunication = useCallback((eventId: string) => {
+    setDashboard((current) => current ? withCommunicationEscalation(
+      current,
+      eventId,
+      new Date().toLocaleTimeString('zh-CN', { hour12: false }),
+    ) : current);
+  }, []);
+
+  const confirmCommunication = useCallback((taskId: string) => {
+    setDashboard((current) => current ? withCommunicationConfirmation(
+      current,
+      taskId,
+      new Date().toLocaleTimeString('zh-CN', { hour12: false }),
+    ) : current);
+  }, []);
+
   return {
     dashboard,
     loading,
@@ -70,5 +88,7 @@ export default function useQhseModel() {
     startEmergency,
     simulateVocAlarm,
     simulateJointAlarm,
+    advanceCommunication,
+    confirmCommunication,
   };
 }

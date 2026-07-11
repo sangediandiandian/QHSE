@@ -61,6 +61,12 @@ export default [
     component: './WarningCenter',
   },
   {
+    name: '融合通信',
+    icon: 'phone',
+    path: '/communication',
+    component: './Communication',
+  },
+  {
     path: '/warnings/:id',
     component: './WarningDetail',
     hideInMenu: true,

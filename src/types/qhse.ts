@@ -109,6 +109,23 @@ export interface MesUnit {
   status: 'normal' | 'warning' | 'alarm';
 }
 
+export type CommunicationChannel = 'App消息' | '电话语音' | '短信' | 'IP广播';
+
+export interface CommunicationTask {
+  id: string;
+  eventId: string;
+  eventTitle: string;
+  receiver: string;
+  receiverRole: string;
+  channel: CommunicationChannel;
+  sendTime: string;
+  deliveryStatus: '发送中' | '已送达' | '失败';
+  confirmStatus: '待确认' | '未确认' | '已确认';
+  confirmTime?: string;
+  retryCount: number;
+  escalationLevel: 0 | 1 | 2 | 3;
+}
+
 export interface TrendPoint {
   label: string;
   gds: number;
@@ -139,4 +156,5 @@ export interface DashboardData {
   vocFacilities: VocFacility[];
   mesTags: MesTag[];
   mesUnits: MesUnit[];
+  communicationTasks: CommunicationTask[];
 }

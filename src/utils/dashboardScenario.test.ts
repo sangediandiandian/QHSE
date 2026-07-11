@@ -1,6 +1,8 @@
 import type { DashboardData } from '@/types/qhse';
 import {
   withAlarmStatus,
+  withCommunicationConfirmation,
+  withCommunicationEscalation,
   withSimulatedGdsAlarm,
   withSimulatedJointAlarm,
   withSimulatedVocAlarm,
@@ -72,6 +74,7 @@ const baseDashboard: DashboardData = {
     id: 'mes-unit-01', code: 'CDU', name: '常减压装置', load: 86,
     operatingMode: '稳定运行', status: 'normal',
   }],
+  communicationTasks: [],
 };
 
 describe('withSimulatedGdsAlarm', () => {
@@ -127,5 +130,48 @@ describe('withSimulatedJointAlarm', () => {
     expect(result.gdsPoints[0]).toMatchObject({ currentValue: 36, alarmStatus: 'level1' });
     expect(result.alarms[0]).toMatchObject({ source: '联合预警', level: 'critical' });
     expect(result.metrics.overallRisk).toBe('重大风险');
+  });
+});
+
+describe('communication escalation', () => {
+  it('未确认时依次升级到重呼、班长和负责人/调度', () => {
+    const dashboard: DashboardData = {
+      ...baseDashboard,
+      alarms: [{
+        id: 'evt-1', code: 'W001', title: '测试事件', source: 'GDS',
+        areaId: 'area-01', areaName: '常减压装置', level: 'high',
+        value: '38% LEL', occurredAt: '08:30:00', status: '待确认',
+      }],
+      communicationTasks: [{
+        id: 'comm-base', eventId: 'evt-1', eventTitle: '测试事件', receiver: '王强',
+        receiverRole: '岗位操作员', channel: 'App消息', sendTime: '08:30:00',
+        deliveryStatus: '已送达', confirmStatus: '未确认', retryCount: 0, escalationLevel: 0,
+      }],
+    };
+    const level1 = withCommunicationEscalation(dashboard, 'evt-1', '08:32:00');
+    const level2 = withCommunicationEscalation(level1, 'evt-1', '08:33:00');
+    const level3 = withCommunicationEscalation(level2, 'evt-1', '08:35:00');
+
+    expect(level1.communicationTasks[0]).toMatchObject({ escalationLevel: 1, retryCount: 1 });
+    expect(level2.communicationTasks[0]).toMatchObject({ receiverRole: '当班班长', escalationLevel: 2 });
+    expect(level3.communicationTasks.filter((task) => task.escalationLevel === 3)).toHaveLength(2);
+  });
+
+  it('人员确认后停止继续升级', () => {
+    const dashboard: DashboardData = {
+      ...baseDashboard,
+      alarms: [{
+        id: 'evt-1', code: 'W001', title: '测试事件', source: 'GDS',
+        areaId: 'area-01', areaName: '常减压装置', level: 'high',
+        value: '38% LEL', occurredAt: '08:30:00', status: '待确认',
+      }],
+      communicationTasks: [{
+        id: 'comm-base', eventId: 'evt-1', eventTitle: '测试事件', receiver: '王强',
+        receiverRole: '岗位操作员', channel: 'App消息', sendTime: '08:30:00',
+        deliveryStatus: '已送达', confirmStatus: '未确认', retryCount: 0, escalationLevel: 0,
+      }],
+    };
+    const confirmed = withCommunicationConfirmation(dashboard, 'comm-base', '08:31:00');
+    expect(withCommunicationEscalation(confirmed, 'evt-1', '08:32:00')).toBe(confirmed);
   });
 });
