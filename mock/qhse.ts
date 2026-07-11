@@ -1,4 +1,11 @@
-import type { DashboardData, GdsPoint, VocFacility, VocPoint } from '../src/types/qhse';
+import type {
+  DashboardData,
+  GdsPoint,
+  MesTag,
+  MesUnit,
+  VocFacility,
+  VocPoint,
+} from '../src/types/qhse';
 
 const areaCatalog = [
   ['area-01', '常减压装置', 'CDU'],
@@ -66,6 +73,43 @@ const vocPoints: VocPoint[] = [
   facilityId: facilityId ? String(facilityId) : undefined,
   status: index === 7 ? 'offline' : Number(value) / Number(limit) > 0.8 ? 'warning' : 'normal',
   trend: [0.58, 0.65, 0.62, 0.7, 0.76, 1].map((factor) => Math.round(Number(value) * factor * 10) / 10),
+}));
+
+const mesUnits: MesUnit[] = [
+  { id: 'mes-unit-01', code: 'CDU', name: '常减压装置', load: 86, operatingMode: '稳定运行', status: 'normal' },
+  { id: 'mes-unit-02', code: 'FCC', name: '催化裂化装置', load: 91, operatingMode: '高负荷运行', status: 'warning' },
+  { id: 'mes-unit-03', code: 'HCU', name: '加氢装置', load: 78, operatingMode: '稳定运行', status: 'normal' },
+  { id: 'mes-unit-04', code: 'SRU', name: '硫磺回收装置', load: 72, operatingMode: '稳定运行', status: 'normal' },
+];
+
+const mesTagSeeds: Array<[string, string, string, MesTag['processStep'], MesTag['parameterType'], number, string, number, number]> = [
+  ['mes-pt-101', 'PT-101', '进料泵出口压力', '进料', '压力', 2.18, 'MPa', 2.4, 1.6],
+  ['mes-ft-101', 'FT-101', '原油进料流量', '进料', '流量', 102, 't/h', 118, 82],
+  ['mes-lt-101', 'LT-101', '电脱盐罐液位', '进料', '液位', 58, '%', 75, 35],
+  ['mes-tt-201', 'TT-201', '加热炉出口温度', '加热', '温度', 356, '℃', 375, 330],
+  ['mes-pt-201', 'PT-201', '加热炉炉膛压力', '加热', '压力', -0.12, 'kPa', 0, -0.3],
+  ['mes-ft-201', 'FT-201', '燃料气流量', '加热', '流量', 860, 'Nm³/h', 980, 650],
+  ['mes-tt-301', 'TT-301', '常压塔顶温度', '分馏', '温度', 126, '℃', 140, 110],
+  ['mes-pt-301', 'PT-301', '常压塔顶压力', '分馏', '压力', 0.18, 'MPa', 0.22, 0.12],
+  ['mes-lt-301', 'LT-301', '常压塔底液位', '分馏', '液位', 61, '%', 78, 38],
+  ['mes-tt-302', 'TT-302', '减压塔顶温度', '分馏', '温度', 88, '℃', 105, 72],
+  ['mes-pt-302', 'PT-302', '减压塔真空度', '分馏', '压力', -92, 'kPa', -85, -98],
+  ['mes-ft-401', 'FT-401', '石脑油外送流量', '外送', '流量', 32, 't/h', 42, 22],
+  ['mes-ft-402', 'FT-402', '柴油外送流量', '外送', '流量', 46, 't/h', 58, 30],
+  ['mes-pt-401', 'PT-401', '外送泵出口压力', '外送', '压力', 1.86, 'MPa', 2.2, 1.4],
+  ['mes-lt-401', 'LT-401', '产品缓冲罐液位', '外送', '液位', 52, '%', 80, 30],
+  ['mes-load-01', 'LOAD-CDU', '装置运行负荷', '外送', '负荷', 86, '%', 95, 55],
+];
+
+const mesTags: MesTag[] = mesTagSeeds.map(([id, code, name, processStep, parameterType, value, unit, upper, lower]) => ({
+  id, code, name, unitId: 'mes-unit-01', unitName: '常减压装置',
+  equipmentName: {
+    进料: 'P-101 进料泵', 加热: 'F-201 加热炉',
+    分馏: 'T-301 分馏塔', 外送: 'P-401 外送泵',
+  }[processStep],
+  processStep, parameterType, currentValue: value, unit, upperLimit: upper, lowerLimit: lower,
+  status: id === 'mes-pt-302' ? 'warning' : 'normal',
+  trend: [0.96, 0.98, 0.97, 1.01, 1, 1].map((factor) => Math.round(value * factor * 100) / 100),
 }));
 
 const dashboard: DashboardData = {
@@ -204,6 +248,8 @@ const dashboard: DashboardData = {
   gdsPoints,
   vocPoints,
   vocFacilities,
+  mesTags,
+  mesUnits,
 };
 
 export default {

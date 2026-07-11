@@ -2,6 +2,7 @@ import type { DashboardData } from '@/types/qhse';
 import {
   withAlarmStatus,
   withSimulatedGdsAlarm,
+  withSimulatedJointAlarm,
   withSimulatedVocAlarm,
 } from './dashboardScenario';
 
@@ -53,6 +54,24 @@ const baseDashboard: DashboardData = {
     areaName: '硫磺回收装置', inletValue: 286, outletValue: 38, efficiency: 86.7,
     temperature: 782, fanStatus: '运行', valveStatus: '开启', status: 'normal',
   }],
+  mesTags: [
+    {
+      id: 'mes-pt-101', code: 'PT-101', name: '进料泵出口压力', unitId: 'mes-unit-01',
+      unitName: '常减压装置', equipmentName: 'P-101 进料泵', processStep: '进料',
+      parameterType: '压力', currentValue: 2.18, unit: 'MPa', upperLimit: 2.4,
+      lowerLimit: 1.6, status: 'normal', trend: [2.1, 2.18],
+    },
+    {
+      id: 'mes-ft-101', code: 'FT-101', name: '原油进料流量', unitId: 'mes-unit-01',
+      unitName: '常减压装置', equipmentName: 'P-101 进料泵', processStep: '进料',
+      parameterType: '流量', currentValue: 102, unit: 't/h', upperLimit: 118,
+      lowerLimit: 82, status: 'normal', trend: [101, 102],
+    },
+  ],
+  mesUnits: [{
+    id: 'mes-unit-01', code: 'CDU', name: '常减压装置', load: 86,
+    operatingMode: '稳定运行', status: 'normal',
+  }],
 };
 
 describe('withSimulatedGdsAlarm', () => {
@@ -96,5 +115,17 @@ describe('withSimulatedVocAlarm', () => {
     expect(result.vocFacilities[0]).toMatchObject({ efficiency: 62.1, fanStatus: '故障' });
     expect(result.alarms[0]).toMatchObject({ id: 'evt-voc-simulated', source: 'VOC' });
     expect(result.metrics.vocComplianceRate).toBe(87.5);
+  });
+});
+
+describe('withSimulatedJointAlarm', () => {
+  it('联合异常时关联 MES、GDS 并升级为重大预警', () => {
+    const result = withSimulatedJointAlarm(baseDashboard, '09:10:00', 'updated');
+
+    expect(result.mesTags[0]).toMatchObject({ currentValue: 2.68, status: 'alarm' });
+    expect(result.mesTags[1]).toMatchObject({ currentValue: 68, status: 'alarm' });
+    expect(result.gdsPoints[0]).toMatchObject({ currentValue: 36, alarmStatus: 'level1' });
+    expect(result.alarms[0]).toMatchObject({ source: '联合预警', level: 'critical' });
+    expect(result.metrics.overallRisk).toBe('重大风险');
   });
 });

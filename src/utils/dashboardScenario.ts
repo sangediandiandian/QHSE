@@ -108,3 +108,49 @@ export function withSimulatedVocAlarm(
       : facility),
   };
 }
+
+export function withSimulatedJointAlarm(
+  current: DashboardData,
+  occurredAt: string,
+  updatedAt: string,
+) {
+  if (current.alarms.some((alarm) => alarm.id === 'evt-joint-simulated')) return current;
+
+  return {
+    ...current,
+    updatedAt,
+    metrics: {
+      ...current.metrics,
+      overallRisk: '重大风险' as const,
+      activeAlarms: current.metrics.activeAlarms + 1,
+      pendingWarnings: current.metrics.pendingWarnings + 1,
+      mesAnomalies: current.metrics.mesAnomalies + 2,
+    },
+    areas: current.areas.map((area) => area.id === 'area-01'
+      ? { ...area, riskLevel: 'critical' as const, status: 'alarm' as const }
+      : area),
+    alarms: [
+      {
+        id: 'evt-joint-simulated', code: 'W20260711006',
+        title: 'GDS 与 MES 联合预警：疑似介质泄漏', source: '联合预警' as const,
+        areaId: 'area-01', areaName: '常减压装置', level: 'critical' as const,
+        value: '36% LEL / 2.68 MPa', occurredAt, status: '待确认' as const,
+      },
+      ...current.alarms,
+    ],
+    mesTags: current.mesTags.map((tag) => {
+      if (tag.id === 'mes-pt-101') return { ...tag, currentValue: 2.68, status: 'alarm' as const, trend: [2.18, 2.24, 2.31, 2.42, 2.55, 2.68] };
+      if (tag.id === 'mes-ft-101') return { ...tag, currentValue: 68, status: 'alarm' as const, trend: [102, 98, 91, 83, 75, 68] };
+      return tag;
+    }),
+    mesUnits: current.mesUnits.map((unit) => unit.id === 'mes-unit-01'
+      ? { ...unit, load: 72, operatingMode: '异常降负荷', status: 'alarm' as const }
+      : unit),
+    gdsPoints: current.gdsPoints.map((point) => point.id === 'gds-101'
+      ? { ...point, currentValue: 36, alarmStatus: 'level1' as const, trend: [8, 11, 16, 22, 29, 36] }
+      : point),
+    trend: current.trend.map((point, index) => index === current.trend.length - 1
+      ? { ...point, gds: 36, mes: 84 }
+      : point),
+  };
+}

@@ -3,6 +3,7 @@ import type { DashboardData } from '@/types/qhse';
 import {
   withAlarmStatus,
   withSimulatedGdsAlarm,
+  withSimulatedJointAlarm,
   withSimulatedVocAlarm,
 } from '@/utils/dashboardScenario';
 import { useCallback, useState } from 'react';
@@ -52,6 +53,14 @@ export default function useQhseModel() {
     });
   }, []);
 
+  const simulateJointAlarm = useCallback(() => {
+    setDashboard((current) => current ? withSimulatedJointAlarm(
+      current,
+      new Date().toLocaleTimeString('zh-CN', { hour12: false }),
+      new Date().toLocaleString('zh-CN', { hour12: false }),
+    ) : current);
+  }, []);
+
   return {
     dashboard,
     loading,
@@ -60,5 +69,6 @@ export default function useQhseModel() {
     confirmAlarm,
     startEmergency,
     simulateVocAlarm,
+    simulateJointAlarm,
   };
 }

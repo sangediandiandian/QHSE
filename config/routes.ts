@@ -50,7 +50,7 @@ export default [
       {
         path: '/monitoring/mes',
         name: 'MES 关联',
-        component: './ModulePlaceholder',
+        component: './Monitoring/MES',
       },
     ],
   },

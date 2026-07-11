@@ -19,7 +19,7 @@ export interface AlarmEvent {
   id: string;
   code: string;
   title: string;
-  source: 'GDS' | 'VOC' | 'MES' | '作业许可';
+  source: 'GDS' | 'VOC' | 'MES' | '联合预警' | '作业许可';
   areaId: string;
   areaName: string;
   level: RiskLevel;
@@ -81,6 +81,34 @@ export interface VocFacility {
   status: 'normal' | 'degraded' | 'fault';
 }
 
+export type MesParameterType = '压力' | '温度' | '流量' | '液位' | '负荷';
+
+export interface MesTag {
+  id: string;
+  code: string;
+  name: string;
+  unitId: string;
+  unitName: string;
+  equipmentName: string;
+  processStep: '进料' | '加热' | '分馏' | '外送';
+  parameterType: MesParameterType;
+  currentValue: number;
+  unit: string;
+  upperLimit: number;
+  lowerLimit: number;
+  status: 'normal' | 'warning' | 'alarm' | 'offline';
+  trend: number[];
+}
+
+export interface MesUnit {
+  id: string;
+  code: string;
+  name: string;
+  load: number;
+  operatingMode: string;
+  status: 'normal' | 'warning' | 'alarm';
+}
+
 export interface TrendPoint {
   label: string;
   gds: number;
@@ -109,4 +137,6 @@ export interface DashboardData {
   gdsPoints: GdsPoint[];
   vocPoints: VocPoint[];
   vocFacilities: VocFacility[];
+  mesTags: MesTag[];
+  mesUnits: MesUnit[];
 }

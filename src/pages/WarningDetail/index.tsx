@@ -21,7 +21,7 @@ import styles from './index.less';
 const levelText: Record<RiskLevel, string> = { low: '低风险', medium: '一般预警', high: '较大预警', critical: '重大预警' };
 
 function EvidencePanel({ event }: { event: AlarmEvent }) {
-  const isGds = event.source === 'GDS';
+  const isGds = event.source === 'GDS' || event.source === '联合预警';
   return (
     <section className={styles.evidence}>
       <article><header><ApiOutlined /> 监测源</header><strong>{isGds ? 'GDS-101' : event.source}</strong><span>{event.areaName} · 泵区东侧</span></article>
