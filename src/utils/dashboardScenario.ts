@@ -69,3 +69,42 @@ export function withAlarmStatus(
     },
   };
 }
+
+export function withSimulatedVocAlarm(
+  current: DashboardData,
+  occurredAt: string,
+  updatedAt: string,
+) {
+  if (current.alarms.some((alarm) => alarm.id === 'evt-voc-simulated')) return current;
+
+  return {
+    ...current,
+    updatedAt,
+    metrics: {
+      ...current.metrics,
+      activeAlarms: current.metrics.activeAlarms + 1,
+      pendingWarnings: current.metrics.pendingWarnings + 1,
+      vocComplianceRate: 87.5,
+    },
+    alarms: [
+      {
+        id: 'evt-voc-simulated', code: 'W20260711005', title: 'RTO 出口 VOC 连续超限',
+        source: 'VOC' as const, areaId: 'area-04', areaName: '硫磺回收装置',
+        level: 'high' as const, value: '86 mg/m³', occurredAt, status: '待确认' as const,
+      },
+      ...current.alarms,
+    ],
+    trend: current.trend.map((point, index) =>
+      index === current.trend.length - 1 ? { ...point, voc: 86, mes: 78 } : point,
+    ),
+    vocPoints: current.vocPoints.map((point) => point.id === 'voc-stack-01'
+      ? { ...point, currentValue: 86, status: 'exceeded' as const, trend: [38, 46, 55, 66, 77, 86] }
+      : point),
+    vocFacilities: current.vocFacilities.map((facility) => facility.id === 'facility-rto-01'
+      ? {
+          ...facility, outletValue: 86, efficiency: 62.1, temperature: 641,
+          fanStatus: '故障' as const, status: 'fault' as const,
+        }
+      : facility),
+  };
+}

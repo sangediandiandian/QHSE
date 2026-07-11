@@ -45,7 +45,7 @@ export default [
       {
         path: '/monitoring/voc',
         name: 'VOC 监测',
-        component: './ModulePlaceholder',
+        component: './Monitoring/VOC',
       },
       {
         path: '/monitoring/mes',

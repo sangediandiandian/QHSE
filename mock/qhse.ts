@@ -1,4 +1,4 @@
-import type { DashboardData, GdsPoint } from '../src/types/qhse';
+import type { DashboardData, GdsPoint, VocFacility, VocPoint } from '../src/types/qhse';
 
 const areaCatalog = [
   ['area-01', '常减压装置', 'CDU'],
@@ -36,6 +36,37 @@ const gdsPoints: GdsPoint[] = Array.from({ length: 30 }, (_, index) => {
     trend: [7, 8, 9, 11, 13, currentValue].map((value) => Math.max(0, value + (number % 3) - 1)),
   };
 });
+
+const vocFacilities: VocFacility[] = [
+  {
+    id: 'facility-rto-01', code: 'RTO-01', name: '一号蓄热式氧化炉', processType: 'RTO',
+    areaName: '硫磺回收装置', inletValue: 286, outletValue: 38, efficiency: 86.7,
+    temperature: 782, fanStatus: '运行', valveStatus: '开启', status: 'normal',
+  },
+  {
+    id: 'facility-rco-01', code: 'RCO-01', name: '催化氧化处理设施', processType: 'RCO',
+    areaName: '油品装卸区', inletValue: 192, outletValue: 31, efficiency: 83.9,
+    temperature: 348, fanStatus: '运行', valveStatus: '开启', status: 'normal',
+  },
+];
+
+const vocPoints: VocPoint[] = [
+  ['voc-stack-01', 'VOC-EX-01', 'RTO 一号排口', '有组织排口', 'area-04', '硫磺回收装置', 38, 60, 18500, 'facility-rto-01'],
+  ['voc-stack-02', 'VOC-EX-02', 'RCO 二号排口', '有组织排口', 'area-06', '油品装卸区', 31, 60, 12600, 'facility-rco-01'],
+  ['voc-stack-03', 'VOC-EX-03', '储罐呼吸气排口', '有组织排口', 'area-05', '储罐区', 44, 60, 8300, undefined],
+  ['voc-stack-04', 'VOC-EX-04', '污水处理废气排口', '有组织排口', 'area-04', '硫磺回收装置', 52, 60, 9700, undefined],
+  ['voc-boundary-01', 'VOC-BD-01', '东厂界监测点', '厂界监测点', 'area-06', '油品装卸区', 2.1, 4, 0, undefined],
+  ['voc-boundary-02', 'VOC-BD-02', '南厂界监测点', '厂界监测点', 'area-05', '储罐区', 1.8, 4, 0, undefined],
+  ['voc-boundary-03', 'VOC-BD-03', '西厂界监测点', '厂界监测点', 'area-01', '常减压装置', 2.6, 4, 0, undefined],
+  ['voc-boundary-04', 'VOC-BD-04', '北厂界监测点', '厂界监测点', 'area-03', '加氢装置', 0, 4, 0, undefined],
+].map(([id, code, name, pointType, areaId, areaName, value, limit, flow, facilityId], index) => ({
+  id: String(id), code: String(code), name: String(name), pointType: pointType as VocPoint['pointType'],
+  areaId: String(areaId), areaName: String(areaName), pollutantType: '非甲烷总烃',
+  currentValue: Number(value), limitValue: Number(limit), flowValue: Number(flow),
+  facilityId: facilityId ? String(facilityId) : undefined,
+  status: index === 7 ? 'offline' : Number(value) / Number(limit) > 0.8 ? 'warning' : 'normal',
+  trend: [0.58, 0.65, 0.62, 0.7, 0.76, 1].map((factor) => Math.round(Number(value) * factor * 10) / 10),
+}));
 
 const dashboard: DashboardData = {
   updatedAt: '2026-07-11 08:32:18',
@@ -171,6 +202,8 @@ const dashboard: DashboardData = {
     { label: '08:30', gds: 38, voc: 56, mes: 62 },
   ],
   gdsPoints,
+  vocPoints,
+  vocFacilities,
 };
 
 export default {

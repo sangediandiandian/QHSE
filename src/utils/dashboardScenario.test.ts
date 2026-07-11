@@ -1,5 +1,9 @@
 import type { DashboardData } from '@/types/qhse';
-import { withAlarmStatus, withSimulatedGdsAlarm } from './dashboardScenario';
+import {
+  withAlarmStatus,
+  withSimulatedGdsAlarm,
+  withSimulatedVocAlarm,
+} from './dashboardScenario';
 
 const baseDashboard: DashboardData = {
   updatedAt: 'before',
@@ -38,6 +42,17 @@ const baseDashboard: DashboardData = {
       onlineStatus: 'online', alarmStatus: 'normal', trend: [4, 5, 6, 8],
     },
   ],
+  vocPoints: [{
+    id: 'voc-stack-01', code: 'VOC-EX-01', name: 'RTO 一号排口', pointType: '有组织排口',
+    areaId: 'area-04', areaName: '硫磺回收装置', pollutantType: '非甲烷总烃',
+    currentValue: 38, limitValue: 60, flowValue: 18500, facilityId: 'facility-rto-01',
+    status: 'normal', trend: [20, 25, 31, 38],
+  }],
+  vocFacilities: [{
+    id: 'facility-rto-01', code: 'RTO-01', name: '一号蓄热式氧化炉', processType: 'RTO',
+    areaName: '硫磺回收装置', inletValue: 286, outletValue: 38, efficiency: 86.7,
+    temperature: 782, fanStatus: '运行', valveStatus: '开启', status: 'normal',
+  }],
 };
 
 describe('withSimulatedGdsAlarm', () => {
@@ -70,5 +85,16 @@ describe('withSimulatedGdsAlarm', () => {
 
     expect(result.alarms[0].status).toBe('已确认');
     expect(result.metrics.pendingWarnings).toBe(3);
+  });
+});
+
+describe('withSimulatedVocAlarm', () => {
+  it('连续超限时同步更新排口、治理设施和预警事件', () => {
+    const result = withSimulatedVocAlarm(baseDashboard, '09:00:00', 'updated');
+
+    expect(result.vocPoints[0]).toMatchObject({ currentValue: 86, status: 'exceeded' });
+    expect(result.vocFacilities[0]).toMatchObject({ efficiency: 62.1, fanStatus: '故障' });
+    expect(result.alarms[0]).toMatchObject({ id: 'evt-voc-simulated', source: 'VOC' });
+    expect(result.metrics.vocComplianceRate).toBe(87.5);
   });
 });

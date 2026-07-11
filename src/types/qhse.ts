@@ -48,6 +48,39 @@ export interface GdsPoint {
   trend: number[];
 }
 
+export type VocPointStatus = 'normal' | 'warning' | 'exceeded' | 'offline';
+
+export interface VocPoint {
+  id: string;
+  code: string;
+  name: string;
+  pointType: '有组织排口' | '厂界监测点';
+  areaId: string;
+  areaName: string;
+  pollutantType: '非甲烷总烃' | '苯系物';
+  currentValue: number;
+  limitValue: number;
+  flowValue: number;
+  facilityId?: string;
+  status: VocPointStatus;
+  trend: number[];
+}
+
+export interface VocFacility {
+  id: string;
+  code: string;
+  name: string;
+  processType: 'RTO' | 'RCO';
+  areaName: string;
+  inletValue: number;
+  outletValue: number;
+  efficiency: number;
+  temperature: number;
+  fanStatus: '运行' | '故障';
+  valveStatus: '开启' | '关闭';
+  status: 'normal' | 'degraded' | 'fault';
+}
+
 export interface TrendPoint {
   label: string;
   gds: number;
@@ -74,4 +107,6 @@ export interface DashboardData {
   alarms: AlarmEvent[];
   trend: TrendPoint[];
   gdsPoints: GdsPoint[];
+  vocPoints: VocPoint[];
+  vocFacilities: VocFacility[];
 }

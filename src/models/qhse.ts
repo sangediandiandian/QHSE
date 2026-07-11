@@ -1,6 +1,10 @@
 import { getDashboard } from '@/services/qhse/dashboard';
 import type { DashboardData } from '@/types/qhse';
-import { withAlarmStatus, withSimulatedGdsAlarm } from '@/utils/dashboardScenario';
+import {
+  withAlarmStatus,
+  withSimulatedGdsAlarm,
+  withSimulatedVocAlarm,
+} from '@/utils/dashboardScenario';
 import { useCallback, useState } from 'react';
 
 export default function useQhseModel() {
@@ -37,6 +41,17 @@ export default function useQhseModel() {
     setDashboard((current) => (current ? withAlarmStatus(current, eventId, '处置中') : current));
   }, []);
 
+  const simulateVocAlarm = useCallback(() => {
+    setDashboard((current) => {
+      if (!current) return current;
+      return withSimulatedVocAlarm(
+        current,
+        new Date().toLocaleTimeString('zh-CN', { hour12: false }),
+        new Date().toLocaleString('zh-CN', { hour12: false }),
+      );
+    });
+  }, []);
+
   return {
     dashboard,
     loading,
@@ -44,5 +59,6 @@ export default function useQhseModel() {
     simulateGdsAlarm,
     confirmAlarm,
     startEmergency,
+    simulateVocAlarm,
   };
 }

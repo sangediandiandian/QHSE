@@ -46,6 +46,19 @@ export default function WarningDetail() {
   const processing = event.status === '处置中';
   const isCritical = event.level === 'critical';
   const planName = event.source === 'VOC' ? 'VOC 治理设施异常核查方案' : '可燃气体泄漏现场处置方案';
+  const responseTasks = event.source === 'VOC'
+    ? [
+        ['核查 RTO 风机与阀门', '环保管理部 · 周敏'],
+        ['复测出口非甲烷总烃', '环境监测组 · 刘洋'],
+        ['核对装置生产负荷', '生产调度 · 陈涛'],
+        ['评估降负荷运行措施', '装置运行部 · 李强'],
+      ]
+    : [
+        ['现场确认泄漏点', '运行一部 · 李强'],
+        ['停止附近动火作业', '安全管理部 · 王磊'],
+        ['人员撤离与清点', '属地班组 · 赵敏'],
+        ['调整生产负荷', '生产调度 · 陈涛'],
+      ];
 
   const handleConfirm = () => {
     confirmAlarm(event.id);
@@ -100,8 +113,8 @@ export default function WarningDetail() {
 
       <section className={styles.tasks}>
         <header><div><span>RESPONSE TASKS</span><h2>应急处置任务</h2></div><span>{processing ? '1 / 4 已完成' : '启动预案后自动生成'}</span></header>
-        {['现场确认泄漏点', '停止附近动火作业', '人员撤离与清点', '调整生产负荷'].map((task, index) => (
-          <div key={task}><span className={processing && index === 0 ? styles.taskDone : styles.taskIndex}>{processing && index === 0 ? <CheckCircleFilled /> : String(index + 1).padStart(2, '0')}</span><strong>{task}</strong><span>{['运行一部 · 李强', '安全管理部 · 王磊', '属地班组 · 赵敏', '生产调度 · 陈涛'][index]}</span><time>{processing ? ['已完成', '剩余 04:12', '剩余 06:30', '剩余 08:00'][index] : '待生成'}</time></div>
+        {responseTasks.map(([task, owner], index) => (
+          <div key={task}><span className={processing && index === 0 ? styles.taskDone : styles.taskIndex}>{processing && index === 0 ? <CheckCircleFilled /> : String(index + 1).padStart(2, '0')}</span><strong>{task}</strong><span>{owner}</span><time>{processing ? ['已完成', '剩余 04:12', '剩余 06:30', '剩余 08:00'][index] : '待生成'}</time></div>
         ))}
       </section>
     </PageContainer>
