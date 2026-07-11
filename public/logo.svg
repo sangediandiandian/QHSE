@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <title>QHSE 风险联动平台</title>
+  <rect width="200" height="200" rx="34" fill="#173b49"/>
+  <path d="M100 28 158 61v67l-58 44-58-44V61z" fill="none" stroke="#72c4d4" stroke-width="12"/>
+  <path d="M70 72h60v44H98l-23 21 7-21H70z" fill="#f4b942"/>
+  <circle cx="100" cy="94" r="9" fill="#173b49"/>
+</svg>

@@ -1,0 +1,71 @@
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: Inter, 'Segoe UI', 'Microsoft YaHei', Arial, sans-serif;
+}
+
+.colorWeak {
+  filter: invert(80%);
+}
+
+.ant-layout {
+  min-height: 100vh;
+}
+.ant-pro-sider.ant-layout-sider.ant-pro-sider-fixed {
+  left: unset;
+}
+
+canvas {
+  display: block;
+}
+
+body {
+  background: #f2f5f6;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.ant-pro-layout .ant-pro-sider-logo {
+  border-bottom: 1px solid #e1e8eb;
+}
+
+.ant-pro-layout .ant-pro-sider-logo h1 {
+  color: #193c49;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.ant-pro-layout .ant-layout-sider {
+  border-right: 1px solid #dce4e8;
+}
+
+.ant-pro-layout .ant-layout-header {
+  border-bottom: 1px solid #dce4e8;
+  box-shadow: none;
+}
+
+ul,
+ol {
+  list-style: none;
+}
+
+@media (max-width: 768px) {
+  .ant-table {
+    width: 100%;
+    overflow-x: auto;
+    &-thead > tr,
+    &-tbody > tr {
+      > th,
+      > td {
+        white-space: pre;
+        > span {
+          display: block;
+        }
+      }
+    }
+  }
+}
