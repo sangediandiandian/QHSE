@@ -143,10 +143,14 @@ const emergencyTasks: EmergencyTask[] = [
 ];
 
 const emergencyResources: EmergencyResource[] = [
-  { id: 'res-001', name: '泡沫消防车', type: '消防', quantity: '2 辆', location: '消防站', eta: '3 分钟', status: '调度中' },
-  { id: 'res-002', name: '正压式空气呼吸器', type: '气防', quantity: '12 套', location: 'FCC 气防柜', eta: '已到场', status: '已到位' },
-  { id: 'res-003', name: '急救担架与AED', type: '医疗', quantity: '2 组', location: '厂区医务室', eta: '6 分钟', status: '待命' },
-  { id: 'res-004', name: '防爆警戒与堵漏工具', type: '物资', quantity: '1 批', location: '应急物资库', eta: '5 分钟', status: '调度中' },
+  { id: 'res-001', code: 'FIRE-TRUCK-01', name: '泡沫消防车', type: '消防', quantity: '2 辆', location: '消防站', eta: '3 分钟', status: '调度中', owner: '张伟', contact: '6001', lastInspection: '2026-07-01', inspectionStatus: '检查合格' },
+  { id: 'res-002', code: 'SCBA-FCC-01', name: '正压式空气呼吸器', type: '气防', quantity: '12 套', location: 'FCC 气防柜', eta: '已到场', status: '已到位', owner: '刘洋', contact: '6218', lastInspection: '2026-07-08', inspectionStatus: '检查合格' },
+  { id: 'res-003', code: 'MED-AED-01', name: '急救担架与 AED', type: '医疗', quantity: '2 组', location: '厂区医务室', eta: '6 分钟', status: '待命', owner: '林晓', contact: '6120', lastInspection: '2026-06-26', inspectionStatus: '即将到期' },
+  { id: 'res-004', code: 'LEAK-KIT-01', name: '防爆警戒与堵漏工具', type: '物资', quantity: '1 批', location: '应急物资库', eta: '5 分钟', status: '调度中', owner: '赵磊', contact: '6058', lastInspection: '2026-07-05', inspectionStatus: '检查合格' },
+  { id: 'res-005', code: 'FIRE-ROBOT-01', name: '防爆消防机器人', type: '消防', quantity: '1 台', location: '消防站二库', eta: '8 分钟', status: '待命', owner: '张伟', contact: '6001', lastInspection: '2026-06-18', inspectionStatus: '需要维护' },
+  { id: 'res-006', code: 'GAS-MOBILE-02', name: '移动式气体检测组', type: '气防', quantity: '6 台', location: '中央控制室', eta: '4 分钟', status: '待命', owner: '刘洋', contact: '6218', lastInspection: '2026-07-09', inspectionStatus: '检查合格' },
+  { id: 'res-007', code: 'MED-AMB-01', name: '厂区救护车', type: '医疗', quantity: '1 辆', location: '厂区医务室', eta: '5 分钟', status: '待命', owner: '林晓', contact: '6120', lastInspection: '2026-07-02', inspectionStatus: '检查合格' },
+  { id: 'res-008', code: 'BOOM-ABS-01', name: '围油栏与吸附材料', type: '物资', quantity: '3 套', location: '储运应急库', eta: '10 分钟', status: '待命', owner: '周敏', contact: '6077', lastInspection: '2026-06-30', inspectionStatus: '检查合格' },
 ];
 
 const emergencyPlans: EmergencyPlanTemplate[] = [

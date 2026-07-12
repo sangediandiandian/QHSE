@@ -93,6 +93,17 @@ export default function useQhseModel() {
     });
   }, []);
 
+  const advanceEmergencyResource = useCallback((resourceId: string) => {
+    setDashboard((current) => current ? {
+      ...current,
+      emergencyResources: current.emergencyResources.map((resource) => resource.id === resourceId ? {
+        ...resource,
+        status: resource.status === '待命' ? '调度中' : resource.status === '调度中' ? '已到位' : resource.status,
+        eta: resource.status === '调度中' ? '已到场' : resource.eta,
+      } : resource),
+    } : current);
+  }, []);
+
   return {
     dashboard,
     loading,
@@ -105,5 +116,6 @@ export default function useQhseModel() {
     advanceCommunication,
     confirmCommunication,
     advanceEmergencyTask,
+    advanceEmergencyResource,
   };
 }

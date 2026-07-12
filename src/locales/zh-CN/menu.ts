@@ -8,6 +8,7 @@ export default {
   'menu.融合通信': '融合通信',
   'menu.应急指挥': '应急指挥',
   'menu.应急预案': '应急预案',
+  'menu.应急资源': '应急资源',
   'menu.welcome': '欢迎',
   'menu.more-blocks': '更多区块',
   'menu.home': '首页',

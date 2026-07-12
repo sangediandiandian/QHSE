@@ -79,6 +79,12 @@ export default [
     component: './EmergencyPlans',
   },
   {
+    name: '应急资源',
+    icon: 'car',
+    path: '/resources',
+    component: './EmergencyResources',
+  },
+  {
     path: '/warnings/:id',
     component: './WarningDetail',
     hideInMenu: true,

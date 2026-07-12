@@ -141,12 +141,17 @@ export interface EmergencyTask {
 
 export interface EmergencyResource {
   id: string;
+  code: string;
   name: string;
   type: '消防' | '气防' | '医疗' | '物资';
   quantity: string;
   location: string;
   eta: string;
   status: '待命' | '调度中' | '已到位';
+  owner: string;
+  contact: string;
+  lastInspection: string;
+  inspectionStatus: '检查合格' | '即将到期' | '需要维护';
 }
 
 export interface EmergencyPlan {
