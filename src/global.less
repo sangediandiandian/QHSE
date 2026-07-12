@@ -24,9 +24,69 @@ canvas {
 
 body {
   background: #f2f5f6;
+  color: #294a56;
+  font-size: 15px;
+  line-height: 1.6;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* 全站舒适密度：提升长时间值守场景下的可读性和操作空间 */
+.ant-pro-layout .ant-menu-item,
+.ant-pro-layout .ant-menu-submenu-title {
+  height: 46px;
+  margin-block: 5px;
+  font-size: 15px;
+  line-height: 46px;
+}
+
+.ant-pro-layout .ant-pro-sider-logo {
+  height: 62px;
+}
+
+.ant-pro-layout .ant-pro-sider-logo h1 {
+  font-size: 19px;
+}
+
+.ant-btn {
+  min-height: 36px;
+  padding-inline: 16px;
+  font-size: 14px;
+}
+
+.ant-btn-sm {
+  min-height: 30px;
+  padding-inline: 11px;
+  font-size: 13px;
+}
+
+.ant-input,
+.ant-input-affix-wrapper,
+.ant-select-selector,
+.ant-segmented {
+  font-size: 14px;
+}
+
+.ant-input-affix-wrapper,
+.ant-select-single .ant-select-selector {
+  min-height: 38px;
+}
+
+.ant-tag {
+  padding-inline: 8px;
+  font-size: 12px;
+  line-height: 22px;
+}
+
+.ant-pro-page-container-children-container {
+  line-height: 1.55;
+}
+
+@media (min-width: 1440px) {
+  .ant-pro-page-container-children-container {
+    padding-block-start: 24px;
+  }
 }
 
 .ant-pro-layout .ant-pro-sider-logo {
