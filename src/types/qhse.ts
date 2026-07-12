@@ -162,6 +162,25 @@ export interface EmergencyPlan {
   status: '推荐' | '已启动' | '已终止';
 }
 
+export interface EmergencyPlanTemplate {
+  id: string;
+  code: string;
+  name: string;
+  category: '综合应急预案' | '专项应急预案' | '现场处置方案' | '岗位应急处置卡';
+  eventType: string;
+  applicableArea: string;
+  medium: string;
+  responseLevel: 'IV级' | 'III级' | 'II级' | 'I级';
+  triggerRule: string;
+  notificationTargets: string[];
+  steps: string[];
+  resources: string[];
+  version: string;
+  effectiveDate: string;
+  status: '生效中' | '待评审' | '已停用';
+  ownerDepartment: string;
+}
+
 export interface TrendPoint {
   label: string;
   gds: number;
@@ -194,6 +213,7 @@ export interface DashboardData {
   mesUnits: MesUnit[];
   communicationTasks: CommunicationTask[];
   emergencyPlan: EmergencyPlan;
+  emergencyPlans: EmergencyPlanTemplate[];
   emergencyTasks: EmergencyTask[];
   emergencyResources: EmergencyResource[];
 }

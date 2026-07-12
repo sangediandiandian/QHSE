@@ -73,6 +73,12 @@ export default [
     component: './EmergencyCommand',
   },
   {
+    name: '应急预案',
+    icon: 'fileProtect',
+    path: '/plans',
+    component: './EmergencyPlans',
+  },
+  {
     path: '/warnings/:id',
     component: './WarningDetail',
     hideInMenu: true,

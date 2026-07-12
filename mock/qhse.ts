@@ -3,6 +3,7 @@ import type {
   CommunicationTask,
   EmergencyResource,
   EmergencyTask,
+  EmergencyPlanTemplate,
   GdsPoint,
   MesTag,
   MesUnit,
@@ -146,6 +147,15 @@ const emergencyResources: EmergencyResource[] = [
   { id: 'res-002', name: '正压式空气呼吸器', type: '气防', quantity: '12 套', location: 'FCC 气防柜', eta: '已到场', status: '已到位' },
   { id: 'res-003', name: '急救担架与AED', type: '医疗', quantity: '2 组', location: '厂区医务室', eta: '6 分钟', status: '待命' },
   { id: 'res-004', name: '防爆警戒与堵漏工具', type: '物资', quantity: '1 批', location: '应急物资库', eta: '5 分钟', status: '调度中' },
+];
+
+const emergencyPlans: EmergencyPlanTemplate[] = [
+  { id: 'tpl-001', code: 'QHSE-FCC-LEAK-01', name: '可燃气体泄漏现场处置方案', category: '现场处置方案', eventType: '可燃气体泄漏', applicableArea: '催化裂化装置', medium: '烃类可燃气体', responseLevel: 'II级', triggerRule: 'GDS 达到二级报警或多点浓度持续上升', notificationTargets: ['岗位人员', '装置负责人', '生产调度', '消防气防'], steps: ['停止作业并撤离现场', '切断物料与火源', '设置警戒并持续监测', '组织堵漏与恢复评估'], resources: ['泡沫消防车', '空气呼吸器', '防爆堵漏工具'], version: 'V3.2', effectiveDate: '2026-05-01', status: '生效中', ownerDepartment: '催化裂化装置' },
+  { id: 'tpl-002', code: 'QHSE-GAS-H2S-02', name: '硫化氢泄漏专项应急预案', category: '专项应急预案', eventType: '有毒气体泄漏', applicableArea: '全厂含硫装置', medium: '硫化氢', responseLevel: 'I级', triggerRule: 'H₂S 浓度达到 20ppm 或出现人员中毒', notificationTargets: ['应急指挥人员', '消防气防', '医疗救护', '属地负责人'], steps: ['佩戴正压式呼吸器', '上风向组织撤离', '搜救受影响人员', '隔离泄漏源并通风'], resources: ['气防车', '空气呼吸器', '急救担架', '便携式检测仪'], version: 'V2.6', effectiveDate: '2026-03-15', status: '生效中', ownerDepartment: '安全环保部' },
+  { id: 'tpl-003', code: 'QHSE-ENV-VOC-03', name: 'VOC 异常排放专项处置预案', category: '专项应急预案', eventType: '环境污染事件', applicableArea: 'VOC 治理设施及排口', medium: '非甲烷总烃', responseLevel: 'III级', triggerRule: '排口连续 10 分钟超限或治理效率低于 80%', notificationTargets: ['环保管理人员', '装置负责人', '生产调度'], steps: ['核查在线数据与设备状态', '切换备用治理设施', '降低相关装置负荷', '开展厂界加密监测'], resources: ['便携式 VOC 分析仪', '移动治理设备'], version: 'V2.1', effectiveDate: '2026-04-20', status: '生效中', ownerDepartment: '安全环保部' },
+  { id: 'tpl-004', code: 'QHSE-TANK-FIRE-01', name: '储罐火灾爆炸专项应急预案', category: '专项应急预案', eventType: '火灾爆炸', applicableArea: '储罐区', medium: '油品及化学品', responseLevel: 'I级', triggerRule: '储罐明火、温度突升或可燃气体多点报警', notificationTargets: ['企业应急指挥部', '消防气防', '生产调度', '医疗救护'], steps: ['启动固定消防设施', '切断进出料并冷却相邻罐', '扩大警戒和人员疏散', '实施泡沫灭火'], resources: ['大流量泡沫车', '消防机器人', '移动水炮'], version: 'V4.0', effectiveDate: '2026-06-01', status: '生效中', ownerDepartment: '储运部' },
+  { id: 'tpl-005', code: 'QHSE-GEN-2026', name: '生产安全事故综合应急预案', category: '综合应急预案', eventType: '综合事故', applicableArea: '全厂', medium: '多介质', responseLevel: 'I级', triggerRule: '重大事故或多个专项预案协同启动', notificationTargets: ['企业应急指挥部', '各专业应急组', '属地政府联络人'], steps: ['成立现场指挥部', '启动专业应急组', '统一资源和信息发布', '组织恢复与事故调查'], resources: ['指挥通信车', '全厂应急资源清单'], version: 'V5.1', effectiveDate: '2026-01-01', status: '生效中', ownerDepartment: 'QHSE 管理部' },
+  { id: 'tpl-006', code: 'CARD-CDU-PUMP-07', name: '常减压泵区泄漏岗位处置卡', category: '岗位应急处置卡', eventType: '管线及设备泄漏', applicableArea: '常减压装置泵区', medium: '原油及成品油', responseLevel: 'IV级', triggerRule: '现场发现滴漏、异味或单点低限报警', notificationTargets: ['岗位班长', '装置值班人员'], steps: ['按下紧急停泵按钮', '关闭进出口阀门', '报告班长并设置临时警戒', '使用吸附材料控制扩散'], resources: ['吸油毡', '便携式检测仪', '防爆工具'], version: 'V1.4', effectiveDate: '2025-11-10', status: '待评审', ownerDepartment: '常减压装置' },
 ];
 
 const dashboard: DashboardData = {
@@ -293,6 +303,7 @@ const dashboard: DashboardData = {
     matchReason: 'GDS二级报警 + 浓度持续上升 + FCC高负荷运行', commander: '陈涛 / 生产调度',
     assemblyPoint: 'FCC 北侧应急集合点', status: '已启动',
   },
+  emergencyPlans,
   emergencyTasks,
   emergencyResources,
 };

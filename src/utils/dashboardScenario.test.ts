@@ -80,6 +80,7 @@ const baseDashboard: DashboardData = {
     responseLevel: 'II级', matchScore: 90, matchReason: '测试匹配',
     commander: '测试指挥', assemblyPoint: '测试集合点', status: '推荐',
   },
+  emergencyPlans: [],
   emergencyTasks: [],
   emergencyResources: [],
 };
