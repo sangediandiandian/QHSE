@@ -4,6 +4,7 @@ import type {
   EmergencyResource,
   EmergencyTask,
   EmergencyPlanTemplate,
+  EventReview,
   GdsPoint,
   MesTag,
   MesUnit,
@@ -162,6 +163,32 @@ const emergencyPlans: EmergencyPlanTemplate[] = [
   { id: 'tpl-006', code: 'CARD-CDU-PUMP-07', name: '常减压泵区泄漏岗位处置卡', category: '岗位应急处置卡', eventType: '管线及设备泄漏', applicableArea: '常减压装置泵区', medium: '原油及成品油', responseLevel: 'IV级', triggerRule: '现场发现滴漏、异味或单点低限报警', notificationTargets: ['岗位班长', '装置值班人员'], steps: ['按下紧急停泵按钮', '关闭进出口阀门', '报告班长并设置临时警戒', '使用吸附材料控制扩散'], resources: ['吸油毡', '便携式检测仪', '防爆工具'], version: 'V1.4', effectiveDate: '2025-11-10', status: '待评审', ownerDepartment: '常减压装置' },
 ];
 
+const eventReviews: EventReview[] = [
+  {
+    id: 'review-001', eventId: 'evt-001', reviewCode: 'RP20260711001', status: '待关闭', reviewer: '赵磊 / QHSE 管理部',
+    summary: 'FCC 泵区可燃气体浓度持续上升，现场人员按预案完成撤离、警戒和物料切断，泄漏点已隔离，连续监测 30 分钟数据恢复正常。',
+    directCause: 'P-208 泵出口法兰垫片失效，少量介质泄漏后形成可燃气体聚集。',
+    rootCause: '高温循环工况下垫片选型裕量不足，设备完整性检查清单未覆盖法兰热循环后的专项复紧要求。',
+    lesson: '将高温泵法兰纳入关键泄漏点分级管理，强化材料选型复核和开停车后的专项检查。',
+    controlledAt: '2026-07-11 08:47:32',
+    timeline: [
+      { time: '08:28:42', title: 'GDS 二级报警', detail: 'GDS-101 检测值升至 38%LEL', status: 'done' },
+      { time: '08:29:03', title: '事件确认', detail: '岗位人员确认现场存在异常气味', status: 'done' },
+      { time: '08:30:18', title: '启动 II 级响应', detail: '自动匹配并启动可燃气体泄漏处置方案', status: 'done' },
+      { time: '08:34:50', title: '人员撤离完成', detail: '32 人完成清点，警戒区域设置完成', status: 'done' },
+      { time: '08:39:26', title: '泄漏源隔离', detail: '切断 P-208 上游物料并降负荷', status: 'done' },
+      { time: '08:47:32', title: '风险受控', detail: '现场浓度降至 8%LEL 并持续下降', status: 'active' },
+      { time: '--', title: '事件关闭', detail: '等待整改措施完成和关闭审批', status: 'pending' },
+    ],
+    actions: [
+      { id: 'action-001', title: '更换 P-208 法兰垫片并完成气密试验', ownerDepartment: '催化裂化装置', owner: '李建国', deadline: '2026-07-12', priority: '紧急', status: '已完成' },
+      { id: 'action-002', title: '复核同类高温泵法兰垫片选型', ownerDepartment: '设备管理部', owner: '孙工', deadline: '2026-07-15', priority: '重要', status: '整改中' },
+      { id: 'action-003', title: '修订开停车后法兰专项检查清单', ownerDepartment: '生产运行部', owner: '陈涛', deadline: '2026-07-18', priority: '重要', status: '待整改' },
+      { id: 'action-004', title: '组织泄漏事件班组复盘培训', ownerDepartment: 'QHSE 管理部', owner: '赵磊', deadline: '2026-07-20', priority: '一般', status: '待整改' },
+    ],
+  },
+];
+
 const dashboard: DashboardData = {
   updatedAt: '2026-07-11 08:32:18',
   metrics: {
@@ -310,6 +337,7 @@ const dashboard: DashboardData = {
   emergencyPlans,
   emergencyTasks,
   emergencyResources,
+  eventReviews,
 };
 
 export default {

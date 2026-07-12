@@ -186,6 +186,32 @@ export interface EmergencyPlanTemplate {
   ownerDepartment: string;
 }
 
+export interface ReviewAction {
+  id: string;
+  title: string;
+  ownerDepartment: string;
+  owner: string;
+  deadline: string;
+  priority: '一般' | '重要' | '紧急';
+  status: '待整改' | '整改中' | '已完成';
+}
+
+export interface EventReview {
+  id: string;
+  eventId: string;
+  reviewCode: string;
+  status: '待关闭' | '已关闭' | '已复盘';
+  reviewer: string;
+  summary: string;
+  directCause: string;
+  rootCause: string;
+  lesson: string;
+  controlledAt: string;
+  closedAt?: string;
+  timeline: Array<{ time: string; title: string; detail: string; status: 'done' | 'active' | 'pending' }>;
+  actions: ReviewAction[];
+}
+
 export interface TrendPoint {
   label: string;
   gds: number;
@@ -221,4 +247,5 @@ export interface DashboardData {
   emergencyPlans: EmergencyPlanTemplate[];
   emergencyTasks: EmergencyTask[];
   emergencyResources: EmergencyResource[];
+  eventReviews: EventReview[];
 }

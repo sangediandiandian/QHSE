@@ -104,6 +104,36 @@ export default function useQhseModel() {
     } : current);
   }, []);
 
+  const advanceReviewAction = useCallback((actionId: string) => {
+    setDashboard((current) => current ? {
+      ...current,
+      eventReviews: current.eventReviews.map((review) => ({
+        ...review,
+        actions: review.actions.map((action) => action.id === actionId ? {
+          ...action,
+          status: action.status === '待整改' ? '整改中' : action.status === '整改中' ? '已完成' : action.status,
+        } : action),
+      })),
+    } : current);
+  }, []);
+
+  const closeEventReview = useCallback((reviewId: string) => {
+    setDashboard((current) => current ? {
+      ...current,
+      eventReviews: current.eventReviews.map((review) => review.id === reviewId ? {
+        ...review,
+        status: '已复盘',
+        closedAt: new Date().toLocaleString('zh-CN', { hour12: false }),
+        timeline: review.timeline.map((item) => item.title === '事件关闭' ? {
+          ...item,
+          time: new Date().toLocaleTimeString('zh-CN', { hour12: false }),
+          detail: '关闭审批通过，复盘报告与整改证据已归档',
+          status: 'done',
+        } : item),
+      } : review),
+    } : current);
+  }, []);
+
   return {
     dashboard,
     loading,
@@ -117,5 +147,7 @@ export default function useQhseModel() {
     confirmCommunication,
     advanceEmergencyTask,
     advanceEmergencyResource,
+    advanceReviewAction,
+    closeEventReview,
   };
 }

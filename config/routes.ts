@@ -85,6 +85,12 @@ export default [
     component: './EmergencyResources',
   },
   {
+    name: '事件复盘',
+    icon: 'audit',
+    path: '/reviews',
+    component: './EventReviews',
+  },
+  {
     path: '/warnings/:id',
     component: './WarningDetail',
     hideInMenu: true,

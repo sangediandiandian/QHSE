@@ -83,6 +83,7 @@ const baseDashboard: DashboardData = {
   emergencyPlans: [],
   emergencyTasks: [],
   emergencyResources: [],
+  eventReviews: [],
 };
 
 describe('withSimulatedGdsAlarm', () => {
