@@ -1,6 +1,8 @@
 import type {
   DashboardData,
   CommunicationTask,
+  EmergencyResource,
+  EmergencyTask,
   GdsPoint,
   MesTag,
   MesUnit,
@@ -129,6 +131,21 @@ const communicationTasks: CommunicationTask[] = [
     receiver: '陈涛', receiverRole: '生产调度', channel: '短信', sendTime: '08:11:40',
     deliveryStatus: '已送达', confirmStatus: '已确认', confirmTime: '08:12:08', retryCount: 0, escalationLevel: 0,
   },
+];
+
+const emergencyTasks: EmergencyTask[] = [
+  { id: 'task-001', eventId: 'evt-001', name: '现场确认与气体复测', department: '催化裂化装置', owner: '王强', deadline: '2分钟', status: '已完成', feedback: '确认泵区东侧可燃气体浓度升高' },
+  { id: 'task-002', eventId: 'evt-001', name: '人员撤离至北侧集合点', department: '生产运行部', owner: '李建国', deadline: '5分钟', status: '执行中' },
+  { id: 'task-003', eventId: 'evt-001', name: '设置100米警戒区域', department: '安全环保部', owner: '赵磊', deadline: '5分钟', status: '执行中' },
+  { id: 'task-004', eventId: 'evt-001', name: '切断上游物料并降负荷', department: '生产调度', owner: '陈涛', deadline: '8分钟', status: '待执行' },
+  { id: 'task-005', eventId: 'evt-001', name: '消防与气防力量现场待命', department: '消防气防中心', owner: '张伟', deadline: '8分钟', status: '待执行' },
+];
+
+const emergencyResources: EmergencyResource[] = [
+  { id: 'res-001', name: '泡沫消防车', type: '消防', quantity: '2 辆', location: '消防站', eta: '3 分钟', status: '调度中' },
+  { id: 'res-002', name: '正压式空气呼吸器', type: '气防', quantity: '12 套', location: 'FCC 气防柜', eta: '已到场', status: '已到位' },
+  { id: 'res-003', name: '急救担架与AED', type: '医疗', quantity: '2 组', location: '厂区医务室', eta: '6 分钟', status: '待命' },
+  { id: 'res-004', name: '防爆警戒与堵漏工具', type: '物资', quantity: '1 批', location: '应急物资库', eta: '5 分钟', status: '调度中' },
 ];
 
 const dashboard: DashboardData = {
@@ -270,6 +287,14 @@ const dashboard: DashboardData = {
   mesTags,
   mesUnits,
   communicationTasks,
+  emergencyPlan: {
+    id: 'plan-001', code: 'QHSE-FCC-LEAK-01', name: '可燃气体泄漏现场处置方案',
+    eventId: 'evt-001', responseLevel: 'II级', matchScore: 96,
+    matchReason: 'GDS二级报警 + 浓度持续上升 + FCC高负荷运行', commander: '陈涛 / 生产调度',
+    assemblyPoint: 'FCC 北侧应急集合点', status: '已启动',
+  },
+  emergencyTasks,
+  emergencyResources,
 };
 
 export default {

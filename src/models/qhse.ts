@@ -79,6 +79,20 @@ export default function useQhseModel() {
     ) : current);
   }, []);
 
+  const advanceEmergencyTask = useCallback((taskId: string) => {
+    setDashboard((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        emergencyTasks: current.emergencyTasks.map((task) => task.id === taskId ? {
+          ...task,
+          status: task.status === '待执行' ? '执行中' : task.status === '执行中' ? '已完成' : task.status,
+          feedback: task.status === '执行中' ? '现场反馈已提交，任务完成' : task.feedback,
+        } : task),
+      };
+    });
+  }, []);
+
   return {
     dashboard,
     loading,
@@ -90,5 +104,6 @@ export default function useQhseModel() {
     simulateJointAlarm,
     advanceCommunication,
     confirmCommunication,
+    advanceEmergencyTask,
   };
 }

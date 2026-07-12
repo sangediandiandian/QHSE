@@ -75,6 +75,13 @@ const baseDashboard: DashboardData = {
     operatingMode: '稳定运行', status: 'normal',
   }],
   communicationTasks: [],
+  emergencyPlan: {
+    id: 'plan-test', code: 'PLAN-TEST', name: '测试预案', eventId: 'evt-test',
+    responseLevel: 'II级', matchScore: 90, matchReason: '测试匹配',
+    commander: '测试指挥', assemblyPoint: '测试集合点', status: '推荐',
+  },
+  emergencyTasks: [],
+  emergencyResources: [],
 };
 
 describe('withSimulatedGdsAlarm', () => {

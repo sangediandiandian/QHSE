@@ -126,6 +126,42 @@ export interface CommunicationTask {
   escalationLevel: 0 | 1 | 2 | 3;
 }
 
+export type EmergencyTaskStatus = '待执行' | '执行中' | '已完成';
+
+export interface EmergencyTask {
+  id: string;
+  eventId: string;
+  name: string;
+  department: string;
+  owner: string;
+  deadline: string;
+  status: EmergencyTaskStatus;
+  feedback?: string;
+}
+
+export interface EmergencyResource {
+  id: string;
+  name: string;
+  type: '消防' | '气防' | '医疗' | '物资';
+  quantity: string;
+  location: string;
+  eta: string;
+  status: '待命' | '调度中' | '已到位';
+}
+
+export interface EmergencyPlan {
+  id: string;
+  code: string;
+  name: string;
+  eventId: string;
+  responseLevel: 'IV级' | 'III级' | 'II级' | 'I级';
+  matchScore: number;
+  matchReason: string;
+  commander: string;
+  assemblyPoint: string;
+  status: '推荐' | '已启动' | '已终止';
+}
+
 export interface TrendPoint {
   label: string;
   gds: number;
@@ -157,4 +193,7 @@ export interface DashboardData {
   mesTags: MesTag[];
   mesUnits: MesUnit[];
   communicationTasks: CommunicationTask[];
+  emergencyPlan: EmergencyPlan;
+  emergencyTasks: EmergencyTask[];
+  emergencyResources: EmergencyResource[];
 }

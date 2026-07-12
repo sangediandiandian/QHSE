@@ -1,6 +1,11 @@
 .page {
-  max-width: 1800px;
+  width: 100%;
+  max-width: 1360px;
   margin: 0 auto;
+}
+.page :global(.ant-page-header),
+.page :global(.ant-pro-page-container-children-container) {
+  padding-inline: 24px;
 }
 .page :global(.ant-pro-page-container-children-container) {
   padding-block: 18px 30px;
@@ -382,6 +387,10 @@
 }
 
 @media (max-width: 650px) {
+  .page :global(.ant-page-header),
+  .page :global(.ant-pro-page-container-children-container) {
+    padding-inline: 12px;
+  }
   .masthead {
     align-items: flex-start;
   }

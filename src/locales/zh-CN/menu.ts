@@ -6,6 +6,7 @@ export default {
   'menu.监测中心.MES 关联': 'MES 关联',
   'menu.综合预警': '综合预警',
   'menu.融合通信': '融合通信',
+  'menu.应急指挥': '应急指挥',
   'menu.welcome': '欢迎',
   'menu.more-blocks': '更多区块',
   'menu.home': '首页',

@@ -67,6 +67,12 @@ export default [
     component: './Communication',
   },
   {
+    name: '应急指挥',
+    icon: 'deploymentUnit',
+    path: '/emergency',
+    component: './EmergencyCommand',
+  },
+  {
     path: '/warnings/:id',
     component: './WarningDetail',
     hideInMenu: true,
