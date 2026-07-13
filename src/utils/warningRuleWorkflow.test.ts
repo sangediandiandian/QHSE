@@ -1,6 +1,8 @@
 import type { WarningRule, WarningRuleDraftInput } from '@/types/qhse';
 import {
   getWarningRuleDisplayConfig,
+  approveWarningRuleStep,
+  findWarningRuleConflicts,
   publishWarningRule,
   rollbackWarningRule,
   saveWarningRuleDraft,
@@ -33,21 +35,31 @@ describe('warning rule workflow', () => {
 
   it('审批发布生成新版本并使草稿生效', () => {
     const edited = saveWarningRuleDraft([published], published.id, { ...config, condition: '测量值 ≥ 30' })[0];
-    const submitted = submitWarningRuleForApproval(edited);
-    const next = publishWarningRule(submitted, '2026-07-13 10:00:00', '赵磊');
+    let submitted = submitWarningRuleForApproval(edited);
+    submitted = approveWarningRuleStep(submitted, '赵磊', '2026-07-13 09:58:00');
+    submitted = approveWarningRuleStep(submitted, '陈涛', '2026-07-13 09:59:00');
+    const next = publishWarningRule(submitted, '2026-07-13 10:00:00', '赵磊、陈涛');
     expect(next).toMatchObject({ condition: '测量值 ≥ 30', publishStatus: '已发布', version: 2 });
     expect(next.versions).toHaveLength(2);
     expect(next.draft).toBeUndefined();
   });
 
   it('回滚历史版本只生成草稿，不改变当前运行版本', () => {
+    let submitted = submitWarningRuleForApproval(saveWarningRuleDraft([published], published.id, { ...config, condition: '测量值 ≥ 30' })[0]);
+    submitted = approveWarningRuleStep(submitted, '赵磊', '09:58');
+    submitted = approveWarningRuleStep(submitted, '陈涛', '09:59');
     const v2 = publishWarningRule(
-      submitWarningRuleForApproval(saveWarningRuleDraft([published], published.id, { ...config, condition: '测量值 ≥ 30' })[0]),
+      submitted,
       '2026-07-13 10:00:00', '赵磊',
     );
     const rolledBack = rollbackWarningRule(v2, 1);
     expect(rolledBack.condition).toBe('测量值 ≥ 30');
     expect(rolledBack.draft?.condition).toBe('测量值 ≥ 25');
     expect(rolledBack.publishStatus).toBe('草稿');
+  });
+
+  it('同来源、范围和表达式的运行规则会被识别为冲突', () => {
+    expect(findWarningRuleConflicts([published], config, 'other')).toHaveLength(1);
+    expect(findWarningRuleConflicts([published], { ...config, scope: '其他区域' }, 'other')).toHaveLength(0);
   });
 });

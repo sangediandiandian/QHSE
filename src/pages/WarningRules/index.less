@@ -10,8 +10,11 @@
 .workflow > div:first-child i { width: 28px; height: 1px; margin: 0 7px; background: #ccd9dd; }
 .workflowActive { color: #167b85; }
 .workflow p { margin: 7px 0 10px; color: #71878f; font-size: 11px; }
+.approvalSteps { display: flex; gap: 8px; margin-bottom: 10px; }.approvalSteps span { display: grid; grid-template-columns: auto 1fr; gap: 2px 7px; min-width: 190px; padding: 8px; background: #edf3f5; }.approvalSteps :global(.anticon) { grid-row: 1 / 3; align-self: center; color: #aab7bb; }.approvalSteps :global(.anticon).approved { color: #21836d; }.approvalSteps strong { color: #3c5d68; font-size: 11px; }.approvalSteps small { color: #81949c; font-size: 10px; }.conflict { margin-bottom: 10px; padding: 8px 10px; border-left: 3px solid #c53030; background: #fff4f2; color: #9d3730; font-size: 11px; }
 .ruleForm { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; padding-top: 12px; }
 .ruleForm > :global(.ant-form-item):nth-last-child(-n + 2) { grid-column: 1 / -1; }
+.expressionEditor { grid-column: 1 / -1; }.expressionHeader { display: grid; grid-template-columns: 1fr 90px 110px 90px 34px; gap: 8px; color: #81949c; font-size: 10px; }.expressionRow { display: grid !important; grid-template-columns: 1fr 90px 110px 90px 34px; gap: 8px; width: 100%; }.expressionRow :global(.ant-space-item),.expressionRow :global(.ant-form-item),.expressionRow :global(.ant-select) { width: 100%; }
+.ruleExpression > div { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }.ruleExpression > div > span { display: flex; align-items: center; gap: 5px; }.ruleExpression > div i { color: #c75f16; }.ruleExpression > div em { padding: 1px 5px; background: #dcebee; color: #1a7791; font-style: normal; }.ruleExpression > div b { color: #365965; font-family: monospace; }
 .versionList { display: grid; gap: 8px; max-height: 520px; overflow-y: auto; }
 .versionList article { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px; border: 1px solid #dce5e8; background: #f8fafb; }
 .versionList article > div { min-width: 0; }

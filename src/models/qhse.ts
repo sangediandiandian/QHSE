@@ -6,6 +6,12 @@ import type {
   EmergencyResourceDispatchInput,
   EmergencyResourceInput,
   EmergencyResourceInspectionInput,
+  HazardEvidence,
+  HazardInput,
+  RiskAssessmentInput,
+  RiskControlRecord,
+  WorkPermitInput,
+  WorkPermitSiteConfirmation,
   WarningEvidenceCategory,
   WarningRuleDraftInput,
 } from '@/types/qhse';
@@ -16,13 +22,28 @@ import {
   withSimulatedJointAlarm,
   withSimulatedVocAlarm,
 } from '@/utils/dashboardScenario';
-import { applyPermitAlarmLinkage, nextHazardStatus, nextPermitStatus } from '@/utils/managementWorkflow';
+import { applyPermitAlarmLinkage, nextPermitStatus } from '@/utils/managementWorkflow';
 import {
   clearPersistedDashboard,
   loadPersistedDashboard,
   persistDashboard,
 } from '@/utils/dashboardPersistence';
 import { isWarningScenarioEnabled, withWarningRuleTriggered } from '@/utils/warningRules';
+import { assessRiskUnit as withAssessedRiskUnit, saveRiskControls as withSavedRiskControls } from '@/utils/riskWorkflow';
+import {
+  acceptAndCloseHazard,
+  addHazardEvidence as withAddedHazardEvidence,
+  createHazard as withCreatedHazard,
+  startHazardRectification,
+  submitHazardAcceptance,
+  toggleHazardSupervision as withToggledHazardSupervision,
+} from '@/utils/hazardWorkflow';
+import {
+  approveNextWorkPermitStep,
+  confirmWorkPermitSite as withConfirmedWorkPermitSite,
+  createWorkPermit as withCreatedWorkPermit,
+  getWorkPermitApprovalSteps,
+} from '@/utils/workPermitWorkflow';
 import { transitionEmergencyEvent } from '@/utils/emergencyEventWorkflow';
 import {
   addEmergencyResource as withAddedEmergencyResource,
@@ -43,6 +64,8 @@ import {
   submitEmergencyPlanForReview,
 } from '@/utils/emergencyPlanWorkflow';
 import {
+  approveWarningRuleStep,
+  isWarningRuleFullyApproved,
   publishWarningRule as withPublishedWarningRule,
   rollbackWarningRule,
   saveWarningRuleDraft,
@@ -342,14 +365,78 @@ export default function useQhseModel() {
     });
   }, []);
 
-  const advanceHazard = useCallback((hazardId: string) => {
+  const assessRiskUnit = useCallback((riskUnitId: string, input: RiskAssessmentInput) => {
     setDashboard((current) => current ? {
       ...current,
-      hazards: current.hazards.map((hazard) => hazard.id === hazardId ? {
-        ...hazard,
-        status: nextHazardStatus(hazard.status),
-        overdue: nextHazardStatus(hazard.status) === '已关闭' ? false : hazard.overdue,
-      } : hazard),
+      riskUnits: current.riskUnits.map((unit) => unit.id === riskUnitId
+        ? withAssessedRiskUnit(unit, input, `assessment-${Date.now()}`, getCurrentTimestamp())
+        : unit),
+    } : current);
+  }, []);
+
+  const saveRiskControls = useCallback((riskUnitId: string, controls: Array<Pick<RiskControlRecord, 'content' | 'owner' | 'status'>>) => {
+    setDashboard((current) => current ? {
+      ...current,
+      riskUnits: current.riskUnits.map((unit) => unit.id === riskUnitId
+        ? withSavedRiskControls(unit, controls, getCurrentTimestamp())
+        : unit),
+    } : current);
+  }, []);
+
+  const addHazard = useCallback((input: HazardInput) => {
+    setDashboard((current) => {
+      if (!current) return current;
+      const dateCode = getCurrentTimestamp().slice(0, 10).replace(/-/g, '');
+      const code = `YH${dateCode}${String(current.hazards.length + 1).padStart(3, '0')}`;
+      return {
+        ...current,
+        hazards: [...current.hazards, withCreatedHazard(input, `hazard-${Date.now()}`, code, '赵磊 / QHSE 管理部', getCurrentTimestamp())],
+      };
+    });
+  }, []);
+
+  const addHazardEvidence = useCallback((hazardId: string, evidence: Omit<HazardEvidence, 'id' | 'uploadedAt'>) => {
+    setDashboard((current) => current ? {
+      ...current,
+      hazards: current.hazards.map((hazard) => hazard.id === hazardId
+        ? withAddedHazardEvidence(hazard, evidence, `evidence-${Date.now()}`, getCurrentTimestamp())
+        : hazard),
+    } : current);
+  }, []);
+
+  const startHazard = useCallback((hazardId: string) => {
+    setDashboard((current) => current ? {
+      ...current,
+      hazards: current.hazards.map((hazard) => hazard.id === hazardId
+        ? startHazardRectification(hazard, hazard.owner, getCurrentTimestamp())
+        : hazard),
+    } : current);
+  }, []);
+
+  const submitHazard = useCallback((hazardId: string) => {
+    setDashboard((current) => current ? {
+      ...current,
+      hazards: current.hazards.map((hazard) => hazard.id === hazardId
+        ? submitHazardAcceptance(hazard, hazard.owner, getCurrentTimestamp())
+        : hazard),
+    } : current);
+  }, []);
+
+  const acceptHazard = useCallback((hazardId: string, opinion: string) => {
+    setDashboard((current) => current ? {
+      ...current,
+      hazards: current.hazards.map((hazard) => hazard.id === hazardId
+        ? acceptAndCloseHazard(hazard, opinion, '赵磊 / QHSE 管理部', getCurrentTimestamp())
+        : hazard),
+    } : current);
+  }, []);
+
+  const toggleHazardSupervision = useCallback((hazardId: string) => {
+    setDashboard((current) => current ? {
+      ...current,
+      hazards: current.hazards.map((hazard) => hazard.id === hazardId
+        ? withToggledHazardSupervision(hazard, '赵磊 / QHSE 管理部', getCurrentTimestamp())
+        : hazard),
     } : current);
   }, []);
 
@@ -388,13 +475,14 @@ export default function useQhseModel() {
   const approveWarningRule = useCallback((ruleId: string) => {
     setDashboard((current) => current ? {
       ...current,
-      warningRules: current.warningRules.map((rule) => rule.id === ruleId
-        ? withPublishedWarningRule(
-          rule,
-          new Date().toLocaleString('zh-CN', { hour12: false }),
-          '赵磊 / QHSE 管理部',
-        )
-        : rule),
+      warningRules: current.warningRules.map((rule) => {
+        if (rule.id !== ruleId) return rule;
+        const nextStep = rule.approvalSteps?.find((step) => step.status === '待审批');
+        const approved = approveWarningRuleStep(rule, nextStep?.approver ?? '赵磊', getCurrentTimestamp());
+        return isWarningRuleFullyApproved(approved)
+          ? withPublishedWarningRule(approved, getCurrentTimestamp(), approved.approvalSteps!.map((step) => step.approver).join('、'))
+          : approved;
+      }),
     } : current);
   }, []);
 
@@ -435,6 +523,34 @@ export default function useQhseModel() {
     } : current);
   }, []);
 
+  const addWorkPermit = useCallback((input: WorkPermitInput) => {
+    setDashboard((current) => {
+      if (!current) return current;
+      const code = `${{ 动火作业: 'DH', 受限空间: 'SX', 高处作业: 'GC', 吊装作业: 'DZ', 临时用电: 'LD' }[input.type]}-${getCurrentTimestamp().slice(0, 10).replace(/-/g, '')}-${String(current.workPermits.length + 1).padStart(3, '0')}`;
+      return { ...current, workPermits: [...current.workPermits, withCreatedWorkPermit(input, `permit-${Date.now()}`, code)] };
+    });
+  }, []);
+
+  const approveWorkPermit = useCallback((permitId: string) => {
+    setDashboard((current) => current ? {
+      ...current,
+      workPermits: current.workPermits.map((permit) => {
+        if (permit.id !== permitId) return permit;
+        const next = getWorkPermitApprovalSteps(permit).find((step) => step.status === '待审批');
+        return approveNextWorkPermitStep(permit, next?.approver ?? '赵磊', getCurrentTimestamp());
+      }),
+    } : current);
+  }, []);
+
+  const confirmWorkPermitSite = useCallback((permitId: string, role: WorkPermitSiteConfirmation['role']) => {
+    setDashboard((current) => current ? {
+      ...current,
+      workPermits: current.workPermits.map((permit) => permit.id === permitId
+        ? withConfirmedWorkPermitSite(permit, role, role === '作业负责人' ? permit.applicant : permit.guardian, getCurrentTimestamp())
+        : permit),
+    } : current);
+  }, []);
+
   return {
     dashboard,
     loading,
@@ -460,9 +576,19 @@ export default function useQhseModel() {
     advanceReviewAction,
     closeEventReview,
     transitionEvent,
-    advanceHazard,
+    assessRiskUnit,
+    saveRiskControls,
+    addHazard,
+    addHazardEvidence,
+    startHazard,
+    submitHazard,
+    acceptHazard,
+    toggleHazardSupervision,
     triggerPermitLinkage,
     advanceWorkPermit,
+    addWorkPermit,
+    approveWorkPermit,
+    confirmWorkPermitSite,
     toggleWarningRule,
     saveWarningRule,
     submitWarningRule,

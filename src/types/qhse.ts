@@ -64,6 +64,8 @@ export interface GdsPoint {
   onlineStatus: DeviceOnlineStatus;
   alarmStatus: GdsAlarmStatus;
   trend: number[];
+  x?: number;
+  y?: number;
 }
 
 export type VocPointStatus = 'normal' | 'warning' | 'exceeded' | 'offline';
@@ -366,6 +368,37 @@ export interface RiskUnit {
     impact: 'up' | 'watch';
     status: string;
   }>;
+  assessments?: RiskAssessment[];
+  controlRecords?: RiskControlRecord[];
+}
+
+export interface RiskAssessment {
+  id: string;
+  method: 'LEC';
+  likelihood: number;
+  exposure: number;
+  consequence: number;
+  score: number;
+  level: RiskLevel;
+  assessor: string;
+  assessedAt: string;
+  basis: string;
+}
+
+export interface RiskAssessmentInput {
+  likelihood: number;
+  exposure: number;
+  consequence: number;
+  assessor: string;
+  basis: string;
+}
+
+export interface RiskControlRecord {
+  id: string;
+  content: string;
+  owner: string;
+  status: '有效' | '待验证';
+  updatedAt: string;
 }
 
 export type HazardStatus = '待整改' | '整改中' | '待验收' | '已关闭';
@@ -389,6 +422,43 @@ export interface Hazard {
   recurrenceCount: number;
   description: string;
   measures: string[];
+  supervised?: boolean;
+  evidence?: HazardEvidence[];
+  acceptanceOpinion?: string;
+  operations?: HazardOperation[];
+}
+
+export interface HazardEvidence {
+  id: string;
+  name: string;
+  category: '整改前' | '整改过程' | '整改完成';
+  uploader: string;
+  uploadedAt: string;
+  note: string;
+}
+
+export interface HazardOperation {
+  id: string;
+  action: '上报' | '开始整改' | '提交验收' | '验收关闭' | '挂牌督办' | '解除挂牌';
+  operator: string;
+  operatedAt: string;
+  detail: string;
+}
+
+export interface HazardInput {
+  title: string;
+  areaId: string;
+  areaName: string;
+  level: Hazard['level'];
+  source: Hazard['source'];
+  category: string;
+  ownerDepartment: string;
+  owner: string;
+  discoveredAt: string;
+  deadline: string;
+  riskUnitId: string;
+  description: string;
+  measures: string[];
 }
 
 export type WorkPermitStatus = '待审批' | '作业中' | '建议暂停' | '已暂停' | '已关闭';
@@ -410,6 +480,41 @@ export interface WorkPermit {
   linkedGdsCodes: string[];
   safetyMeasures: string[];
   alertReason?: string;
+  workX?: number;
+  workY?: number;
+  approvalSteps?: WorkPermitApprovalStep[];
+  siteConfirmations?: WorkPermitSiteConfirmation[];
+}
+
+export interface WorkPermitApprovalStep {
+  role: '属地审核' | 'QHSE 审核' | '负责人批准';
+  approver: string;
+  status: '待审批' | '已通过';
+  signedAt?: string;
+  signature?: string;
+}
+
+export interface WorkPermitSiteConfirmation {
+  role: '作业负责人' | '现场监护人';
+  confirmer: string;
+  confirmedAt: string;
+}
+
+export interface WorkPermitInput {
+  type: WorkPermit['type'];
+  areaId: string;
+  areaName: string;
+  workContent: string;
+  applicant: string;
+  guardian: string;
+  startAt: string;
+  endAt: string;
+  riskLevel: WorkPermit['riskLevel'];
+  gasTest: string;
+  linkedGdsCodes: string[];
+  safetyMeasures: string[];
+  workX: number;
+  workY: number;
 }
 
 export type WarningRuleScenario =
@@ -429,6 +534,15 @@ export interface WarningRuleConfig {
   duration: string;
   notifyTargets: string[];
   description: string;
+  expression?: WarningRuleExpressionItem[];
+  rolloutPercentage?: 25 | 50 | 100;
+}
+
+export interface WarningRuleExpressionItem {
+  metric: string;
+  operator: '>' | '>=' | '<' | '<=' | '=';
+  threshold: string;
+  connector: 'AND' | 'OR';
 }
 
 export type WarningRulePublishStatus = '草稿' | '待审批' | '已发布';
@@ -449,6 +563,14 @@ export interface WarningRule extends WarningRuleConfig {
   version: number;
   draft?: WarningRuleConfig;
   versions: WarningRuleVersion[];
+  approvalSteps?: WarningRuleApprovalStep[];
+}
+
+export interface WarningRuleApprovalStep {
+  role: 'QHSE 会签' | '生产负责人会签';
+  approver: string;
+  status: '待审批' | '已通过';
+  approvedAt?: string;
 }
 
 export type WarningRuleDraftInput = WarningRuleConfig & { code: string };

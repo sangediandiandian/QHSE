@@ -26,6 +26,11 @@ const areaCatalog = [
   ['area-06', '油品装卸区', 'LOAD'],
 ] as const;
 
+const areaCenters: Record<string, [number, number]> = {
+  'area-01': [22, 23], 'area-02': [51, 22], 'area-03': [79, 23],
+  'area-04': [22, 67], 'area-05': [51, 67], 'area-06': [79, 67],
+};
+
 const gdsPoints: GdsPoint[] = Array.from({ length: 30 }, (_, index) => {
   const number = index + 1;
   const [areaId, areaName, areaCode] = areaCatalog[index % areaCatalog.length];
@@ -51,6 +56,8 @@ const gdsPoints: GdsPoint[] = Array.from({ length: 30 }, (_, index) => {
     onlineStatus: offline ? 'offline' : fault ? 'fault' : 'online',
     alarmStatus: level2 ? 'level2' : level1 ? 'level1' : rising ? 'trend' : 'normal',
     trend: [7, 8, 9, 11, 13, currentValue].map((value) => Math.max(0, value + (number % 3) - 1)),
+    x: areaCenters[areaId][0] + (number % 3 - 1) * 2,
+    y: areaCenters[areaId][1] + (number % 4 - 1.5) * 2,
   };
 });
 
@@ -295,11 +302,11 @@ const hazards: Hazard[] = [
 ];
 
 const workPermits: WorkPermit[] = [
-  { id: 'permit-001', code: 'DH-20260713-018', type: '动火作业', areaId: 'area-02', areaName: '催化裂化装置', workContent: 'P-208 泵出口法兰修复', applicant: '李建国', guardian: '王强', startAt: '07-13 08:00', endAt: '07-13 12:00', riskLevel: '重大', status: '作业中', gasTest: '07:55 O₂ 20.8%，可燃气 0%LEL，合格', linkedGdsCodes: ['GDS-101', 'GDS-FCC-08'], safetyMeasures: ['系统隔离并加盲板', '清除 15 米内可燃物', '消防器材现场到位', '专人连续气体监测'] },
-  { id: 'permit-002', code: 'SX-20260713-006', type: '受限空间', areaId: 'area-05', areaName: '储罐区', workContent: 'T-206 罐内防腐检查', applicant: '何军', guardian: '孟师傅', startAt: '07-13 09:00', endAt: '07-13 16:00', riskLevel: '重大', status: '待审批', gasTest: '等待首次气体检测', linkedGdsCodes: ['GDS-TANK-11'], safetyMeasures: ['工艺隔离', '强制通风', '出入口监护', '应急救援器材到位'] },
-  { id: 'permit-003', code: 'GC-20260713-011', type: '高处作业', areaId: 'area-04', areaName: '硫磺回收装置', workContent: 'RTO 烟囱平台仪表检修', applicant: '周敏', guardian: '张凯', startAt: '07-13 08:30', endAt: '07-13 11:30', riskLevel: '较大', status: '作业中', gasTest: '非受限空间，无需检测', linkedGdsCodes: [], safetyMeasures: ['双钩安全带', '工具防坠绳', '下方设置警戒区'] },
-  { id: 'permit-004', code: 'DZ-20260713-003', type: '吊装作业', areaId: 'area-01', areaName: '常减压装置', workContent: 'P-102 备用泵吊装就位', applicant: '高峰', guardian: '陈斌', startAt: '07-13 06:30', endAt: '07-13 09:30', riskLevel: '较大', status: '已关闭', gasTest: '作业完成，票证关闭', linkedGdsCodes: [], safetyMeasures: ['吊具检查合格', '吊装区域隔离'] },
-  { id: 'permit-005', code: 'LD-20260713-009', type: '临时用电', areaId: 'area-06', areaName: '油品装卸区', workContent: '三号装车位照明检修', applicant: '宋伟', guardian: '郭师傅', startAt: '07-13 10:00', endAt: '07-13 14:00', riskLevel: '一般', status: '待审批', gasTest: '等待属地确认', linkedGdsCodes: ['GDS-LOAD-06'], safetyMeasures: ['防爆配电箱', '漏电保护试验', '电缆架空保护'] },
+  { id: 'permit-001', code: 'DH-20260713-018', type: '动火作业', areaId: 'area-02', areaName: '催化裂化装置', workContent: 'P-208 泵出口法兰修复', applicant: '李建国', guardian: '王强', startAt: '07-13 08:00', endAt: '07-13 12:00', riskLevel: '重大', status: '作业中', gasTest: '07:55 O₂ 20.8%，可燃气 0%LEL，合格', linkedGdsCodes: ['GDS-101', 'GDS-FCC-08'], safetyMeasures: ['系统隔离并加盲板', '清除 15 米内可燃物', '消防器材现场到位', '专人连续气体监测'], workX: 52, workY: 24 },
+  { id: 'permit-002', code: 'SX-20260713-006', type: '受限空间', areaId: 'area-05', areaName: '储罐区', workContent: 'T-206 罐内防腐检查', applicant: '何军', guardian: '孟师傅', startAt: '07-13 09:00', endAt: '07-13 16:00', riskLevel: '重大', status: '待审批', gasTest: '等待首次气体检测', linkedGdsCodes: ['GDS-TANK-11'], safetyMeasures: ['工艺隔离', '强制通风', '出入口监护', '应急救援器材到位'], workX: 49, workY: 68 },
+  { id: 'permit-003', code: 'GC-20260713-011', type: '高处作业', areaId: 'area-04', areaName: '硫磺回收装置', workContent: 'RTO 烟囱平台仪表检修', applicant: '周敏', guardian: '张凯', startAt: '07-13 08:30', endAt: '07-13 11:30', riskLevel: '较大', status: '作业中', gasTest: '非受限空间，无需检测', linkedGdsCodes: [], safetyMeasures: ['双钩安全带', '工具防坠绳', '下方设置警戒区'], workX: 23, workY: 66 },
+  { id: 'permit-004', code: 'DZ-20260713-003', type: '吊装作业', areaId: 'area-01', areaName: '常减压装置', workContent: 'P-102 备用泵吊装就位', applicant: '高峰', guardian: '陈斌', startAt: '07-13 06:30', endAt: '07-13 09:30', riskLevel: '较大', status: '已关闭', gasTest: '作业完成，票证关闭', linkedGdsCodes: [], safetyMeasures: ['吊具检查合格', '吊装区域隔离'], workX: 20, workY: 22 },
+  { id: 'permit-005', code: 'LD-20260713-009', type: '临时用电', areaId: 'area-06', areaName: '油品装卸区', workContent: '三号装车位照明检修', applicant: '宋伟', guardian: '郭师傅', startAt: '07-13 10:00', endAt: '07-13 14:00', riskLevel: '一般', status: '待审批', gasTest: '等待属地确认', linkedGdsCodes: ['GDS-LOAD-06'], safetyMeasures: ['防爆配电箱', '漏电保护试验', '电缆架空保护'], workX: 80, workY: 69 },
 ];
 
 const warningRuleSeeds: Array<Omit<WarningRule, 'publishStatus' | 'version' | 'draft' | 'versions'>> = [

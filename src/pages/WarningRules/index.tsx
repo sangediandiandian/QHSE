@@ -4,7 +4,7 @@ import type {
   WarningRuleDraftInput,
   WarningRulePublishStatus,
 } from '@/types/qhse';
-import { getWarningRuleDisplayConfig } from '@/utils/warningRuleWorkflow';
+import { findWarningRuleConflicts, getWarningRuleDisplayConfig } from '@/utils/warningRuleWorkflow';
 import {
   AlertFilled,
   CheckCircleFilled,
@@ -12,6 +12,7 @@ import {
   DatabaseFilled,
   EditOutlined,
   HistoryOutlined,
+  MinusCircleOutlined,
   NotificationFilled,
   PlusOutlined,
   ReloadOutlined,
@@ -77,6 +78,7 @@ export default function WarningRules() {
   const rules = useMemo(() => (dashboard?.warningRules ?? []).filter((rule) => source === '全部' || rule.source === source), [dashboard, source]);
   const selected = dashboard?.warningRules.find((rule) => rule.id === selectedId) ?? rules[0];
   const display = selected ? getWarningRuleDisplayConfig(selected) : undefined;
+  const conflicts = selected && display ? findWarningRuleConflicts(dashboard?.warningRules ?? [], display, selected.id) : [];
 
   if (!dashboard && loading) return <PageContainer><Skeleton active paragraph={{ rows: 14 }} /></PageContainer>;
   if (!dashboard) return <PageContainer><Empty description="预警规则数据暂不可用" /></PageContainer>;
@@ -87,7 +89,8 @@ export default function WarningRules() {
   const openEditor = (rule?: WarningRule) => {
     const config = rule ? getWarningRuleDisplayConfig(rule) : {
       name: '', source: 'GDS' as const, scenario: 'gds-trend' as const, level: 'medium' as const,
-      scope: '', condition: '', duration: '即时触发', notifyTargets: [], description: '',
+      scope: '', condition: '', duration: '即时触发', notifyTargets: [], description: '', rolloutPercentage: 100 as const,
+      expression: [{ metric: 'GDS.currentValue', operator: '>=' as const, threshold: '25', connector: 'AND' as const }],
     };
     setEditingId(rule?.id);
     form.setFieldsValue({ code: rule?.code ?? '', ...config });
@@ -95,8 +98,14 @@ export default function WarningRules() {
   };
   const handleSave = async () => {
     const values = await form.validateFields();
+    const expression = values.expression?.filter((item) => item.metric?.trim() && item.threshold?.trim()) ?? [];
+    if (!expression.length) {
+      message.error('至少配置一项有效触发条件');
+      return;
+    }
+    const condition = expression.map((item, index) => `${index ? `${item.connector} ` : ''}${item.metric} ${item.operator} ${item.threshold}`).join(' ');
     const ruleId = editingId ?? `rule-custom-${Date.now()}`;
-    saveWarningRule(ruleId, { ...values, code: values.code.trim().toUpperCase() });
+    saveWarningRule(ruleId, { ...values, condition, expression, rolloutPercentage: values.rolloutPercentage ?? 100, code: values.code.trim().toUpperCase() });
     setSelectedId(ruleId);
     setSource('全部');
     setEditorOpen(false);
@@ -104,7 +113,7 @@ export default function WarningRules() {
   };
 
   return (
-    <PageContainer title={false} className={styles.page} extra={<Space><Button type="primary" icon={<PlusOutlined />} onClick={() => openEditor()}>新建规则</Button><Popconfirm title="恢复 Mock 初始状态？" description="将清除浏览器中保存的告警、证据核验、隐患、票证、规则、预案和事件操作。" okText="确认重置" cancelText="取消" onConfirm={() => { void resetDashboard(); message.success('演示数据已恢复初始状态'); }}><Button icon={<ReloadOutlined />}>重置演示数据</Button></Popconfirm></Space>}>
+    <PageContainer title={false} className={styles.page} extra={<Space><Button type="primary" icon={<PlusOutlined />} onClick={() => openEditor()}>新建规则</Button><Popconfirm title="恢复 Mock 初始状态？" description="将清除浏览器中保存的风险评估、隐患证据、票证审批、规则会签、预案和事件操作。" okText="确认重置" cancelText="取消" onConfirm={() => { void resetDashboard(); message.success('演示数据已恢复初始状态'); }}><Button icon={<ReloadOutlined />}>重置演示数据</Button></Popconfirm></Space>}>
       <header className={styles.heading}>
         <div><span>WARNING RULE ORCHESTRATION</span><h1>预警规则配置</h1><p>统一管理单点阈值、持续时间、多源组合、作用范围和通知对象。</p></div>
         <div className={styles.persistence}><DatabaseFilled /><span>原型状态存储<strong>本地持久化已启用</strong><small>规则与业务操作刷新后保留</small></span></div>
@@ -113,7 +122,7 @@ export default function WarningRules() {
       <section className={styles.metrics}>
         <div><ControlFilled /><span>规则总数<strong>{dashboard.warningRules.length}</strong><small>覆盖 5 类联动场景</small></span></div>
         <div><CheckCircleFilled /><span>启用规则<strong>{enabled}</strong><small>{dashboard.warningRules.length - enabled} 条已停用</small></span></div>
-        <div><AlertFilled /><span>待审批<strong>{pending}</strong><small>等待 QHSE 审批发布</small></span></div>
+        <div><AlertFilled /><span>待会签<strong>{pending}</strong><small>等待 QHSE / 生产负责人会签</small></span></div>
         <div><NotificationFilled /><span>累计触发<strong>{triggers}</strong><small>演示统计次数</small></span></div>
       </section>
 
@@ -123,9 +132,9 @@ export default function WarningRules() {
         <section className={styles.catalog}>{rules.map((rule) => <RuleItem key={rule.id} rule={rule} active={selected?.id === rule.id} onSelect={() => setSelectedId(rule.id)} onToggle={() => { toggleWarningRule(rule.id); message.success(`${rule.name}已${rule.enabled ? '停用' : '启用'}`); }} />)}{rules.length === 0 && <Empty description="没有符合条件的规则" />}</section>
         {selected && display && <section className={styles.detail}>
           <header><div><code>{selected.code} · {selected.version > 0 ? `V${selected.version}` : '未发布'}</code><h2>{display.name}</h2><p>{display.description}</p></div><div className={styles.detailActions}><Tag color={publishColor[selected.publishStatus]}>{selected.publishStatus}</Tag><Switch aria-label={`详情切换 ${selected.code}`} checked={selected.enabled} disabled={selected.version === 0} onChange={() => toggleWarningRule(selected.id)} checkedChildren="已启用" unCheckedChildren="已停用" /></div></header>
-          <section className={styles.workflow}><div><span className={selected.publishStatus === '草稿' ? styles.workflowActive : ''}>1 草稿</span><i /><span className={selected.publishStatus === '待审批' ? styles.workflowActive : ''}>2 待审批</span><i /><span className={selected.publishStatus === '已发布' ? styles.workflowActive : ''}>3 已发布</span></div><p>{selected.draft ? `当前展示未发布草稿；告警运行仍使用 ${selected.version > 0 ? `V${selected.version}` : '空配置'}。` : `V${selected.version} 已生效，编辑后将生成独立草稿。`}</p><Space wrap><Button icon={<EditOutlined />} onClick={() => openEditor(selected)}>编辑规则</Button>{selected.publishStatus === '草稿' && <Button type="primary" icon={<SendOutlined />} onClick={() => { submitWarningRule(selected.id); message.success('规则已提交审批'); }}>提交审批</Button>}{selected.publishStatus === '待审批' && <Button type="primary" icon={<CheckCircleFilled />} onClick={() => { approveWarningRule(selected.id); message.success(`规则已审批发布为 V${selected.version + 1}`); }}>审批发布</Button>}<Button icon={<HistoryOutlined />} disabled={selected.versions.length === 0} onClick={() => setVersionsOpen(true)}>版本历史</Button></Space></section>
-          <div className={styles.ruleExpression}><span>IF</span><strong>{display.condition}</strong><i>AND</i><strong>{display.duration}</strong><em>THEN</em><b>{levelText[display.level]}预警</b></div>
-          <dl><div><dt>数据来源</dt><dd>{display.source}</dd></div><div><dt>作用范围</dt><dd>{display.scope}</dd></div><div><dt>风险等级</dt><dd><Tag color={levelColor[display.level]}>{levelText[display.level]}</Tag></dd></div><div><dt>运行状态</dt><dd><Tag color={selected.enabled ? 'success' : 'default'}>{selected.version === 0 ? '尚未发布' : selected.enabled ? '运行中' : '已停用'}</Tag></dd></div></dl>
+          <section className={styles.workflow}><div><span className={selected.publishStatus === '草稿' ? styles.workflowActive : ''}>1 草稿</span><i /><span className={selected.publishStatus === '待审批' ? styles.workflowActive : ''}>2 双人会签</span><i /><span className={selected.publishStatus === '已发布' ? styles.workflowActive : ''}>3 已发布</span></div><p>{selected.draft ? `当前展示未发布草稿；告警运行仍使用 ${selected.version > 0 ? `V${selected.version}` : '空配置'}。` : `V${selected.version} 已生效，编辑后将生成独立草稿。`}</p>{selected.approvalSteps && <div className={styles.approvalSteps}>{selected.approvalSteps.map((step) => <span key={step.role}><CheckCircleFilled className={step.status === '已通过' ? styles.approved : ''} /><strong>{step.role}</strong><small>{step.approver} · {step.approvedAt ?? step.status}</small></span>)}</div>}{conflicts.length > 0 && <div className={styles.conflict}><AlertFilled /> 发现 {conflicts.length} 条已发布规则与当前作用域及表达式重复：{conflicts.map((rule) => rule.code).join('、')}</div>}<Space wrap><Button icon={<EditOutlined />} onClick={() => openEditor(selected)}>编辑规则</Button>{selected.publishStatus === '草稿' && <Button type="primary" icon={<SendOutlined />} disabled={conflicts.length > 0} onClick={() => { submitWarningRule(selected.id); message.success('规则已提交双人会签'); }}>提交会签</Button>}{selected.publishStatus === '待审批' && <Button type="primary" icon={<CheckCircleFilled />} onClick={() => { const next = selected.approvalSteps?.find((step) => step.status === '待审批'); approveWarningRule(selected.id); message.success(next?.role === '生产负责人会签' ? `双人会签完成，规则已发布为 V${selected.version + 1}` : `${next?.role ?? '当前节点'}已通过`); }}>{selected.approvalSteps?.find((step) => step.status === '待审批')?.role ?? '会签'}</Button>}<Button icon={<HistoryOutlined />} disabled={selected.versions.length === 0} onClick={() => setVersionsOpen(true)}>版本历史</Button></Space></section>
+          <div className={styles.ruleExpression}><span>IF</span><div>{display.expression?.length ? display.expression.map((item, index) => <span key={`${item.metric}-${index}`}>{index > 0 && <i>{item.connector}</i>}<strong>{item.metric}</strong><em>{item.operator}</em><b>{item.threshold}</b></span>) : <strong>{display.condition}</strong>}</div><span>FOR</span><strong>{display.duration}</strong><span>THEN</span><strong>{levelText[display.level]}预警</strong></div>
+          <dl><div><dt>数据来源</dt><dd>{display.source}</dd></div><div><dt>作用范围</dt><dd>{display.scope}</dd></div><div><dt>风险等级</dt><dd><Tag color={levelColor[display.level]}>{levelText[display.level]}</Tag></dd></div><div><dt>灰度范围</dt><dd><Tag color="blue">{display.rolloutPercentage ?? 100}%</Tag></dd></div><div><dt>运行状态</dt><dd><Tag color={selected.enabled ? 'success' : 'default'}>{selected.version === 0 ? '尚未发布' : selected.enabled ? '运行中' : '已停用'}</Tag></dd></div></dl>
           <section className={styles.targets}><h3>通知对象</h3><div>{display.notifyTargets.map((target, index) => <span key={target}><i>{index + 1}</i><strong>{target}</strong>{index < display.notifyTargets.length - 1 && <em>→</em>}</span>)}</div></section>
           <section className={styles.history}><h3>运行记录</h3><div><span>累计触发</span><strong>{selected.triggerCount}<em>次</em></strong></div><div><span>最近触发</span><strong>{selected.lastTriggeredAt ?? '尚未触发'}</strong></div><p><CheckCircleFilled /> 只有审批发布后的版本才会影响对应模拟告警场景。</p></section>
         </section>}
@@ -138,8 +147,9 @@ export default function WarningRules() {
           <Form.Item name="scenario" label="联动场景" rules={[{ required: true }]}><Select options={[['gds-level2', 'GDS 二级报警'], ['voc-overlimit', 'VOC 连续超限'], ['joint-leak', '多源联合研判'], ['gds-trend', 'GDS 趋势预警'], ['permit-linkage', '作业许可联动']].map(([value, label]) => ({ value, label }))} /></Form.Item>
           <Form.Item name="level" label="预警等级" rules={[{ required: true }]}><Select options={[['low', '低风险'], ['medium', '一般'], ['high', '较大'], ['critical', '重大']].map(([value, label]) => ({ value, label }))} /></Form.Item>
           <Form.Item name="scope" label="作用范围" rules={[{ required: true, message: '请输入作用范围' }]}><Input /></Form.Item>
-          <Form.Item name="condition" label="触发条件" rules={[{ required: true, message: '请输入触发条件' }]}><Input /></Form.Item>
+          <Form.Item label="可视化触发条件" className={styles.expressionEditor}><Form.List name="expression">{(fields, { add, remove }) => <><div className={styles.expressionHeader}><span>指标</span><span>关系</span><span>阈值</span><span>连接</span></div>{fields.map((field) => <Space key={field.key} className={styles.expressionRow} align="start"><Form.Item name={[field.name, 'metric']} rules={[{ required: true, message: '请填写指标' }]}><Input placeholder="GDS.currentValue" /></Form.Item><Form.Item name={[field.name, 'operator']}><Select options={['>', '>=', '<', '<=', '='].map((value) => ({ value }))} /></Form.Item><Form.Item name={[field.name, 'threshold']} rules={[{ required: true, message: '请填写阈值' }]}><Input placeholder="25" /></Form.Item><Form.Item name={[field.name, 'connector']}><Select options={['AND', 'OR'].map((value) => ({ value }))} /></Form.Item><Button type="text" danger icon={<MinusCircleOutlined />} onClick={() => remove(field.name)} /></Space>)}<Button block icon={<PlusOutlined />} onClick={() => add({ operator: '>=', connector: 'AND' })}>添加条件</Button></>}</Form.List></Form.Item>
           <Form.Item name="duration" label="持续时间" rules={[{ required: true, message: '请输入持续时间' }]}><Input /></Form.Item>
+          <Form.Item name="rolloutPercentage" label="灰度生效范围" rules={[{ required: true }]}><Select options={[25, 50, 100].map((value) => ({ value, label: `${value}% 范围` }))} /></Form.Item>
           <Form.Item name="notifyTargets" label="通知对象" rules={[{ required: true, message: '至少配置一个通知对象' }]}><Select mode="tags" tokenSeparators={[',']} placeholder="输入对象后回车" /></Form.Item>
           <Form.Item name="description" label="规则说明" rules={[{ required: true, message: '请输入规则说明' }]}><Input.TextArea rows={3} /></Form.Item>
         </Form>
