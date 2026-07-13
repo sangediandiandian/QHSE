@@ -9,7 +9,21 @@ import {
   withSimulatedVocAlarm,
 } from '@/utils/dashboardScenario';
 import { applyPermitAlarmLinkage, nextHazardStatus, nextPermitStatus } from '@/utils/managementWorkflow';
-import { useCallback, useState } from 'react';
+import {
+  clearPersistedDashboard,
+  loadPersistedDashboard,
+  persistDashboard,
+} from '@/utils/dashboardPersistence';
+import { isWarningScenarioEnabled, withWarningRuleTriggered } from '@/utils/warningRules';
+import { useCallback, useEffect, useState } from 'react';
+
+function getBrowserStorage() {
+  try {
+    return typeof window === 'undefined' ? undefined : window.localStorage;
+  } catch {
+    return undefined;
+  }
+}
 
 export default function useQhseModel() {
   const [dashboard, setDashboard] = useState<DashboardData>();
@@ -18,6 +32,12 @@ export default function useQhseModel() {
   const loadDashboard = useCallback(async () => {
     setLoading(true);
     try {
+      const storage = getBrowserStorage();
+      const persisted = storage ? loadPersistedDashboard(storage) : undefined;
+      if (persisted) {
+        setDashboard(persisted);
+        return;
+      }
       const response = await getDashboard();
       setDashboard(response.data);
     } finally {
@@ -25,15 +45,22 @@ export default function useQhseModel() {
     }
   }, []);
 
+  useEffect(() => {
+    const storage = getBrowserStorage();
+    if (storage && dashboard) persistDashboard(storage, dashboard);
+  }, [dashboard]);
+
   const simulateGdsAlarm = useCallback(() => {
     setDashboard((current) => {
       if (!current) return current;
       const occurredAt = new Date().toLocaleTimeString('zh-CN', { hour12: false });
-      return withSimulatedGdsAlarm(
+      if (!isWarningScenarioEnabled(current, 'gds-level2')) return current;
+      const next = withSimulatedGdsAlarm(
         current,
         occurredAt,
         new Date().toLocaleString('zh-CN', { hour12: false }),
       );
+      return next === current ? current : withWarningRuleTriggered(next, 'gds-level2', occurredAt);
     });
   }, []);
 
@@ -48,20 +75,28 @@ export default function useQhseModel() {
   const simulateVocAlarm = useCallback(() => {
     setDashboard((current) => {
       if (!current) return current;
-      return withSimulatedVocAlarm(
+      if (!isWarningScenarioEnabled(current, 'voc-overlimit')) return current;
+      const occurredAt = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+      const next = withSimulatedVocAlarm(
         current,
-        new Date().toLocaleTimeString('zh-CN', { hour12: false }),
+        occurredAt,
         new Date().toLocaleString('zh-CN', { hour12: false }),
       );
+      return next === current ? current : withWarningRuleTriggered(next, 'voc-overlimit', occurredAt);
     });
   }, []);
 
   const simulateJointAlarm = useCallback(() => {
-    setDashboard((current) => current ? withSimulatedJointAlarm(
-      current,
-      new Date().toLocaleTimeString('zh-CN', { hour12: false }),
-      new Date().toLocaleString('zh-CN', { hour12: false }),
-    ) : current);
+    setDashboard((current) => {
+      if (!current || !isWarningScenarioEnabled(current, 'joint-leak')) return current;
+      const occurredAt = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+      const next = withSimulatedJointAlarm(
+        current,
+        occurredAt,
+        new Date().toLocaleString('zh-CN', { hour12: false }),
+      );
+      return next === current ? current : withWarningRuleTriggered(next, 'joint-leak', occurredAt);
+    });
   }, []);
 
   const advanceCommunication = useCallback((eventId: string) => {
@@ -147,10 +182,31 @@ export default function useQhseModel() {
   }, []);
 
   const triggerPermitLinkage = useCallback(() => {
-    setDashboard((current) => current ? {
+    setDashboard((current) => current && isWarningScenarioEnabled(current, 'permit-linkage') ? {
       ...current,
       workPermits: applyPermitAlarmLinkage(current.workPermits, current.alarms),
     } : current);
+  }, []);
+
+  const toggleWarningRule = useCallback((ruleId: string) => {
+    setDashboard((current) => current ? {
+      ...current,
+      warningRules: current.warningRules.map((rule) => rule.id === ruleId
+        ? { ...rule, enabled: !rule.enabled }
+        : rule),
+    } : current);
+  }, []);
+
+  const resetDashboard = useCallback(async () => {
+    const storage = getBrowserStorage();
+    if (storage) clearPersistedDashboard(storage);
+    setLoading(true);
+    try {
+      const response = await getDashboard();
+      setDashboard(response.data);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   const advanceWorkPermit = useCallback((permitId: string) => {
@@ -187,5 +243,7 @@ export default function useQhseModel() {
     advanceHazard,
     triggerPermitLinkage,
     advanceWorkPermit,
+    toggleWarningRule,
+    resetDashboard,
   };
 }

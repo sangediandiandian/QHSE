@@ -9,6 +9,7 @@ export default {
   'menu.监测中心.VOC 监测': 'VOC 监测',
   'menu.监测中心.MES 关联': 'MES 关联',
   'menu.综合预警': '综合预警',
+  'menu.预警规则': '预警规则',
   'menu.融合通信': '融合通信',
   'menu.应急指挥': '应急指挥',
   'menu.应急预案': '应急预案',

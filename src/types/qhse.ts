@@ -282,6 +282,30 @@ export interface WorkPermit {
   alertReason?: string;
 }
 
+export type WarningRuleScenario =
+  | 'gds-level2'
+  | 'voc-overlimit'
+  | 'joint-leak'
+  | 'gds-trend'
+  | 'permit-linkage';
+
+export interface WarningRule {
+  id: string;
+  code: string;
+  name: string;
+  source: 'GDS' | 'VOC' | 'MES' | '联合预警' | '作业许可';
+  scenario: WarningRuleScenario;
+  level: RiskLevel;
+  scope: string;
+  condition: string;
+  duration: string;
+  notifyTargets: string[];
+  enabled: boolean;
+  triggerCount: number;
+  lastTriggeredAt?: string;
+  description: string;
+}
+
 export interface TrendPoint {
   label: string;
   gds: number;
@@ -321,4 +345,5 @@ export interface DashboardData {
   riskUnits: RiskUnit[];
   hazards: Hazard[];
   workPermits: WorkPermit[];
+  warningRules: WarningRule[];
 }

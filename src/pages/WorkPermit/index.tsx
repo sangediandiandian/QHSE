@@ -1,4 +1,5 @@
 import type { WorkPermit as WorkPermitType, WorkPermitStatus } from '@/types/qhse';
+import { isWarningScenarioEnabled } from '@/utils/warningRules';
 import { AlertFilled, CheckCircleFilled, ExperimentFilled, PauseCircleFilled, SafetyCertificateFilled, ThunderboltFilled } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
 import { useModel } from '@umijs/max';
@@ -42,8 +43,13 @@ export default function WorkPermit() {
   const linkedAreas = new Set(dashboard.alarms.filter((alarm) => ['high', 'critical'].includes(alarm.level)).map((alarm) => alarm.areaId));
   const candidates = dashboard.workPermits.filter((permit) => permit.status === '作业中' && linkedAreas.has(permit.areaId)).length;
   const paused = dashboard.workPermits.filter((item) => ['建议暂停', '已暂停'].includes(item.status)).length;
+  const linkageEnabled = isWarningScenarioEnabled(dashboard, 'permit-linkage');
 
   const runLinkage = () => {
+    if (!linkageEnabled) {
+      message.info('高风险作业告警联动规则已停用，请先在预警规则页面启用');
+      return;
+    }
     triggerPermitLinkage();
     message[candidates ? 'warning' : 'success'](candidates ? `发现 ${candidates} 张在办票证命中较大及以上告警，已生成暂停建议` : '联动检查完成，暂无需暂停的作业');
   };
@@ -59,7 +65,7 @@ export default function WorkPermit() {
         <div className={paused ? styles.warningMetric : ''}><PauseCircleFilled /><span>暂停处置<strong>{paused}</strong><small>建议或已确认暂停</small></span></div>
       </section>
 
-      <section className={styles.linkage}><div><ThunderboltFilled /><span><strong>告警联动规则</strong><small>较大及以上 GDS / VOC / MES 告警 + 同区域“作业中”票证 → 生成暂停建议，由现场负责人确认。</small></span></div><Tag color="success">运行中</Tag><Button onClick={runLinkage}>立即检查</Button></section>
+      <section className={styles.linkage}><div><ThunderboltFilled /><span><strong>告警联动规则</strong><small>较大及以上 GDS / VOC / MES 告警 + 同区域“作业中”票证 → 生成暂停建议，由现场负责人确认。</small></span></div><Tag color={linkageEnabled ? 'success' : 'default'}>{linkageEnabled ? '运行中' : '已停用'}</Tag><Button onClick={runLinkage}>立即检查</Button></section>
       <section className={styles.toolbar}><Segmented value={status} onChange={(value) => setStatus(String(value))} options={['全部', '待审批', '作业中', '建议暂停', '已暂停', '已关闭']} /><span>显示 {permits.length} / {dashboard.workPermits.length} 张票证</span></section>
 
       <main className={styles.layout}>

@@ -87,6 +87,7 @@ const baseDashboard: DashboardData = {
   riskUnits: [],
   hazards: [],
   workPermits: [],
+  warningRules: [],
 };
 
 describe('withSimulatedGdsAlarm', () => {

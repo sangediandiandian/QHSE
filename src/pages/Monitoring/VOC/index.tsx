@@ -1,4 +1,5 @@
 import type { VocFacility, VocPoint, VocPointStatus } from '@/types/qhse';
+import { isWarningScenarioEnabled } from '@/utils/warningRules';
 import {
   AlertFilled,
   CheckCircleFilled,
@@ -68,6 +69,10 @@ export default function VocMonitoring() {
   const warning = dashboard.vocPoints.filter((point) => point.status === 'warning').length;
   const online = dashboard.vocPoints.filter((point) => point.status !== 'offline').length;
   const handleSimulation = () => {
+    if (!isWarningScenarioEnabled(dashboard, 'voc-overlimit')) {
+      message.info('VOC 连续超限规则已停用，请先在预警规则页面启用');
+      return;
+    }
     simulateVocAlarm();
     message.warning('RTO 一号排口已连续超限，环保预警与设施核查任务已生成');
   };

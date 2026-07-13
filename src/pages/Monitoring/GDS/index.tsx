@@ -1,4 +1,5 @@
 import type { GdsAlarmStatus, GdsPoint } from '@/types/qhse';
+import { isWarningScenarioEnabled } from '@/utils/warningRules';
 import {
   AlertFilled,
   ApiOutlined,
@@ -73,6 +74,10 @@ export default function GdsMonitoring() {
   const offline = dashboard.gdsPoints.filter((point) => point.onlineStatus === 'offline').length;
   const faults = dashboard.gdsPoints.filter((point) => point.onlineStatus === 'fault').length;
   const handleSimulation = () => {
+    if (!isWarningScenarioEnabled(dashboard, 'gds-level2')) {
+      message.info('GDS 二级报警规则已停用，请先在预警规则页面启用');
+      return;
+    }
     simulateGdsAlarm();
     message.warning('GDS-101 已进入二级报警，关联事件已生成');
   };

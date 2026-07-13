@@ -93,6 +93,12 @@ export default [
     component: './WarningCenter',
   },
   {
+    name: '预警规则',
+    icon: 'control',
+    path: '/rules',
+    component: './WarningRules',
+  },
+  {
     name: '融合通信',
     icon: 'phone',
     path: '/communication',

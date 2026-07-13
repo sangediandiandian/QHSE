@@ -1,4 +1,5 @@
 import type { MesTag } from '@/types/qhse';
+import { isWarningScenarioEnabled } from '@/utils/warningRules';
 import {
   AlertFilled,
   ApiOutlined,
@@ -58,6 +59,10 @@ export default function MesMonitoring() {
   const gdsPoint = dashboard.gdsPoints.find((point) => point.id === 'gds-101');
   const jointEvent = dashboard.alarms.find((event) => event.id === 'evt-joint-simulated');
   const handleSimulation = () => {
+    if (!isWarningScenarioEnabled(dashboard, 'joint-leak')) {
+      message.info('GDS 与 MES 联合研判规则已停用，请先在预警规则页面启用');
+      return;
+    }
     simulateJointAlarm();
     message.warning('已触发 MES 与 GDS 联合异常，事件升级为重大预警');
   };

@@ -1,5 +1,6 @@
 import FactoryMap from '@/components/FactoryMap';
 import type { PlantArea, RiskLevel, TrendPoint } from '@/types/qhse';
+import { isWarningScenarioEnabled } from '@/utils/warningRules';
 import {
   AlertFilled,
   ApiOutlined,
@@ -88,6 +89,10 @@ export default function Dashboard() {
 
   const { metrics } = dashboard;
   const handleSimulation = () => {
+    if (!isWarningScenarioEnabled(dashboard, 'gds-level2')) {
+      message.info('GDS 二级报警规则已停用，请先在预警规则页面启用');
+      return;
+    }
     simulateGdsAlarm();
     message.warning('已触发 GDS-101 二级报警，常减压装置升级为重大风险');
   };
