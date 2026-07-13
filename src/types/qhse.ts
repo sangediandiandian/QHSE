@@ -323,9 +323,7 @@ export type WarningRuleScenario =
   | 'gds-trend'
   | 'permit-linkage';
 
-export interface WarningRule {
-  id: string;
-  code: string;
+export interface WarningRuleConfig {
   name: string;
   source: 'GDS' | 'VOC' | 'MES' | '联合预警' | '作业许可';
   scenario: WarningRuleScenario;
@@ -334,11 +332,30 @@ export interface WarningRule {
   condition: string;
   duration: string;
   notifyTargets: string[];
+  description: string;
+}
+
+export type WarningRulePublishStatus = '草稿' | '待审批' | '已发布';
+
+export interface WarningRuleVersion extends WarningRuleConfig {
+  version: number;
+  publishedAt: string;
+  publisher: string;
+}
+
+export interface WarningRule extends WarningRuleConfig {
+  id: string;
+  code: string;
   enabled: boolean;
   triggerCount: number;
   lastTriggeredAt?: string;
-  description: string;
+  publishStatus: WarningRulePublishStatus;
+  version: number;
+  draft?: WarningRuleConfig;
+  versions: WarningRuleVersion[];
 }
+
+export type WarningRuleDraftInput = WarningRuleConfig & { code: string };
 
 export interface TrendPoint {
   label: string;

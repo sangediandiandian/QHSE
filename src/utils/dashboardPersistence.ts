@@ -1,6 +1,6 @@
 import type { DashboardData } from '@/types/qhse';
 
-export const DASHBOARD_STORAGE_KEY = 'qhse.dashboard.v2';
+export const DASHBOARD_STORAGE_KEY = 'qhse.dashboard.v3';
 
 interface StorageReader {
   getItem: (key: string) => string | null;
@@ -26,7 +26,7 @@ export function loadPersistedDashboard(storage: StorageReader) {
     const value = storage.getItem(DASHBOARD_STORAGE_KEY);
     if (!value) return undefined;
     const parsed = JSON.parse(value) as { version?: number; data?: unknown };
-    return parsed.version === 2 && isDashboardData(parsed.data) ? parsed.data : undefined;
+    return parsed.version === 3 && isDashboardData(parsed.data) ? parsed.data : undefined;
   } catch {
     return undefined;
   }
@@ -34,7 +34,7 @@ export function loadPersistedDashboard(storage: StorageReader) {
 
 export function persistDashboard(storage: StorageWriter, dashboard: DashboardData) {
   try {
-    storage.setItem(DASHBOARD_STORAGE_KEY, JSON.stringify({ version: 2, data: dashboard }));
+    storage.setItem(DASHBOARD_STORAGE_KEY, JSON.stringify({ version: 3, data: dashboard }));
     return true;
   } catch {
     return false;

@@ -261,7 +261,7 @@ const workPermits: WorkPermit[] = [
   { id: 'permit-005', code: 'LD-20260713-009', type: '临时用电', areaId: 'area-06', areaName: '油品装卸区', workContent: '三号装车位照明检修', applicant: '宋伟', guardian: '郭师傅', startAt: '07-13 10:00', endAt: '07-13 14:00', riskLevel: '一般', status: '待审批', gasTest: '等待属地确认', linkedGdsCodes: ['GDS-LOAD-06'], safetyMeasures: ['防爆配电箱', '漏电保护试验', '电缆架空保护'] },
 ];
 
-const warningRules: WarningRule[] = [
+const warningRuleSeeds: Array<Omit<WarningRule, 'publishStatus' | 'version' | 'draft' | 'versions'>> = [
   {
     id: 'rule-001', code: 'GDS_L2_01', name: '可燃气体二级报警', source: 'GDS',
     scenario: 'gds-level2', level: 'critical', scope: '全厂 GDS 可燃气体测点',
@@ -305,6 +305,26 @@ const warningRules: WarningRule[] = [
     lastTriggeredAt: '2026-07-05 11:09:32', description: '单一工艺异常提醒；停用期间由联合规则继续监测。',
   },
 ];
+
+const warningRules: WarningRule[] = warningRuleSeeds.map((rule) => ({
+  ...rule,
+  publishStatus: '已发布',
+  version: 1,
+  versions: [{
+    name: rule.name,
+    source: rule.source,
+    scenario: rule.scenario,
+    level: rule.level,
+    scope: rule.scope,
+    condition: rule.condition,
+    duration: rule.duration,
+    notifyTargets: rule.notifyTargets,
+    description: rule.description,
+    version: 1,
+    publishedAt: '2026-07-01 09:00:00',
+    publisher: '赵磊 / QHSE 管理部',
+  }],
+}));
 
 const emergencyEvents: EmergencyEvent[] = [
   {

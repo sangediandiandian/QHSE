@@ -1,5 +1,5 @@
 import { getDashboard } from '@/services/qhse/dashboard';
-import type { DashboardData, EmergencyEventAction } from '@/types/qhse';
+import type { DashboardData, EmergencyEventAction, WarningRuleDraftInput } from '@/types/qhse';
 import {
   withAlarmStatus,
   withCommunicationConfirmation,
@@ -16,6 +16,12 @@ import {
 } from '@/utils/dashboardPersistence';
 import { isWarningScenarioEnabled, withWarningRuleTriggered } from '@/utils/warningRules';
 import { transitionEmergencyEvent } from '@/utils/emergencyEventWorkflow';
+import {
+  publishWarningRule as withPublishedWarningRule,
+  rollbackWarningRule,
+  saveWarningRuleDraft,
+  submitWarningRuleForApproval,
+} from '@/utils/warningRuleWorkflow';
 import { useCallback, useEffect, useState } from 'react';
 
 function getBrowserStorage() {
@@ -218,7 +224,45 @@ export default function useQhseModel() {
     setDashboard((current) => current ? {
       ...current,
       warningRules: current.warningRules.map((rule) => rule.id === ruleId
-        ? { ...rule, enabled: !rule.enabled }
+        && rule.version > 0 ? { ...rule, enabled: !rule.enabled }
+        : rule),
+    } : current);
+  }, []);
+
+  const saveWarningRule = useCallback((ruleId: string, input: WarningRuleDraftInput) => {
+    setDashboard((current) => current ? {
+      ...current,
+      warningRules: saveWarningRuleDraft(current.warningRules, ruleId, input),
+    } : current);
+  }, []);
+
+  const submitWarningRule = useCallback((ruleId: string) => {
+    setDashboard((current) => current ? {
+      ...current,
+      warningRules: current.warningRules.map((rule) => rule.id === ruleId
+        ? submitWarningRuleForApproval(rule)
+        : rule),
+    } : current);
+  }, []);
+
+  const approveWarningRule = useCallback((ruleId: string) => {
+    setDashboard((current) => current ? {
+      ...current,
+      warningRules: current.warningRules.map((rule) => rule.id === ruleId
+        ? withPublishedWarningRule(
+          rule,
+          new Date().toLocaleString('zh-CN', { hour12: false }),
+          '赵磊 / QHSE 管理部',
+        )
+        : rule),
+    } : current);
+  }, []);
+
+  const rollbackWarningRuleVersion = useCallback((ruleId: string, version: number) => {
+    setDashboard((current) => current ? {
+      ...current,
+      warningRules: current.warningRules.map((rule) => rule.id === ruleId
+        ? rollbackWarningRule(rule, version)
         : rule),
     } : current);
   }, []);
@@ -271,6 +315,10 @@ export default function useQhseModel() {
     triggerPermitLinkage,
     advanceWorkPermit,
     toggleWarningRule,
+    saveWarningRule,
+    submitWarningRule,
+    approveWarningRule,
+    rollbackWarningRuleVersion,
     resetDashboard,
   };
 }
