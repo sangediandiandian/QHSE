@@ -500,6 +500,55 @@ exports[`Login Page should login success 1`] = `
               </li>
               <li
                 class="ant-menu-item ant-menu-item-only-child ant-pro-base-menu-inline-menu-item"
+                data-menu-id="rc-menu-uuid-test-/events"
+                role="menuitem"
+                style="padding-left: 16px;"
+                tabindex="-1"
+              >
+                <span
+                  class="ant-menu-title-content"
+                >
+                  <a
+                    aria-describedby="test-id"
+                    href="/events"
+                  >
+                    <div
+                      class="ant-pro-base-menu-inline-item-title"
+                    >
+                      <span
+                        class="ant-pro-base-menu-inline-item-icon"
+                      >
+                        <span
+                          aria-label="partition"
+                          class="anticon anticon-partition"
+                          role="img"
+                        >
+                          <svg
+                            aria-hidden="true"
+                            data-icon="partition"
+                            fill="currentColor"
+                            focusable="false"
+                            height="1em"
+                            viewBox="64 64 896 896"
+                            width="1em"
+                          >
+                            <path
+                              d="M640.6 429.8h257.1c7.9 0 14.3-6.4 14.3-14.3V158.3c0-7.9-6.4-14.3-14.3-14.3H640.6c-7.9 0-14.3 6.4-14.3 14.3v92.9H490.6c-3.9 0-7.1 3.2-7.1 7.1v221.5h-85.7v-96.5c0-7.9-6.4-14.3-14.3-14.3H126.3c-7.9 0-14.3 6.4-14.3 14.3v257.2c0 7.9 6.4 14.3 14.3 14.3h257.1c7.9 0 14.3-6.4 14.3-14.3V544h85.7v221.5c0 3.9 3.2 7.1 7.1 7.1h135.7v92.9c0 7.9 6.4 14.3 14.3 14.3h257.1c7.9 0 14.3-6.4 14.3-14.3v-257c0-7.9-6.4-14.3-14.3-14.3h-257c-7.9 0-14.3 6.4-14.3 14.3v100h-78.6v-393h78.6v100c0 7.9 6.4 14.3 14.3 14.3zm53.5-217.9h150V362h-150V211.9zM329.9 587h-150V437h150v150zm364.2 75.1h150v150.1h-150V662.1z"
+                            />
+                          </svg>
+                        </span>
+                      </span>
+                      <span
+                        class="ant-pro-base-menu-inline-item-text ant-pro-base-menu-inline-item-text-has-icon"
+                      >
+                        事件闭环
+                      </span>
+                    </div>
+                  </a>
+                </span>
+              </li>
+              <li
+                class="ant-menu-item ant-menu-item-only-child ant-pro-base-menu-inline-menu-item"
                 data-menu-id="rc-menu-uuid-test-/reviews"
                 role="menuitem"
                 style="padding-left: 16px;"
@@ -579,7 +628,7 @@ exports[`Login Page should login success 1`] = `
                 style="width: 28px; height: 28px; font-size: 18px;"
               >
                 <img
-                  src="https://gw.alipayobjects.com/zos/rmsportal/BiazfanxmamNRoxxVxka.png"
+                  src="https://gw.alipayobjects.com/zos/antfincdn/XAosXuNZyF/BiazfanxmamNRoxxVxka.png"
                 />
               </span>
               <span>

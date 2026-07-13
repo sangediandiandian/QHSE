@@ -16,7 +16,7 @@ function createStorage() {
 }
 
 const dashboard = {
-  alarms: [], warningRules: [], hazards: [], workPermits: [],
+  alarms: [], warningRules: [], hazards: [], workPermits: [], emergencyEvents: [],
 } as unknown as DashboardData;
 
 describe('dashboard persistence', () => {
@@ -30,7 +30,7 @@ describe('dashboard persistence', () => {
     const storage = createStorage();
     storage.setItem(DASHBOARD_STORAGE_KEY, '{broken');
     expect(loadPersistedDashboard(storage)).toBeUndefined();
-    storage.setItem(DASHBOARD_STORAGE_KEY, JSON.stringify({ version: 0, data: dashboard }));
+    storage.setItem(DASHBOARD_STORAGE_KEY, JSON.stringify({ version: 1, data: dashboard }));
     expect(loadPersistedDashboard(storage)).toBeUndefined();
   });
 

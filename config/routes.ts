@@ -123,6 +123,12 @@ export default [
     component: './EmergencyResources',
   },
   {
+    name: '事件闭环',
+    icon: 'partition',
+    path: '/events',
+    component: './EventLifecycle',
+  },
+  {
     name: '事件复盘',
     icon: 'audit',
     path: '/reviews',

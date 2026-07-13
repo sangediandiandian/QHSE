@@ -14,6 +14,7 @@ export default {
   'menu.应急指挥': '应急指挥',
   'menu.应急预案': '应急预案',
   'menu.应急资源': '应急资源',
+  'menu.事件闭环': '事件闭环',
   'menu.事件复盘': '事件复盘',
   'menu.welcome': '欢迎',
   'menu.more-blocks': '更多区块',

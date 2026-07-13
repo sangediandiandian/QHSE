@@ -212,6 +212,40 @@ export interface EventReview {
   actions: ReviewAction[];
 }
 
+export type EmergencyEventStatus = '待研判' | '响应中' | '监控中' | '待关闭' | '已关闭';
+export type EmergencyResponseLevel = 'IV级' | 'III级' | 'II级' | 'I级';
+export type EmergencyEventAction = '研判启动' | '升级响应' | '降级响应' | '终止响应' | '申请关闭' | '审批关闭';
+
+export interface EmergencyEventOperation {
+  id: string;
+  action: EmergencyEventAction | '事件生成' | '告警确认';
+  operator: string;
+  operatedAt: string;
+  fromStatus?: EmergencyEventStatus;
+  toStatus: EmergencyEventStatus;
+  fromLevel?: EmergencyResponseLevel;
+  toLevel: EmergencyResponseLevel;
+  detail: string;
+}
+
+export interface EmergencyEvent {
+  id: string;
+  eventId: string;
+  code: string;
+  title: string;
+  areaId: string;
+  areaName: string;
+  source: AlarmEvent['source'];
+  status: EmergencyEventStatus;
+  responseLevel: EmergencyResponseLevel;
+  commander: string;
+  ownerDepartment: string;
+  startedAt: string;
+  updatedAt: string;
+  summary: string;
+  operations: EmergencyEventOperation[];
+}
+
 export interface RiskUnit {
   id: string;
   code: string;
@@ -346,4 +380,5 @@ export interface DashboardData {
   hazards: Hazard[];
   workPermits: WorkPermit[];
   warningRules: WarningRule[];
+  emergencyEvents: EmergencyEvent[];
 }

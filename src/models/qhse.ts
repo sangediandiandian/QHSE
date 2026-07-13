@@ -1,5 +1,5 @@
 import { getDashboard } from '@/services/qhse/dashboard';
-import type { DashboardData } from '@/types/qhse';
+import type { DashboardData, EmergencyEventAction } from '@/types/qhse';
 import {
   withAlarmStatus,
   withCommunicationConfirmation,
@@ -15,6 +15,7 @@ import {
   persistDashboard,
 } from '@/utils/dashboardPersistence';
 import { isWarningScenarioEnabled, withWarningRuleTriggered } from '@/utils/warningRules';
+import { transitionEmergencyEvent } from '@/utils/emergencyEventWorkflow';
 import { useCallback, useEffect, useState } from 'react';
 
 function getBrowserStorage() {
@@ -170,6 +171,31 @@ export default function useQhseModel() {
     } : current);
   }, []);
 
+  const transitionEvent = useCallback((eventId: string, action: EmergencyEventAction) => {
+    setDashboard((current) => {
+      if (!current) return current;
+      const operatedAt = new Date().toLocaleString('zh-CN', { hour12: false });
+      const event = current.emergencyEvents.find((item) => item.id === eventId);
+      if (!event) return current;
+      const operator = action === '审批关闭' ? '赵磊 / QHSE 管理部' : event.commander;
+      const transitioned = transitionEmergencyEvent(event, action, operator, operatedAt);
+      if (transitioned === event) return current;
+      const alarmStatus = transitioned.status === '响应中' ? '处置中' : '监控中';
+      return {
+        ...current,
+        emergencyEvents: current.emergencyEvents.map((item) => item.id === eventId ? transitioned : item),
+        alarms: current.alarms.map((alarm) => alarm.id === transitioned.eventId
+          ? { ...alarm, status: alarmStatus }
+          : alarm),
+        emergencyPlan: current.emergencyPlan.eventId === transitioned.eventId ? {
+          ...current.emergencyPlan,
+          responseLevel: transitioned.responseLevel,
+          status: transitioned.status === '响应中' ? '已启动' : '已终止',
+        } : current.emergencyPlan,
+      };
+    });
+  }, []);
+
   const advanceHazard = useCallback((hazardId: string) => {
     setDashboard((current) => current ? {
       ...current,
@@ -240,6 +266,7 @@ export default function useQhseModel() {
     advanceEmergencyResource,
     advanceReviewAction,
     closeEventReview,
+    transitionEvent,
     advanceHazard,
     triggerPermitLinkage,
     advanceWorkPermit,

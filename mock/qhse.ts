@@ -1,6 +1,7 @@
 import type {
   DashboardData,
   CommunicationTask,
+  EmergencyEvent,
   EmergencyResource,
   EmergencyTask,
   EmergencyPlanTemplate,
@@ -305,6 +306,52 @@ const warningRules: WarningRule[] = [
   },
 ];
 
+const emergencyEvents: EmergencyEvent[] = [
+  {
+    id: 'lifecycle-001', eventId: 'evt-001', code: 'EC20260711001', title: '可燃气体浓度持续上升',
+    areaId: 'area-02', areaName: '催化裂化装置', source: 'GDS', status: '响应中', responseLevel: 'II级',
+    commander: '陈涛 / 生产调度', ownerDepartment: '催化裂化装置', startedAt: '2026-07-11 08:28:42',
+    updatedAt: '2026-07-11 08:30:18', summary: 'FCC 泵区 GDS-101 达到二级报警，已启动泄漏现场处置方案。',
+    operations: [
+      { id: 'lifecycle-001-1', action: '事件生成', operator: '系统', operatedAt: '2026-07-11 08:28:42', toStatus: '待研判', toLevel: 'II级', detail: 'GDS 二级报警自动生成应急事件。' },
+      { id: 'lifecycle-001-2', action: '告警确认', operator: '王强 / 岗位操作员', operatedAt: '2026-07-11 08:29:03', fromStatus: '待研判', toStatus: '待研判', fromLevel: 'II级', toLevel: 'II级', detail: '现场确认存在异常气味和可燃气体浓度升高。' },
+      { id: 'lifecycle-001-3', action: '研判启动', operator: '陈涛 / 生产调度', operatedAt: '2026-07-11 08:30:18', fromStatus: '待研判', toStatus: '响应中', fromLevel: 'II级', toLevel: 'II级', detail: '研判确认事件需要应急响应，已启动现场处置。' },
+    ],
+  },
+  {
+    id: 'lifecycle-002', eventId: 'evt-002', code: 'EC20260711002', title: 'RTO 出口浓度接近限值',
+    areaId: 'area-04', areaName: '硫磺回收装置', source: 'VOC', status: '监控中', responseLevel: 'IV级',
+    commander: '周敏 / 环保管理', ownerDepartment: '安全环保部', startedAt: '2026-07-11 08:19:06',
+    updatedAt: '2026-07-11 09:05:21', summary: '治理设施参数已恢复，排口浓度连续 30 分钟低于预警值，进入持续监控。',
+    operations: [
+      { id: 'lifecycle-002-1', action: '事件生成', operator: '系统', operatedAt: '2026-07-11 08:19:06', toStatus: '待研判', toLevel: 'IV级', detail: 'VOC 趋势预警生成应急事件。' },
+      { id: 'lifecycle-002-2', action: '研判启动', operator: '周敏 / 环保管理', operatedAt: '2026-07-11 08:21:12', fromStatus: '待研判', toStatus: '响应中', fromLevel: 'IV级', toLevel: 'IV级', detail: '启动环保异常现场核查。' },
+      { id: 'lifecycle-002-3', action: '终止响应', operator: '周敏 / 环保管理', operatedAt: '2026-07-11 09:05:21', fromStatus: '响应中', toStatus: '监控中', fromLevel: 'IV级', toLevel: 'IV级', detail: '治理设施恢复稳定，终止响应并持续监控。' },
+    ],
+  },
+  {
+    id: 'lifecycle-003', eventId: 'evt-003', code: 'EC20260711003', title: '泵出口压力偏高',
+    areaId: 'area-01', areaName: '常减压装置', source: 'MES', status: '待关闭', responseLevel: 'IV级',
+    commander: '高峰 / 装置值班', ownerDepartment: '常减压装置', startedAt: '2026-07-11 08:11:37',
+    updatedAt: '2026-07-11 10:18:44', summary: '压力波动原因已排查，现场数据稳定，关闭材料已提交 QHSE 管理部审批。',
+    operations: [
+      { id: 'lifecycle-003-1', action: '事件生成', operator: '系统', operatedAt: '2026-07-11 08:11:37', toStatus: '待研判', toLevel: 'IV级', detail: 'MES 压力异常生成应急事件。' },
+      { id: 'lifecycle-003-2', action: '研判启动', operator: '高峰 / 装置值班', operatedAt: '2026-07-11 08:15:06', fromStatus: '待研判', toStatus: '响应中', fromLevel: 'IV级', toLevel: 'IV级', detail: '启动设备和工艺联合排查。' },
+      { id: 'lifecycle-003-3', action: '终止响应', operator: '高峰 / 装置值班', operatedAt: '2026-07-11 09:46:30', fromStatus: '响应中', toStatus: '监控中', fromLevel: 'IV级', toLevel: 'IV级', detail: '压力恢复正常，进入稳定性监控。' },
+      { id: 'lifecycle-003-4', action: '申请关闭', operator: '高峰 / 装置值班', operatedAt: '2026-07-11 10:18:44', fromStatus: '监控中', toStatus: '待关闭', fromLevel: 'IV级', toLevel: 'IV级', detail: '监测稳定且排查任务完成，提交关闭审批。' },
+    ],
+  },
+  {
+    id: 'lifecycle-004', eventId: 'evt-004', code: 'EC20260713004', title: '装卸区可燃气体趋势异常',
+    areaId: 'area-06', areaName: '油品装卸区', source: 'GDS', status: '待研判', responseLevel: 'IV级',
+    commander: '待指定', ownerDepartment: '储运部', startedAt: '2026-07-13 07:42:10',
+    updatedAt: '2026-07-13 07:42:10', summary: 'GDS-LOAD-06 连续五个采样点上升，尚未达到一级报警阈值，等待现场研判。',
+    operations: [
+      { id: 'lifecycle-004-1', action: '事件生成', operator: '系统', operatedAt: '2026-07-13 07:42:10', toStatus: '待研判', toLevel: 'IV级', detail: '趋势规则命中，自动生成待研判事件。' },
+    ],
+  },
+];
+
 const dashboard: DashboardData = {
   updatedAt: '2026-07-11 08:32:18',
   metrics: {
@@ -458,6 +505,7 @@ const dashboard: DashboardData = {
   hazards,
   workPermits,
   warningRules,
+  emergencyEvents,
 };
 
 export default {
