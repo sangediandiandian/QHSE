@@ -6,10 +6,10 @@ import type {
   EmergencyResourceDispatchInput,
   EmergencyResourceInput,
   EmergencyResourceInspectionInput,
+  WarningEvidenceCategory,
   WarningRuleDraftInput,
 } from '@/types/qhse';
 import {
-  withAlarmStatus,
   withCommunicationConfirmation,
   withCommunicationEscalation,
   withSimulatedGdsAlarm,
@@ -31,6 +31,11 @@ import {
   inspectEmergencyResource as withInspectedEmergencyResource,
   returnEmergencyResource as withReturnedEmergencyResource,
 } from '@/utils/emergencyResourceWorkflow';
+import {
+  confirmWarningEvent,
+  startWarningEmergency,
+  verifyWarningEvidence as withVerifiedWarningEvidence,
+} from '@/utils/warningEvidenceWorkflow';
 import {
   publishEmergencyPlan as withPublishedEmergencyPlan,
   rollbackEmergencyPlan,
@@ -104,11 +109,30 @@ export default function useQhseModel() {
   }, []);
 
   const confirmAlarm = useCallback((eventId: string) => {
-    setDashboard((current) => (current ? withAlarmStatus(current, eventId, '已确认') : current));
+    setDashboard((current) => current ? {
+      ...current,
+      alarms: current.alarms.map((event) => event.id === eventId
+        ? confirmWarningEvent(event, '张伟 / 装置负责人', getCurrentTimestamp())
+        : event),
+    } : current);
   }, []);
 
   const startEmergency = useCallback((eventId: string) => {
-    setDashboard((current) => (current ? withAlarmStatus(current, eventId, '处置中') : current));
+    setDashboard((current) => current ? {
+      ...current,
+      alarms: current.alarms.map((event) => event.id === eventId
+        ? startWarningEmergency(event, '张伟 / 装置负责人', getCurrentTimestamp())
+        : event),
+    } : current);
+  }, []);
+
+  const verifyAlarmEvidence = useCallback((eventId: string, category: WarningEvidenceCategory) => {
+    setDashboard((current) => current ? {
+      ...current,
+      alarms: current.alarms.map((event) => event.id === eventId
+        ? withVerifiedWarningEvidence(event, category, '赵磊 / QHSE 值班', getCurrentTimestamp())
+        : event),
+    } : current);
   }, []);
 
   const simulateVocAlarm = useCallback(() => {
@@ -418,6 +442,7 @@ export default function useQhseModel() {
     simulateGdsAlarm,
     confirmAlarm,
     startEmergency,
+    verifyAlarmEvidence,
     simulateVocAlarm,
     simulateJointAlarm,
     advanceCommunication,

@@ -512,6 +512,8 @@ const dashboard: DashboardData = {
       value: '38% LEL',
       occurredAt: '08:28:42',
       status: '待确认',
+      evidenceChecks: [],
+      operations: [],
     },
     {
       id: 'evt-002',
@@ -524,6 +526,16 @@ const dashboard: DashboardData = {
       value: '56 mg/m³',
       occurredAt: '08:19:06',
       status: '处置中',
+      evidenceChecks: [
+        { category: '监测数据', checkedBy: '周敏 / 环保管理人员', checkedAt: '2026-07-11 08:19:32' },
+        { category: '工艺参数', checkedBy: '陈涛 / 生产调度', checkedAt: '2026-07-11 08:19:48' },
+      ],
+      operations: [
+        { id: 'warning-op-001', type: '证据核验', operator: '周敏 / 环保管理人员', operatedAt: '2026-07-11 08:19:32', detail: '监测数据已完成一致性核验' },
+        { id: 'warning-op-002', type: '证据核验', operator: '陈涛 / 生产调度', operatedAt: '2026-07-11 08:19:48', detail: '工艺参数已完成一致性核验' },
+        { id: 'warning-op-003', type: '事件确认', operator: '周敏 / 环保管理人员', operatedAt: '2026-07-11 08:20:02', detail: '已确认预警真实有效，进入现场处置准备' },
+        { id: 'warning-op-004', type: '预案启动', operator: '周敏 / 环保管理人员', operatedAt: '2026-07-11 08:20:26', detail: '已启动推荐应急预案并生成处置任务' },
+      ],
     },
     {
       id: 'evt-003',
@@ -536,6 +548,8 @@ const dashboard: DashboardData = {
       value: '2.34 MPa',
       occurredAt: '08:11:37',
       status: '监控中',
+      evidenceChecks: [{ category: '工艺参数', checkedBy: '陈涛 / 生产调度', checkedAt: '2026-07-11 08:12:08' }],
+      operations: [{ id: 'warning-op-005', type: '证据核验', operator: '陈涛 / 生产调度', operatedAt: '2026-07-11 08:12:08', detail: '工艺参数已完成一致性核验' }],
     },
   ],
   trend: [

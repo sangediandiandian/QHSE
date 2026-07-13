@@ -26,6 +26,24 @@ export interface AlarmEvent {
   value: string;
   occurredAt: string;
   status: '待确认' | '已确认' | '处置中' | '监控中';
+  evidenceChecks?: WarningEvidenceCheck[];
+  operations?: WarningEventOperation[];
+}
+
+export type WarningEvidenceCategory = '监测数据' | '工艺参数' | '作业票证' | '关联人员';
+
+export interface WarningEvidenceCheck {
+  category: WarningEvidenceCategory;
+  checkedBy: string;
+  checkedAt: string;
+}
+
+export interface WarningEventOperation {
+  id: string;
+  type: '证据核验' | '事件确认' | '预案启动';
+  operator: string;
+  operatedAt: string;
+  detail: string;
 }
 
 export type GdsAlarmStatus = 'normal' | 'level1' | 'level2' | 'trend';

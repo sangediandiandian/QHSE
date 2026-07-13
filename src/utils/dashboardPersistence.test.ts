@@ -30,7 +30,7 @@ describe('dashboard persistence', () => {
     const storage = createStorage();
     storage.setItem(DASHBOARD_STORAGE_KEY, '{broken');
     expect(loadPersistedDashboard(storage)).toBeUndefined();
-    storage.setItem(DASHBOARD_STORAGE_KEY, JSON.stringify({ version: 4, data: dashboard }));
+    storage.setItem(DASHBOARD_STORAGE_KEY, JSON.stringify({ version: 5, data: dashboard }));
     expect(loadPersistedDashboard(storage)).toBeUndefined();
   });
 
