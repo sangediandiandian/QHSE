@@ -145,13 +145,74 @@ export interface EmergencyResource {
   name: string;
   type: '消防' | '气防' | '医疗' | '物资';
   quantity: string;
+  totalQuantity: number;
+  availableQuantity: number;
+  unit: string;
   location: string;
   eta: string;
   status: '待命' | '调度中' | '已到位';
   owner: string;
   contact: string;
   lastInspection: string;
+  nextInspection: string;
   inspectionStatus: '检查合格' | '即将到期' | '需要维护';
+  dispatches: EmergencyResourceDispatch[];
+  inspectionRecords: EmergencyResourceInspection[];
+}
+
+export type EmergencyResourceDispatchStatus = '调度中' | '已到位' | '已归还';
+
+export interface EmergencyResourceDispatch {
+  id: string;
+  eventName: string;
+  destination: string;
+  quantity: number;
+  operator: string;
+  dispatchedAt: string;
+  originalEta: string;
+  arrivedAt?: string;
+  returnedAt?: string;
+  status: EmergencyResourceDispatchStatus;
+}
+
+export interface EmergencyResourceInspection {
+  id: string;
+  inspector: string;
+  inspectedAt: string;
+  result: EmergencyResource['inspectionStatus'];
+  nextInspection: string;
+  note: string;
+}
+
+export interface EmergencyResourceInput {
+  code: string;
+  name: string;
+  type: EmergencyResource['type'];
+  totalQuantity: number;
+  unit: string;
+  location: string;
+  eta: string;
+  owner: string;
+  contact: string;
+  nextInspection: string;
+}
+
+export interface EmergencyResourceDispatchInput {
+  id: string;
+  eventName: string;
+  destination: string;
+  quantity: number;
+  operator: string;
+  dispatchedAt: string;
+}
+
+export interface EmergencyResourceInspectionInput {
+  id: string;
+  inspector: string;
+  inspectedAt: string;
+  result: EmergencyResource['inspectionStatus'];
+  nextInspection: string;
+  note: string;
 }
 
 export interface EmergencyPlan {

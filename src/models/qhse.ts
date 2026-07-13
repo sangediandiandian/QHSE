@@ -3,6 +3,9 @@ import type {
   DashboardData,
   EmergencyEventAction,
   EmergencyPlanDraftInput,
+  EmergencyResourceDispatchInput,
+  EmergencyResourceInput,
+  EmergencyResourceInspectionInput,
   WarningRuleDraftInput,
 } from '@/types/qhse';
 import {
@@ -21,6 +24,13 @@ import {
 } from '@/utils/dashboardPersistence';
 import { isWarningScenarioEnabled, withWarningRuleTriggered } from '@/utils/warningRules';
 import { transitionEmergencyEvent } from '@/utils/emergencyEventWorkflow';
+import {
+  addEmergencyResource as withAddedEmergencyResource,
+  confirmEmergencyResourceArrival as withConfirmedResourceArrival,
+  dispatchEmergencyResource as withDispatchedEmergencyResource,
+  inspectEmergencyResource as withInspectedEmergencyResource,
+  returnEmergencyResource as withReturnedEmergencyResource,
+} from '@/utils/emergencyResourceWorkflow';
 import {
   publishEmergencyPlan as withPublishedEmergencyPlan,
   rollbackEmergencyPlan,
@@ -41,6 +51,17 @@ function getBrowserStorage() {
   } catch {
     return undefined;
   }
+}
+
+function getCurrentTimestamp() {
+  const now = new Date();
+  const date = [now.getFullYear(), now.getMonth() + 1, now.getDate()]
+    .map((value) => String(value).padStart(2, '0'))
+    .join('-');
+  const time = [now.getHours(), now.getMinutes(), now.getSeconds()]
+    .map((value) => String(value).padStart(2, '0'))
+    .join(':');
+  return `${date} ${time}`;
 }
 
 export default function useQhseModel() {
@@ -147,14 +168,60 @@ export default function useQhseModel() {
     });
   }, []);
 
-  const advanceEmergencyResource = useCallback((resourceId: string) => {
+  const addEmergencyResource = useCallback((input: EmergencyResourceInput) => {
     setDashboard((current) => current ? {
       ...current,
-      emergencyResources: current.emergencyResources.map((resource) => resource.id === resourceId ? {
-        ...resource,
-        status: resource.status === '待命' ? '调度中' : resource.status === '调度中' ? '已到位' : resource.status,
-        eta: resource.status === '调度中' ? '已到场' : resource.eta,
-      } : resource),
+      emergencyResources: withAddedEmergencyResource(current.emergencyResources, input, `resource-${Date.now()}`),
+    } : current);
+  }, []);
+
+  const dispatchEmergencyResource = useCallback((
+    resourceId: string,
+    input: Omit<EmergencyResourceDispatchInput, 'id' | 'dispatchedAt'>,
+  ) => {
+    setDashboard((current) => current ? {
+      ...current,
+      emergencyResources: current.emergencyResources.map((resource) => resource.id === resourceId
+        ? withDispatchedEmergencyResource(resource, {
+          ...input,
+          id: `dispatch-${Date.now()}`,
+          dispatchedAt: getCurrentTimestamp(),
+        })
+        : resource),
+    } : current);
+  }, []);
+
+  const confirmEmergencyResourceArrival = useCallback((resourceId: string, dispatchId: string) => {
+    setDashboard((current) => current ? {
+      ...current,
+      emergencyResources: current.emergencyResources.map((resource) => resource.id === resourceId
+        ? withConfirmedResourceArrival(resource, dispatchId, getCurrentTimestamp())
+        : resource),
+    } : current);
+  }, []);
+
+  const returnEmergencyResource = useCallback((resourceId: string, dispatchId: string) => {
+    setDashboard((current) => current ? {
+      ...current,
+      emergencyResources: current.emergencyResources.map((resource) => resource.id === resourceId
+        ? withReturnedEmergencyResource(resource, dispatchId, getCurrentTimestamp())
+        : resource),
+    } : current);
+  }, []);
+
+  const inspectEmergencyResource = useCallback((
+    resourceId: string,
+    input: Omit<EmergencyResourceInspectionInput, 'id' | 'inspectedAt'>,
+  ) => {
+    setDashboard((current) => current ? {
+      ...current,
+      emergencyResources: current.emergencyResources.map((resource) => resource.id === resourceId
+        ? withInspectedEmergencyResource(resource, {
+          ...input,
+          id: `inspection-${Date.now()}`,
+          inspectedAt: getCurrentTimestamp(),
+        })
+        : resource),
     } : current);
   }, []);
 
@@ -356,7 +423,11 @@ export default function useQhseModel() {
     advanceCommunication,
     confirmCommunication,
     advanceEmergencyTask,
-    advanceEmergencyResource,
+    addEmergencyResource,
+    dispatchEmergencyResource,
+    confirmEmergencyResourceArrival,
+    returnEmergencyResource,
+    inspectEmergencyResource,
     saveEmergencyPlan,
     submitEmergencyPlan,
     approveEmergencyPlan,
