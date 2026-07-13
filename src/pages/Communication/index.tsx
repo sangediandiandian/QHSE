@@ -14,7 +14,7 @@ import {
 import { PageContainer } from '@ant-design/pro-components';
 import { useModel } from '@umijs/max';
 import { Button, Empty, Skeleton, Tag, message } from 'antd';
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import styles from './index.less';
 
 const channelIcon: Record<CommunicationChannel, React.ReactNode> = {

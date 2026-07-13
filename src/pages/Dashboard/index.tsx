@@ -4,6 +4,7 @@ import {
   AlertFilled,
   ApiOutlined,
   CheckCircleFilled,
+  DesktopOutlined,
   ExperimentOutlined,
   FireOutlined,
   NotificationOutlined,
@@ -12,7 +13,7 @@ import {
 } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
 import { history, useModel } from '@umijs/max';
-import { Button, Skeleton, Tag, message } from 'antd';
+import { Button, Skeleton, Space, Tag, message } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
 import styles from './index.less';
 
@@ -96,9 +97,14 @@ export default function Dashboard() {
       title={false}
       className={styles.page}
       extra={
-        <Button danger icon={<AlertFilled />} onClick={handleSimulation}>
-          模拟 GDS 二级报警
-        </Button>
+        <Space>
+          <Button icon={<DesktopOutlined />} onClick={() => history.push('/screen')}>
+            展示大屏
+          </Button>
+          <Button danger icon={<AlertFilled />} onClick={handleSimulation}>
+            模拟 GDS 二级报警
+          </Button>
+        </Space>
       }
     >
       <section className={styles.masthead}>

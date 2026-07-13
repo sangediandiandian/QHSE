@@ -47,7 +47,7 @@ describe('Login Page', () => {
     });
 
     expect(rootContainer.baseElement?.querySelector('.ant-pro-form-login-desc')?.textContent).toBe(
-      'Ant Design is the most influential web design specification in Xihu district',
+      '风险监测预警与应急联动平台',
     );
 
     expect(rootContainer.asFragment()).toMatchSnapshot();
@@ -85,7 +85,7 @@ describe('Login Page', () => {
     // 等待接口返回结果
     await waitTime(5000);
 
-    await rootContainer.findAllByText('Ant Design Pro');
+    await rootContainer.findAllByText('炼化 QHSE');
 
     expect(rootContainer.asFragment()).toMatchSnapshot();
 

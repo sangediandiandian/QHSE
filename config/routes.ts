@@ -29,6 +29,12 @@ export default [
     component: './Dashboard',
   },
   {
+    path: '/screen',
+    component: './BigScreen',
+    layout: false,
+    hideInMenu: true,
+  },
+  {
     path: '/monitoring',
     name: '监测中心',
     icon: 'radarChart',

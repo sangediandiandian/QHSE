@@ -16,7 +16,7 @@ import {
 import { PageContainer } from '@ant-design/pro-components';
 import { useModel } from '@umijs/max';
 import { Button, Empty, Progress, Skeleton, Tag, message } from 'antd';
-import { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import styles from './index.less';
 
 const statusColor: Record<EmergencyTaskStatus, string> = {

@@ -16,7 +16,7 @@ import {
 import { PageContainer } from '@ant-design/pro-components';
 import { useModel } from '@umijs/max';
 import { Button, Empty, Input, Progress, Segmented, Skeleton, Tag, message } from 'antd';
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import styles from './index.less';
 
 type ResourceType = EmergencyResource['type'] | '全部资源';
