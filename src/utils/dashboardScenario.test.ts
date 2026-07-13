@@ -84,6 +84,9 @@ const baseDashboard: DashboardData = {
   emergencyTasks: [],
   emergencyResources: [],
   eventReviews: [],
+  riskUnits: [],
+  hazards: [],
+  workPermits: [],
 };
 
 describe('withSimulatedGdsAlarm', () => {

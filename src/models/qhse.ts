@@ -8,6 +8,7 @@ import {
   withSimulatedJointAlarm,
   withSimulatedVocAlarm,
 } from '@/utils/dashboardScenario';
+import { applyPermitAlarmLinkage, nextHazardStatus, nextPermitStatus } from '@/utils/managementWorkflow';
 import { useCallback, useState } from 'react';
 
 export default function useQhseModel() {
@@ -134,6 +135,40 @@ export default function useQhseModel() {
     } : current);
   }, []);
 
+  const advanceHazard = useCallback((hazardId: string) => {
+    setDashboard((current) => current ? {
+      ...current,
+      hazards: current.hazards.map((hazard) => hazard.id === hazardId ? {
+        ...hazard,
+        status: nextHazardStatus(hazard.status),
+        overdue: nextHazardStatus(hazard.status) === '已关闭' ? false : hazard.overdue,
+      } : hazard),
+    } : current);
+  }, []);
+
+  const triggerPermitLinkage = useCallback(() => {
+    setDashboard((current) => current ? {
+      ...current,
+      workPermits: applyPermitAlarmLinkage(current.workPermits, current.alarms),
+    } : current);
+  }, []);
+
+  const advanceWorkPermit = useCallback((permitId: string) => {
+    setDashboard((current) => current ? {
+      ...current,
+      workPermits: current.workPermits.map((permit) => {
+        if (permit.id !== permitId) return permit;
+        const status = nextPermitStatus(permit.status);
+        return {
+          ...permit,
+          status,
+          gasTest: permit.status === '已暂停' ? `${new Date().toLocaleTimeString('zh-CN', { hour12: false })} 复测合格，准予恢复` : permit.gasTest,
+          alertReason: status === '作业中' ? undefined : permit.alertReason,
+        };
+      }),
+    } : current);
+  }, []);
+
   return {
     dashboard,
     loading,
@@ -149,5 +184,8 @@ export default function useQhseModel() {
     advanceEmergencyResource,
     advanceReviewAction,
     closeEventReview,
+    advanceHazard,
+    triggerPermitLinkage,
+    advanceWorkPermit,
   };
 }

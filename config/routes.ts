@@ -35,6 +35,32 @@ export default [
     hideInMenu: true,
   },
   {
+    path: '/management',
+    name: 'QHSE 管理',
+    icon: 'safetyCertificate',
+    routes: [
+      {
+        path: '/management',
+        redirect: '/management/risks',
+      },
+      {
+        path: '/management/risks',
+        name: '风险分级',
+        component: './RiskManagement',
+      },
+      {
+        path: '/management/hazards',
+        name: '隐患治理',
+        component: './HazardManagement',
+      },
+      {
+        path: '/management/permits',
+        name: '作业许可',
+        component: './WorkPermit',
+      },
+    ],
+  },
+  {
     path: '/monitoring',
     name: '监测中心',
     icon: 'radarChart',

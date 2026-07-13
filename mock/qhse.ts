@@ -6,10 +6,13 @@ import type {
   EmergencyPlanTemplate,
   EventReview,
   GdsPoint,
+  Hazard,
   MesTag,
   MesUnit,
+  RiskUnit,
   VocFacility,
   VocPoint,
+  WorkPermit,
 } from '../src/types/qhse';
 
 const areaCatalog = [
@@ -189,6 +192,73 @@ const eventReviews: EventReview[] = [
   },
 ];
 
+const riskUnits: RiskUnit[] = [
+  {
+    id: 'risk-001', code: 'RU-FCC-P208', name: 'P-208 高温油泵单元', parentName: '反应油气系统',
+    areaId: 'area-02', areaName: '催化裂化装置', ownerDepartment: '催化裂化装置', owner: '李建国',
+    medium: '高温油气、可燃气体', accidentTypes: ['泄漏', '火灾爆炸'], staticLevel: 'high', currentLevel: 'critical',
+    controls: ['双端面机械密封与泄漏收集', '泵区 GDS 连续监测', '高温法兰每班巡检', '动火作业与预警自动联锁提醒'],
+    linkedGds: 4, linkedVoc: 0, linkedMes: 6, linkedPlans: 2,
+    dynamicFactors: [
+      { source: 'GDS', label: 'GDS-101 浓度持续上升', impact: 'up', status: '38% LEL' },
+      { source: '作业许可', label: '泵出口法兰一级动火', impact: 'up', status: '作业中' },
+      { source: '隐患', label: '同类法兰垫片复核未完成', impact: 'watch', status: '整改中' },
+    ],
+  },
+  {
+    id: 'risk-002', code: 'RU-TANK-201', name: 'T-201 汽油储罐单元', parentName: '成品油罐组',
+    areaId: 'area-05', areaName: '储罐区', ownerDepartment: '储运部', owner: '何军', medium: '汽油',
+    accidentTypes: ['火灾爆炸', '中毒窒息'], staticLevel: 'high', currentLevel: 'high',
+    controls: ['液位高高联锁', '罐区泡沫灭火系统', '防火堤完整性月检'], linkedGds: 6, linkedVoc: 2, linkedMes: 4, linkedPlans: 2,
+    dynamicFactors: [{ source: 'VOC', label: '储罐呼吸气排口负荷偏高', impact: 'watch', status: '44 mg/m³' }],
+  },
+  {
+    id: 'risk-003', code: 'RU-CDU-F201', name: 'F-201 加热炉单元', parentName: '常减压加热系统',
+    areaId: 'area-01', areaName: '常减压装置', ownerDepartment: '常减压装置', owner: '高峰', medium: '燃料气、原油',
+    accidentTypes: ['炉膛爆燃', '高温灼烫'], staticLevel: 'high', currentLevel: 'high',
+    controls: ['燃烧器火焰检测', '炉膛压力联锁', '进料低流量切断'], linkedGds: 3, linkedVoc: 0, linkedMes: 8, linkedPlans: 1,
+    dynamicFactors: [{ source: 'MES', label: '泵出口压力接近上限', impact: 'watch', status: '2.34 MPa' }],
+  },
+  {
+    id: 'risk-004', code: 'RU-SRU-RTO', name: 'RTO 废气治理单元', parentName: '尾气治理系统',
+    areaId: 'area-04', areaName: '硫磺回收装置', ownerDepartment: '安全环保部', owner: '周敏', medium: '含硫尾气、VOC',
+    accidentTypes: ['异常排放', '设备火灾'], staticLevel: 'medium', currentLevel: 'medium',
+    controls: ['燃烧室温度联锁', '进出口浓度在线监测', '旁路阀门铅封管理'], linkedGds: 2, linkedVoc: 3, linkedMes: 5, linkedPlans: 1,
+    dynamicFactors: [{ source: 'VOC', label: 'RTO 出口浓度接近限值', impact: 'watch', status: '56 mg/m³' }],
+  },
+  {
+    id: 'risk-005', code: 'RU-HCU-R101', name: 'R-101 加氢反应单元', parentName: '加氢反应系统',
+    areaId: 'area-03', areaName: '加氢装置', ownerDepartment: '加氢装置', owner: '马勇', medium: '氢气、硫化氢',
+    accidentTypes: ['火灾爆炸', '中毒'], staticLevel: 'critical', currentLevel: 'high',
+    controls: ['反应器超温泄压', '循环氢纯度在线分析', '硫化氢区域报警'], linkedGds: 7, linkedVoc: 0, linkedMes: 9, linkedPlans: 2,
+    dynamicFactors: [{ source: 'MES', label: '装置运行参数稳定', impact: 'watch', status: '稳定' }],
+  },
+  {
+    id: 'risk-006', code: 'RU-LOAD-01', name: '汽车装车栈台单元', parentName: '油品装卸系统',
+    areaId: 'area-06', areaName: '油品装卸区', ownerDepartment: '储运部', owner: '宋伟', medium: '汽柴油',
+    accidentTypes: ['泄漏', '车辆伤害'], staticLevel: 'medium', currentLevel: 'medium',
+    controls: ['静电接地联锁', '鹤管拉断阀', '车辆限速与导流'], linkedGds: 4, linkedVoc: 2, linkedMes: 2, linkedPlans: 1,
+    dynamicFactors: [{ source: '作业许可', label: '装卸栈台临时用电', impact: 'watch', status: '待审批' }],
+  },
+];
+
+const hazards: Hazard[] = [
+  { id: 'hazard-001', code: 'YH20260711001', title: 'P-208 同类高温泵法兰垫片选型待复核', areaId: 'area-02', areaName: '催化裂化装置', level: '重大', source: '复盘整改', category: '设备完整性', ownerDepartment: '设备管理部', owner: '孙工', discoveredAt: '2026-07-11', deadline: '2026-07-15', status: '整改中', riskUnitId: 'risk-001', overdue: false, recurrenceCount: 1, description: '事件复盘发现同类高温泵可能存在垫片选型裕量不足。', measures: ['完成 12 台同类泵材料复核', '不符合项停机窗口更换'] },
+  { id: 'hazard-002', code: 'YH20260710006', title: '储罐区东侧消防通道临时占用', areaId: 'area-05', areaName: '储罐区', level: '较大', source: '现场检查', category: '消防安全', ownerDepartment: '储运部', owner: '何军', discoveredAt: '2026-07-10', deadline: '2026-07-12', status: '待验收', riskUnitId: 'risk-002', overdue: true, recurrenceCount: 0, description: '施工材料占用部分消防通道，现场已完成清运并提交验收。', measures: ['清除占道物料', '恢复消防通道标识'] },
+  { id: 'hazard-003', code: 'YH20260712003', title: 'RTO 旁路阀铅封台账记录不完整', areaId: 'area-04', areaName: '硫磺回收装置', level: '一般', source: '专项检查', category: '环保设施', ownerDepartment: '安全环保部', owner: '周敏', discoveredAt: '2026-07-12', deadline: '2026-07-16', status: '待整改', riskUnitId: 'risk-004', overdue: false, recurrenceCount: 0, description: '现场铅封编号与月度台账存在一处缺项。', measures: ['补齐铅封编号', '复核当月巡检记录'] },
+  { id: 'hazard-004', code: 'YH20260709009', title: 'F-201 炉前压力表校验标签模糊', areaId: 'area-01', areaName: '常减压装置', level: '一般', source: '现场检查', category: '仪表管理', ownerDepartment: '仪控中心', owner: '刘工', discoveredAt: '2026-07-09', deadline: '2026-07-11', status: '已关闭', riskUnitId: 'risk-003', overdue: false, recurrenceCount: 0, description: '校验标签字迹模糊，已重新张贴并完成照片取证。', measures: ['更换校验标签'] },
+  { id: 'hazard-005', code: 'YH20260713002', title: '装车栈台一处静电接地夹磨损', areaId: 'area-06', areaName: '油品装卸区', level: '较大', source: '现场检查', category: '电气安全', ownerDepartment: '储运部', owner: '宋伟', discoveredAt: '2026-07-13', deadline: '2026-07-13', status: '待整改', riskUnitId: 'risk-006', overdue: false, recurrenceCount: 1, description: '接地夹齿口磨损，夹持可靠性下降。', measures: ['立即停用对应车位', '更换防爆静电接地夹'] },
+  { id: 'hazard-006', code: 'YH20260713005', title: 'GDS 趋势预警转化现场排查', areaId: 'area-02', areaName: '催化裂化装置', level: '较大', source: '预警转化', category: '泄漏管理', ownerDepartment: '催化裂化装置', owner: '李建国', discoveredAt: '2026-07-13', deadline: '2026-07-13', status: '整改中', riskUnitId: 'risk-001', overdue: false, recurrenceCount: 0, description: 'GDS-101 浓度持续上升，已转化隐患并开展泄漏点排查。', measures: ['便携仪器复测', '检查泵密封及法兰'] },
+];
+
+const workPermits: WorkPermit[] = [
+  { id: 'permit-001', code: 'DH-20260713-018', type: '动火作业', areaId: 'area-02', areaName: '催化裂化装置', workContent: 'P-208 泵出口法兰修复', applicant: '李建国', guardian: '王强', startAt: '07-13 08:00', endAt: '07-13 12:00', riskLevel: '重大', status: '作业中', gasTest: '07:55 O₂ 20.8%，可燃气 0%LEL，合格', linkedGdsCodes: ['GDS-101', 'GDS-FCC-08'], safetyMeasures: ['系统隔离并加盲板', '清除 15 米内可燃物', '消防器材现场到位', '专人连续气体监测'] },
+  { id: 'permit-002', code: 'SX-20260713-006', type: '受限空间', areaId: 'area-05', areaName: '储罐区', workContent: 'T-206 罐内防腐检查', applicant: '何军', guardian: '孟师傅', startAt: '07-13 09:00', endAt: '07-13 16:00', riskLevel: '重大', status: '待审批', gasTest: '等待首次气体检测', linkedGdsCodes: ['GDS-TANK-11'], safetyMeasures: ['工艺隔离', '强制通风', '出入口监护', '应急救援器材到位'] },
+  { id: 'permit-003', code: 'GC-20260713-011', type: '高处作业', areaId: 'area-04', areaName: '硫磺回收装置', workContent: 'RTO 烟囱平台仪表检修', applicant: '周敏', guardian: '张凯', startAt: '07-13 08:30', endAt: '07-13 11:30', riskLevel: '较大', status: '作业中', gasTest: '非受限空间，无需检测', linkedGdsCodes: [], safetyMeasures: ['双钩安全带', '工具防坠绳', '下方设置警戒区'] },
+  { id: 'permit-004', code: 'DZ-20260713-003', type: '吊装作业', areaId: 'area-01', areaName: '常减压装置', workContent: 'P-102 备用泵吊装就位', applicant: '高峰', guardian: '陈斌', startAt: '07-13 06:30', endAt: '07-13 09:30', riskLevel: '较大', status: '已关闭', gasTest: '作业完成，票证关闭', linkedGdsCodes: [], safetyMeasures: ['吊具检查合格', '吊装区域隔离'] },
+  { id: 'permit-005', code: 'LD-20260713-009', type: '临时用电', areaId: 'area-06', areaName: '油品装卸区', workContent: '三号装车位照明检修', applicant: '宋伟', guardian: '郭师傅', startAt: '07-13 10:00', endAt: '07-13 14:00', riskLevel: '一般', status: '待审批', gasTest: '等待属地确认', linkedGdsCodes: ['GDS-LOAD-06'], safetyMeasures: ['防爆配电箱', '漏电保护试验', '电缆架空保护'] },
+];
+
 const dashboard: DashboardData = {
   updatedAt: '2026-07-11 08:32:18',
   metrics: {
@@ -338,6 +408,9 @@ const dashboard: DashboardData = {
   emergencyTasks,
   emergencyResources,
   eventReviews,
+  riskUnits,
+  hazards,
+  workPermits,
 };
 
 export default {

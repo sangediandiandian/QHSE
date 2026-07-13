@@ -212,6 +212,76 @@ export interface EventReview {
   actions: ReviewAction[];
 }
 
+export interface RiskUnit {
+  id: string;
+  code: string;
+  name: string;
+  parentName: string;
+  areaId: string;
+  areaName: string;
+  ownerDepartment: string;
+  owner: string;
+  medium: string;
+  accidentTypes: string[];
+  staticLevel: RiskLevel;
+  currentLevel: RiskLevel;
+  controls: string[];
+  linkedGds: number;
+  linkedVoc: number;
+  linkedMes: number;
+  linkedPlans: number;
+  dynamicFactors: Array<{
+    source: 'GDS' | 'VOC' | 'MES' | '作业许可' | '隐患';
+    label: string;
+    impact: 'up' | 'watch';
+    status: string;
+  }>;
+}
+
+export type HazardStatus = '待整改' | '整改中' | '待验收' | '已关闭';
+
+export interface Hazard {
+  id: string;
+  code: string;
+  title: string;
+  areaId: string;
+  areaName: string;
+  level: '一般' | '较大' | '重大';
+  source: '现场检查' | '预警转化' | '专项检查' | '复盘整改';
+  category: string;
+  ownerDepartment: string;
+  owner: string;
+  discoveredAt: string;
+  deadline: string;
+  status: HazardStatus;
+  riskUnitId: string;
+  overdue: boolean;
+  recurrenceCount: number;
+  description: string;
+  measures: string[];
+}
+
+export type WorkPermitStatus = '待审批' | '作业中' | '建议暂停' | '已暂停' | '已关闭';
+
+export interface WorkPermit {
+  id: string;
+  code: string;
+  type: '动火作业' | '受限空间' | '高处作业' | '吊装作业' | '临时用电';
+  areaId: string;
+  areaName: string;
+  workContent: string;
+  applicant: string;
+  guardian: string;
+  startAt: string;
+  endAt: string;
+  riskLevel: '一般' | '较大' | '重大';
+  status: WorkPermitStatus;
+  gasTest: string;
+  linkedGdsCodes: string[];
+  safetyMeasures: string[];
+  alertReason?: string;
+}
+
 export interface TrendPoint {
   label: string;
   gds: number;
@@ -248,4 +318,7 @@ export interface DashboardData {
   emergencyTasks: EmergencyTask[];
   emergencyResources: EmergencyResource[];
   eventReviews: EventReview[];
+  riskUnits: RiskUnit[];
+  hazards: Hazard[];
+  workPermits: WorkPermit[];
 }

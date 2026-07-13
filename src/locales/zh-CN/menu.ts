@@ -1,5 +1,9 @@
 export default {
   'menu.综合驾驶舱': '综合驾驶舱',
+  'menu.QHSE 管理': 'QHSE 管理',
+  'menu.QHSE 管理.风险分级': '风险分级',
+  'menu.QHSE 管理.隐患治理': '隐患治理',
+  'menu.QHSE 管理.作业许可': '作业许可',
   'menu.监测中心': '监测中心',
   'menu.监测中心.GDS 监测': 'GDS 监测',
   'menu.监测中心.VOC 监测': 'VOC 监测',
