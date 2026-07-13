@@ -167,9 +167,7 @@ export interface EmergencyPlan {
   status: '推荐' | '已启动' | '已终止';
 }
 
-export interface EmergencyPlanTemplate {
-  id: string;
-  code: string;
+export interface EmergencyPlanTemplateConfig {
   name: string;
   category: '综合应急预案' | '专项应急预案' | '现场处置方案' | '岗位应急处置卡';
   eventType: string;
@@ -180,11 +178,30 @@ export interface EmergencyPlanTemplate {
   notificationTargets: string[];
   steps: string[];
   resources: string[];
-  version: string;
   effectiveDate: string;
-  status: '生效中' | '待评审' | '已停用';
+  expiryDate: string;
   ownerDepartment: string;
 }
+
+export type EmergencyPlanPublishStatus = '草稿' | '待评审' | '已发布';
+
+export interface EmergencyPlanVersion extends EmergencyPlanTemplateConfig {
+  version: string;
+  publishedAt: string;
+  publisher: string;
+}
+
+export interface EmergencyPlanTemplate extends EmergencyPlanTemplateConfig {
+  id: string;
+  code: string;
+  version: string;
+  status: '生效中' | '已停用';
+  publishStatus: EmergencyPlanPublishStatus;
+  draft?: EmergencyPlanTemplateConfig;
+  versions: EmergencyPlanVersion[];
+}
+
+export type EmergencyPlanDraftInput = EmergencyPlanTemplateConfig & { code: string };
 
 export interface ReviewAction {
   id: string;

@@ -159,7 +159,7 @@ const emergencyResources: EmergencyResource[] = [
   { id: 'res-008', code: 'BOOM-ABS-01', name: '围油栏与吸附材料', type: '物资', quantity: '3 套', location: '储运应急库', eta: '10 分钟', status: '待命', owner: '周敏', contact: '6077', lastInspection: '2026-06-30', inspectionStatus: '检查合格' },
 ];
 
-const emergencyPlans: EmergencyPlanTemplate[] = [
+const emergencyPlanSeeds: Array<Omit<EmergencyPlanTemplate, 'status' | 'publishStatus' | 'draft' | 'versions' | 'expiryDate'> & { status: '生效中' | '待评审' }> = [
   { id: 'tpl-001', code: 'QHSE-FCC-LEAK-01', name: '可燃气体泄漏现场处置方案', category: '现场处置方案', eventType: '可燃气体泄漏', applicableArea: '催化裂化装置', medium: '烃类可燃气体', responseLevel: 'II级', triggerRule: 'GDS 达到二级报警或多点浓度持续上升', notificationTargets: ['岗位人员', '装置负责人', '生产调度', '消防气防'], steps: ['停止作业并撤离现场', '切断物料与火源', '设置警戒并持续监测', '组织堵漏与恢复评估'], resources: ['泡沫消防车', '空气呼吸器', '防爆堵漏工具'], version: 'V3.2', effectiveDate: '2026-05-01', status: '生效中', ownerDepartment: '催化裂化装置' },
   { id: 'tpl-002', code: 'QHSE-GAS-H2S-02', name: '硫化氢泄漏专项应急预案', category: '专项应急预案', eventType: '有毒气体泄漏', applicableArea: '全厂含硫装置', medium: '硫化氢', responseLevel: 'I级', triggerRule: 'H₂S 浓度达到 20ppm 或出现人员中毒', notificationTargets: ['应急指挥人员', '消防气防', '医疗救护', '属地负责人'], steps: ['佩戴正压式呼吸器', '上风向组织撤离', '搜救受影响人员', '隔离泄漏源并通风'], resources: ['气防车', '空气呼吸器', '急救担架', '便携式检测仪'], version: 'V2.6', effectiveDate: '2026-03-15', status: '生效中', ownerDepartment: '安全环保部' },
   { id: 'tpl-003', code: 'QHSE-ENV-VOC-03', name: 'VOC 异常排放专项处置预案', category: '专项应急预案', eventType: '环境污染事件', applicableArea: 'VOC 治理设施及排口', medium: '非甲烷总烃', responseLevel: 'III级', triggerRule: '排口连续 10 分钟超限或治理效率低于 80%', notificationTargets: ['环保管理人员', '装置负责人', '生产调度'], steps: ['核查在线数据与设备状态', '切换备用治理设施', '降低相关装置负荷', '开展厂界加密监测'], resources: ['便携式 VOC 分析仪', '移动治理设备'], version: 'V2.1', effectiveDate: '2026-04-20', status: '生效中', ownerDepartment: '安全环保部' },
@@ -167,6 +167,47 @@ const emergencyPlans: EmergencyPlanTemplate[] = [
   { id: 'tpl-005', code: 'QHSE-GEN-2026', name: '生产安全事故综合应急预案', category: '综合应急预案', eventType: '综合事故', applicableArea: '全厂', medium: '多介质', responseLevel: 'I级', triggerRule: '重大事故或多个专项预案协同启动', notificationTargets: ['企业应急指挥部', '各专业应急组', '属地政府联络人'], steps: ['成立现场指挥部', '启动专业应急组', '统一资源和信息发布', '组织恢复与事故调查'], resources: ['指挥通信车', '全厂应急资源清单'], version: 'V5.1', effectiveDate: '2026-01-01', status: '生效中', ownerDepartment: 'QHSE 管理部' },
   { id: 'tpl-006', code: 'CARD-CDU-PUMP-07', name: '常减压泵区泄漏岗位处置卡', category: '岗位应急处置卡', eventType: '管线及设备泄漏', applicableArea: '常减压装置泵区', medium: '原油及成品油', responseLevel: 'IV级', triggerRule: '现场发现滴漏、异味或单点低限报警', notificationTargets: ['岗位班长', '装置值班人员'], steps: ['按下紧急停泵按钮', '关闭进出口阀门', '报告班长并设置临时警戒', '使用吸附材料控制扩散'], resources: ['吸油毡', '便携式检测仪', '防爆工具'], version: 'V1.4', effectiveDate: '2025-11-10', status: '待评审', ownerDepartment: '常减压装置' },
 ];
+
+const planExpiryDates: Record<string, string> = {
+  'tpl-001': '2026-08-15',
+  'tpl-002': '2027-03-14',
+  'tpl-003': '2027-04-19',
+  'tpl-004': '2027-05-31',
+  'tpl-005': '2026-12-31',
+  'tpl-006': '2026-11-09',
+};
+
+const emergencyPlans: EmergencyPlanTemplate[] = emergencyPlanSeeds.map((plan) => {
+  const config = {
+    name: plan.name,
+    category: plan.category,
+    eventType: plan.eventType,
+    applicableArea: plan.applicableArea,
+    medium: plan.medium,
+    responseLevel: plan.responseLevel,
+    triggerRule: plan.triggerRule,
+    notificationTargets: plan.notificationTargets,
+    steps: plan.steps,
+    resources: plan.resources,
+    effectiveDate: plan.effectiveDate,
+    expiryDate: planExpiryDates[plan.id],
+    ownerDepartment: plan.ownerDepartment,
+  };
+  const pending = plan.status === '待评审';
+  return {
+    ...plan,
+    ...config,
+    status: pending ? '已停用' : '生效中',
+    publishStatus: pending ? '待评审' : '已发布',
+    draft: pending ? config : undefined,
+    versions: pending ? [] : [{
+      ...config,
+      version: plan.version,
+      publishedAt: `${plan.effectiveDate} 09:00:00`,
+      publisher: '赵磊 / QHSE 管理部',
+    }],
+  };
+});
 
 const eventReviews: EventReview[] = [
   {

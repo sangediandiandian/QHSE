@@ -1,5 +1,10 @@
 import { getDashboard } from '@/services/qhse/dashboard';
-import type { DashboardData, EmergencyEventAction, WarningRuleDraftInput } from '@/types/qhse';
+import type {
+  DashboardData,
+  EmergencyEventAction,
+  EmergencyPlanDraftInput,
+  WarningRuleDraftInput,
+} from '@/types/qhse';
 import {
   withAlarmStatus,
   withCommunicationConfirmation,
@@ -16,6 +21,12 @@ import {
 } from '@/utils/dashboardPersistence';
 import { isWarningScenarioEnabled, withWarningRuleTriggered } from '@/utils/warningRules';
 import { transitionEmergencyEvent } from '@/utils/emergencyEventWorkflow';
+import {
+  publishEmergencyPlan as withPublishedEmergencyPlan,
+  rollbackEmergencyPlan,
+  saveEmergencyPlanDraft,
+  submitEmergencyPlanForReview,
+} from '@/utils/emergencyPlanWorkflow';
 import {
   publishWarningRule as withPublishedWarningRule,
   rollbackWarningRule,
@@ -144,6 +155,44 @@ export default function useQhseModel() {
         status: resource.status === '待命' ? '调度中' : resource.status === '调度中' ? '已到位' : resource.status,
         eta: resource.status === '调度中' ? '已到场' : resource.eta,
       } : resource),
+    } : current);
+  }, []);
+
+  const saveEmergencyPlan = useCallback((planId: string, input: EmergencyPlanDraftInput) => {
+    setDashboard((current) => current ? {
+      ...current,
+      emergencyPlans: saveEmergencyPlanDraft(current.emergencyPlans, planId, input),
+    } : current);
+  }, []);
+
+  const submitEmergencyPlan = useCallback((planId: string) => {
+    setDashboard((current) => current ? {
+      ...current,
+      emergencyPlans: current.emergencyPlans.map((plan) => plan.id === planId
+        ? submitEmergencyPlanForReview(plan)
+        : plan),
+    } : current);
+  }, []);
+
+  const approveEmergencyPlan = useCallback((planId: string) => {
+    setDashboard((current) => current ? {
+      ...current,
+      emergencyPlans: current.emergencyPlans.map((plan) => plan.id === planId
+        ? withPublishedEmergencyPlan(
+          plan,
+          new Date().toLocaleString('zh-CN', { hour12: false }),
+          '赵磊 / QHSE 管理部',
+        )
+        : plan),
+    } : current);
+  }, []);
+
+  const rollbackEmergencyPlanVersion = useCallback((planId: string, version: string) => {
+    setDashboard((current) => current ? {
+      ...current,
+      emergencyPlans: current.emergencyPlans.map((plan) => plan.id === planId
+        ? rollbackEmergencyPlan(plan, version)
+        : plan),
     } : current);
   }, []);
 
@@ -308,6 +357,10 @@ export default function useQhseModel() {
     confirmCommunication,
     advanceEmergencyTask,
     advanceEmergencyResource,
+    saveEmergencyPlan,
+    submitEmergencyPlan,
+    approveEmergencyPlan,
+    rollbackEmergencyPlanVersion,
     advanceReviewAction,
     closeEventReview,
     transitionEvent,
