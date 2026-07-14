@@ -2,6 +2,7 @@ import { getDashboard } from '@/services/qhse/dashboard';
 import type {
   DashboardData,
   EmergencyEventAction,
+  EmergencyEventEvidence,
   EmergencyPlanDraftInput,
   EmergencyResourceDispatchInput,
   EmergencyResourceInput,
@@ -44,7 +45,13 @@ import {
   createWorkPermit as withCreatedWorkPermit,
   getWorkPermitApprovalSteps,
 } from '@/utils/workPermitWorkflow';
-import { transitionEmergencyEvent } from '@/utils/emergencyEventWorkflow';
+import {
+  addEmergencyEventEvidence as withAddedEmergencyEventEvidence,
+  approveEmergencyEventClosure as withApprovedEmergencyEventClosure,
+  createEmergencyClosureApproval,
+  remindEmergencyClosureApproval as withRemindedEmergencyClosureApproval,
+  transitionEmergencyEvent,
+} from '@/utils/emergencyEventWorkflow';
 import {
   addEmergencyResource as withAddedEmergencyResource,
   confirmEmergencyResourceArrival as withConfirmedResourceArrival,
@@ -347,7 +354,10 @@ export default function useQhseModel() {
       const event = current.emergencyEvents.find((item) => item.id === eventId);
       if (!event) return current;
       const operator = action === '审批关闭' ? '赵磊 / QHSE 管理部' : event.commander;
-      const transitioned = transitionEmergencyEvent(event, action, operator, operatedAt);
+      const transitionedEvent = transitionEmergencyEvent(event, action, operator, operatedAt);
+      const transitioned = action === '申请关闭'
+        ? createEmergencyClosureApproval(transitionedEvent, event.commander, '赵磊 / QHSE 管理部', operatedAt)
+        : transitionedEvent;
       if (transitioned === event) return current;
       const alarmStatus = transitioned.status === '响应中' ? '处置中' : '监控中';
       return {
@@ -361,6 +371,38 @@ export default function useQhseModel() {
           responseLevel: transitioned.responseLevel,
           status: transitioned.status === '响应中' ? '已启动' : '已终止',
         } : current.emergencyPlan,
+      };
+    });
+  }, []);
+
+  const addEmergencyEventEvidence = useCallback((eventId: string, evidence: Omit<EmergencyEventEvidence, 'id' | 'uploadedAt' | 'hash'>) => {
+    setDashboard((current) => current ? {
+      ...current,
+      emergencyEvents: current.emergencyEvents.map((event) => event.id === eventId
+        ? withAddedEmergencyEventEvidence(event, evidence, `event-evidence-${Date.now()}`, getCurrentTimestamp(), `META-${Date.now().toString(16).toUpperCase()}`)
+        : event),
+    } : current);
+  }, []);
+
+  const remindEmergencyClosureApproval = useCallback((eventId: string) => {
+    setDashboard((current) => current ? {
+      ...current,
+      emergencyEvents: current.emergencyEvents.map((event) => event.id === eventId
+        ? withRemindedEmergencyClosureApproval(event, getCurrentTimestamp())
+        : event),
+    } : current);
+  }, []);
+
+  const approveEmergencyEventClosure = useCallback((eventId: string, opinion: string) => {
+    setDashboard((current) => {
+      if (!current) return current;
+      const event = current.emergencyEvents.find((item) => item.id === eventId);
+      if (!event) return current;
+      const approved = withApprovedEmergencyEventClosure(event, event.closureApproval?.assignee ?? '赵磊 / QHSE 管理部', opinion, getCurrentTimestamp());
+      return {
+        ...current,
+        emergencyEvents: current.emergencyEvents.map((item) => item.id === eventId ? approved : item),
+        alarms: current.alarms.map((alarm) => alarm.id === approved.eventId ? { ...alarm, status: '监控中' } : alarm),
       };
     });
   }, []);
@@ -576,6 +618,9 @@ export default function useQhseModel() {
     advanceReviewAction,
     closeEventReview,
     transitionEvent,
+    addEmergencyEventEvidence,
+    remindEmergencyClosureApproval,
+    approveEmergencyEventClosure,
     assessRiskUnit,
     saveRiskControls,
     addHazard,

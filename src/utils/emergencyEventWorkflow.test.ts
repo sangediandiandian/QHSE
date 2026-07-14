@@ -1,5 +1,13 @@
 import type { EmergencyEvent } from '@/types/qhse';
-import { isEmergencyEventActionAllowed, transitionEmergencyEvent } from './emergencyEventWorkflow';
+import {
+  addEmergencyEventEvidence,
+  approveEmergencyEventClosure,
+  createEmergencyClosureApproval,
+  isEmergencyApprovalOverdue,
+  isEmergencyEventActionAllowed,
+  remindEmergencyClosureApproval,
+  transitionEmergencyEvent,
+} from './emergencyEventWorkflow';
 
 const event: EmergencyEvent = {
   id: 'lifecycle-1', eventId: 'evt-1', code: 'E001', title: '测试事件', areaId: 'area-1',
@@ -27,5 +35,29 @@ describe('emergency event workflow', () => {
     expect(isEmergencyEventActionAllowed(event, '审批关闭')).toBe(false);
     expect(transitionEmergencyEvent(event, '审批关闭', '赵磊', '11:00')).toBe(event);
     expect(transitionEmergencyEvent({ ...event, responseLevel: 'I级' }, '升级响应', '陈涛', '11:00')).toEqual({ ...event, responseLevel: 'I级' });
+  });
+
+  it('申请关闭后生成有时限的审批任务', () => {
+    const monitoring = transitionEmergencyEvent(event, '终止响应', '陈涛', '2026-07-14 09:00:00');
+    const pending = transitionEmergencyEvent(monitoring, '申请关闭', '陈涛', '2026-07-14 10:00:00');
+    const withApproval = createEmergencyClosureApproval(pending, '陈涛', '赵磊', '2026-07-14 10:00:00');
+    expect(withApproval.closureApproval).toMatchObject({ status: '待审批', dueAt: '2026-07-14 14:00:00', reminderCount: 0 });
+    expect(isEmergencyApprovalOverdue(withApproval, '2026-07-14 14:00:01')).toBe(true);
+  });
+
+  it('超时审批可催办并留下次数和时间', () => {
+    const pending = createEmergencyClosureApproval({ ...event, status: '待关闭' }, '陈涛', '赵磊', '2026-07-14 10:00:00');
+    const reminded = remindEmergencyClosureApproval(pending, '2026-07-14 14:10:00');
+    expect(reminded.closureApproval).toMatchObject({ reminderCount: 1, lastReminderAt: '2026-07-14 14:10:00' });
+  });
+
+  it('关闭审批要求证据并生成签名', () => {
+    const pending = createEmergencyClosureApproval({ ...event, status: '待关闭' }, '陈涛', '赵磊', '2026-07-14 10:00:00');
+    expect(() => approveEmergencyEventClosure(pending, '赵磊', '同意关闭', '2026-07-14 11:00:00')).toThrow('至少归档一项事件证据');
+    const withEvidence = addEmergencyEventEvidence(pending, { name: '现场复查照片', category: '现场照片', uploader: '陈涛', note: '风险已解除' }, 'evidence-1', '2026-07-14 10:30:00', 'sha256:abc');
+    const closed = approveEmergencyEventClosure(withEvidence, '赵磊', '同意关闭', '2026-07-14 11:00:00');
+    expect(closed.status).toBe('已关闭');
+    expect(closed.closureApproval).toMatchObject({ status: '已通过', opinion: '同意关闭' });
+    expect(closed.closureApproval?.signature).toContain('电子签名');
   });
 });

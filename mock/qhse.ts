@@ -402,6 +402,11 @@ const emergencyEvents: EmergencyEvent[] = [
     areaId: 'area-01', areaName: '常减压装置', source: 'MES', status: '待关闭', responseLevel: 'IV级',
     commander: '高峰 / 装置值班', ownerDepartment: '常减压装置', startedAt: '2026-07-11 08:11:37',
     updatedAt: '2026-07-11 10:18:44', summary: '压力波动原因已排查，现场数据稳定，关闭材料已提交 QHSE 管理部审批。',
+    evidence: [
+      { id: 'lifecycle-003-e1', name: 'P-102 出口压力稳定性趋势', category: '监测报告', uploader: '高峰 / 装置值班', uploadedAt: '2026-07-11 10:12:30', note: '连续 30 分钟压力处于正常区间。', hash: 'META-EC0301' },
+      { id: 'lifecycle-003-e2', name: '现场复查记录', category: '处置记录', uploader: '高峰 / 装置值班', uploadedAt: '2026-07-11 10:16:08', note: '阀位与泵出口状态已复查，无异常。', hash: 'META-EC0302' },
+    ],
+    closureApproval: { id: 'lifecycle-003-closure', type: '事件关闭', applicant: '高峰 / 装置值班', assignee: '赵磊 / QHSE 管理部', status: '待审批', createdAt: '2026-07-11 10:18:44', dueAt: '2026-07-11 14:18:44', reminderCount: 1, lastReminderAt: '2026-07-11 14:25:00' },
     operations: [
       { id: 'lifecycle-003-1', action: '事件生成', operator: '系统', operatedAt: '2026-07-11 08:11:37', toStatus: '待研判', toLevel: 'IV级', detail: 'MES 压力异常生成应急事件。' },
       { id: 'lifecycle-003-2', action: '研判启动', operator: '高峰 / 装置值班', operatedAt: '2026-07-11 08:15:06', fromStatus: '待研判', toStatus: '响应中', fromLevel: 'IV级', toLevel: 'IV级', detail: '启动设备和工艺联合排查。' },

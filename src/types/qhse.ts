@@ -342,6 +342,33 @@ export interface EmergencyEvent {
   updatedAt: string;
   summary: string;
   operations: EmergencyEventOperation[];
+  evidence?: EmergencyEventEvidence[];
+  closureApproval?: EmergencyEventApprovalTask;
+}
+
+export interface EmergencyEventEvidence {
+  id: string;
+  name: string;
+  category: '现场照片' | '监测报告' | '处置记录' | '审批材料';
+  uploader: string;
+  uploadedAt: string;
+  note: string;
+  hash: string;
+}
+
+export interface EmergencyEventApprovalTask {
+  id: string;
+  type: '事件关闭';
+  applicant: string;
+  assignee: string;
+  status: '待审批' | '已通过';
+  createdAt: string;
+  dueAt: string;
+  approvedAt?: string;
+  signature?: string;
+  opinion?: string;
+  reminderCount: number;
+  lastReminderAt?: string;
 }
 
 export interface RiskUnit {

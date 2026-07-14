@@ -113,7 +113,7 @@ export default function WarningRules() {
   };
 
   return (
-    <PageContainer title={false} className={styles.page} extra={<Space><Button type="primary" icon={<PlusOutlined />} onClick={() => openEditor()}>新建规则</Button><Popconfirm title="恢复 Mock 初始状态？" description="将清除浏览器中保存的风险评估、隐患证据、票证审批、规则会签、预案和事件操作。" okText="确认重置" cancelText="取消" onConfirm={() => { void resetDashboard(); message.success('演示数据已恢复初始状态'); }}><Button icon={<ReloadOutlined />}>重置演示数据</Button></Popconfirm></Space>}>
+    <PageContainer title={false} className={styles.page} extra={<Space><Button type="primary" icon={<PlusOutlined />} onClick={() => openEditor()}>新建规则</Button><Popconfirm title="恢复 Mock 初始状态？" description="将清除浏览器中保存的风险评估、隐患证据、票证审批、规则会签、预案、事件审批和附件证据。" okText="确认重置" cancelText="取消" onConfirm={() => { void resetDashboard(); message.success('演示数据已恢复初始状态'); }}><Button icon={<ReloadOutlined />}>重置演示数据</Button></Popconfirm></Space>}>
       <header className={styles.heading}>
         <div><span>WARNING RULE ORCHESTRATION</span><h1>预警规则配置</h1><p>统一管理单点阈值、持续时间、多源组合、作用范围和通知对象。</p></div>
         <div className={styles.persistence}><DatabaseFilled /><span>原型状态存储<strong>本地持久化已启用</strong><small>规则与业务操作刷新后保留</small></span></div>
