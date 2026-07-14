@@ -272,6 +272,40 @@ export interface EmergencyPlanVersion extends EmergencyPlanTemplateConfig {
   publisher: string;
 }
 
+export interface EmergencyPlanReviewStep {
+  role: 'QHSE 评审' | '生产负责人会签';
+  reviewer: string;
+  status: '待评审' | '已通过';
+  reviewedAt?: string;
+  signature?: string;
+}
+
+export type EmergencyDrillStatus = '计划中' | '待复盘' | '已完成';
+
+export interface EmergencyDrill {
+  id: string;
+  title: string;
+  type: '桌面推演' | '专项演练' | '综合演练';
+  plannedAt: string;
+  location: string;
+  leader: string;
+  participants: string[];
+  status: EmergencyDrillStatus;
+  startedAt?: string;
+  completedAt?: string;
+  score?: number;
+  summary?: string;
+  issues?: string[];
+}
+
+export type EmergencyDrillInput = Omit<EmergencyDrill, 'id' | 'status' | 'startedAt' | 'completedAt' | 'score' | 'summary' | 'issues'>;
+
+export interface EmergencyDrillRecordInput {
+  score: number;
+  summary: string;
+  issues: string[];
+}
+
 export interface EmergencyPlanTemplate extends EmergencyPlanTemplateConfig {
   id: string;
   code: string;
@@ -280,6 +314,8 @@ export interface EmergencyPlanTemplate extends EmergencyPlanTemplateConfig {
   publishStatus: EmergencyPlanPublishStatus;
   draft?: EmergencyPlanTemplateConfig;
   versions: EmergencyPlanVersion[];
+  reviewSteps?: EmergencyPlanReviewStep[];
+  drills?: EmergencyDrill[];
 }
 
 export type EmergencyPlanDraftInput = EmergencyPlanTemplateConfig & { code: string };

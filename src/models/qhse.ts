@@ -1,6 +1,8 @@
 import { getDashboard } from '@/services/qhse/dashboard';
 import type {
   DashboardData,
+  EmergencyDrillInput,
+  EmergencyDrillRecordInput,
   EmergencyEventAction,
   EmergencyEventEvidence,
   EmergencyPlanDraftInput,
@@ -65,9 +67,14 @@ import {
   verifyWarningEvidence as withVerifiedWarningEvidence,
 } from '@/utils/warningEvidenceWorkflow';
 import {
+  addEmergencyDrill as withAddedEmergencyDrill,
+  approveEmergencyPlanReviewStep,
+  isEmergencyPlanFullyApproved,
   publishEmergencyPlan as withPublishedEmergencyPlan,
+  recordEmergencyDrill as withRecordedEmergencyDrill,
   rollbackEmergencyPlan,
   saveEmergencyPlanDraft,
+  startEmergencyDrill as withStartedEmergencyDrill,
   submitEmergencyPlanForReview,
 } from '@/utils/emergencyPlanWorkflow';
 import {
@@ -298,12 +305,40 @@ export default function useQhseModel() {
   const approveEmergencyPlan = useCallback((planId: string) => {
     setDashboard((current) => current ? {
       ...current,
+      emergencyPlans: current.emergencyPlans.map((plan) => {
+        if (plan.id !== planId) return plan;
+        const reviewedAt = getCurrentTimestamp();
+        const reviewed = approveEmergencyPlanReviewStep(plan, reviewedAt);
+        if (!isEmergencyPlanFullyApproved(reviewed)) return reviewed;
+        const publisher = reviewed.reviewSteps?.map((step) => step.signature).filter(Boolean).join('；') ?? '';
+        return withPublishedEmergencyPlan(reviewed, reviewedAt, publisher);
+      }),
+    } : current);
+  }, []);
+
+  const addEmergencyDrill = useCallback((planId: string, input: EmergencyDrillInput) => {
+    setDashboard((current) => current ? {
+      ...current,
       emergencyPlans: current.emergencyPlans.map((plan) => plan.id === planId
-        ? withPublishedEmergencyPlan(
-          plan,
-          new Date().toLocaleString('zh-CN', { hour12: false }),
-          '赵磊 / QHSE 管理部',
-        )
+        ? withAddedEmergencyDrill(plan, input, `drill-${Date.now()}`)
+        : plan),
+    } : current);
+  }, []);
+
+  const startEmergencyDrill = useCallback((planId: string, drillId: string) => {
+    setDashboard((current) => current ? {
+      ...current,
+      emergencyPlans: current.emergencyPlans.map((plan) => plan.id === planId
+        ? withStartedEmergencyDrill(plan, drillId, getCurrentTimestamp())
+        : plan),
+    } : current);
+  }, []);
+
+  const recordEmergencyDrill = useCallback((planId: string, drillId: string, input: EmergencyDrillRecordInput) => {
+    setDashboard((current) => current ? {
+      ...current,
+      emergencyPlans: current.emergencyPlans.map((plan) => plan.id === planId
+        ? withRecordedEmergencyDrill(plan, drillId, input, getCurrentTimestamp())
         : plan),
     } : current);
   }, []);
@@ -615,6 +650,9 @@ export default function useQhseModel() {
     submitEmergencyPlan,
     approveEmergencyPlan,
     rollbackEmergencyPlanVersion,
+    addEmergencyDrill,
+    startEmergencyDrill,
+    recordEmergencyDrill,
     advanceReviewAction,
     closeEventReview,
     transitionEvent,

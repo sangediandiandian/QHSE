@@ -166,7 +166,7 @@ const emergencyResources: EmergencyResource[] = [
   { id: 'res-008', code: 'BOOM-ABS-01', name: '围油栏与吸附材料', type: '物资', quantity: '3 套', totalQuantity: 3, availableQuantity: 3, unit: '套', location: '储运应急库', eta: '10 分钟', status: '待命', owner: '周敏', contact: '6077', lastInspection: '2026-06-30', nextInspection: '2026-07-30', inspectionStatus: '检查合格', dispatches: [], inspectionRecords: [] },
 ];
 
-const emergencyPlanSeeds: Array<Omit<EmergencyPlanTemplate, 'status' | 'publishStatus' | 'draft' | 'versions' | 'expiryDate'> & { status: '生效中' | '待评审' }> = [
+const emergencyPlanSeeds: Array<Omit<EmergencyPlanTemplate, 'status' | 'publishStatus' | 'draft' | 'versions' | 'reviewSteps' | 'drills' | 'expiryDate'> & { status: '生效中' | '待评审' }> = [
   { id: 'tpl-001', code: 'QHSE-FCC-LEAK-01', name: '可燃气体泄漏现场处置方案', category: '现场处置方案', eventType: '可燃气体泄漏', applicableArea: '催化裂化装置', medium: '烃类可燃气体', responseLevel: 'II级', triggerRule: 'GDS 达到二级报警或多点浓度持续上升', notificationTargets: ['岗位人员', '装置负责人', '生产调度', '消防气防'], steps: ['停止作业并撤离现场', '切断物料与火源', '设置警戒并持续监测', '组织堵漏与恢复评估'], resources: ['泡沫消防车', '空气呼吸器', '防爆堵漏工具'], version: 'V3.2', effectiveDate: '2026-05-01', status: '生效中', ownerDepartment: '催化裂化装置' },
   { id: 'tpl-002', code: 'QHSE-GAS-H2S-02', name: '硫化氢泄漏专项应急预案', category: '专项应急预案', eventType: '有毒气体泄漏', applicableArea: '全厂含硫装置', medium: '硫化氢', responseLevel: 'I级', triggerRule: 'H₂S 浓度达到 20ppm 或出现人员中毒', notificationTargets: ['应急指挥人员', '消防气防', '医疗救护', '属地负责人'], steps: ['佩戴正压式呼吸器', '上风向组织撤离', '搜救受影响人员', '隔离泄漏源并通风'], resources: ['气防车', '空气呼吸器', '急救担架', '便携式检测仪'], version: 'V2.6', effectiveDate: '2026-03-15', status: '生效中', ownerDepartment: '安全环保部' },
   { id: 'tpl-003', code: 'QHSE-ENV-VOC-03', name: 'VOC 异常排放专项处置预案', category: '专项应急预案', eventType: '环境污染事件', applicableArea: 'VOC 治理设施及排口', medium: '非甲烷总烃', responseLevel: 'III级', triggerRule: '排口连续 10 分钟超限或治理效率低于 80%', notificationTargets: ['环保管理人员', '装置负责人', '生产调度'], steps: ['核查在线数据与设备状态', '切换备用治理设施', '降低相关装置负荷', '开展厂界加密监测'], resources: ['便携式 VOC 分析仪', '移动治理设备'], version: 'V2.1', effectiveDate: '2026-04-20', status: '生效中', ownerDepartment: '安全环保部' },
@@ -207,6 +207,23 @@ const emergencyPlans: EmergencyPlanTemplate[] = emergencyPlanSeeds.map((plan) =>
     status: pending ? '已停用' : '生效中',
     publishStatus: pending ? '待评审' : '已发布',
     draft: pending ? config : undefined,
+    reviewSteps: pending ? [
+      { role: 'QHSE 评审', reviewer: '赵磊', status: '已通过', reviewedAt: '2026-07-12 15:20:00', signature: '赵磊 / QHSE 评审' },
+      { role: '生产负责人会签', reviewer: '陈涛', status: '待评审' },
+    ] : undefined,
+    drills: plan.id === 'tpl-001' ? [
+      {
+        id: 'drill-001', title: 'FCC 泵区可燃气体泄漏专项演练', type: '专项演练',
+        plannedAt: '2026-06-18 09:00', location: '催化裂化装置泵区', leader: '赵磊',
+        participants: ['催化裂化装置', '消防气防中心', '生产调度'], status: '已完成',
+        startedAt: '2026-06-18 09:03:00', completedAt: '2026-06-18 10:15:00', score: 91,
+        summary: '报警确认、人员撤离和消防联动均按预案完成。', issues: ['移动检测组到场时间超出目标 2 分钟'],
+      },
+      {
+        id: 'drill-002', title: '夜班泄漏桌面推演', type: '桌面推演', plannedAt: '2026-08-05 19:30',
+        location: '催化裂化装置交接班室', leader: '王强', participants: ['运行四班', '生产调度'], status: '计划中',
+      },
+    ] : [],
     versions: pending ? [] : [{
       ...config,
       version: plan.version,

@@ -1,22 +1,30 @@
 import type {
+  EmergencyDrillInput,
+  EmergencyDrillRecordInput,
   EmergencyPlanDraftInput,
-  EmergencyPlanTemplate,
   EmergencyPlanPublishStatus,
+  EmergencyPlanTemplate,
+  EmergencyPlanVersion,
 } from '@/types/qhse';
 import {
+  compareEmergencyPlanConfigs,
   getEmergencyPlanDisplayConfig,
   getEmergencyPlanExpiryState,
 } from '@/utils/emergencyPlanWorkflow';
 import {
   ApartmentOutlined,
+  AuditOutlined,
   CalendarOutlined,
   CheckCircleFilled,
   ClockCircleOutlined,
+  DiffOutlined,
   EditOutlined,
   FileProtectOutlined,
   FilterOutlined,
   HistoryOutlined,
   NotificationOutlined,
+  PlayCircleOutlined,
+  PlusOutlined,
   RocketOutlined,
   RollbackOutlined,
   SafetyCertificateOutlined,
@@ -32,6 +40,7 @@ import {
   Empty,
   Form,
   Input,
+  InputNumber,
   Modal,
   Popconfirm,
   Segmented,
@@ -60,7 +69,8 @@ function getPlanStatus(plan: EmergencyPlanTemplate) {
 export default function EmergencyPlans() {
   const {
     dashboard, loading, loadDashboard, saveEmergencyPlan, submitEmergencyPlan,
-    approveEmergencyPlan, rollbackEmergencyPlanVersion,
+    approveEmergencyPlan, rollbackEmergencyPlanVersion, addEmergencyDrill,
+    startEmergencyDrill, recordEmergencyDrill,
   } = useModel('qhse');
   const [category, setCategory] = useState<Category>('全部预案');
   const [query, setQuery] = useState('');
@@ -69,7 +79,12 @@ export default function EmergencyPlans() {
   const [editingId, setEditingId] = useState<string>();
   const [editorOpen, setEditorOpen] = useState(false);
   const [versionsOpen, setVersionsOpen] = useState(false);
+  const [diffVersion, setDiffVersion] = useState<EmergencyPlanVersion>();
+  const [drillEditorOpen, setDrillEditorOpen] = useState(false);
+  const [recordingDrillId, setRecordingDrillId] = useState<string>();
   const [form] = Form.useForm<EmergencyPlanDraftInput>();
+  const [drillForm] = Form.useForm<EmergencyDrillInput>();
+  const [recordForm] = Form.useForm<EmergencyDrillRecordInput>();
 
   useEffect(() => { if (!dashboard) void loadDashboard(); }, [dashboard, loadDashboard]);
 
@@ -91,6 +106,7 @@ export default function EmergencyPlans() {
   const activeCount = dashboard.emergencyPlans.filter((plan) => plan.status === '生效中').length;
   const reviewCount = dashboard.emergencyPlans.filter((plan) => plan.publishStatus === '待评审').length;
   const expiringCount = dashboard.emergencyPlans.filter((plan) => getEmergencyPlanExpiryState(plan, '2026-07-13') === '即将到期').length;
+  const plannedDrillCount = dashboard.emergencyPlans.flatMap((plan) => plan.drills ?? []).filter((drill) => drill.status === '计划中').length;
   const openEditor = (plan?: EmergencyPlanTemplate) => {
     const config = plan ? getEmergencyPlanDisplayConfig(plan) : {
       name: '', category: '现场处置方案' as const, eventType: '', applicableArea: '', medium: '',
@@ -115,7 +131,24 @@ export default function EmergencyPlans() {
     setEditorOpen(false);
     message.success(editingId ? '预案修改已保存为草稿' : '新预案草稿已创建');
   };
+  const handleAddDrill = async () => {
+    const values = await drillForm.validateFields();
+    addEmergencyDrill(selected.id, values);
+    setDrillEditorOpen(false);
+    drillForm.resetFields();
+    message.success('演练计划已创建');
+  };
+  const handleRecordDrill = async () => {
+    const values = await recordForm.validateFields();
+    if (!recordingDrillId) return;
+    recordEmergencyDrill(selected.id, recordingDrillId, values);
+    setRecordingDrillId(undefined);
+    recordForm.resetFields();
+    message.success('演练复盘记录已归档');
+  };
   const expiryState = getEmergencyPlanExpiryState(selected, '2026-07-13');
+  const nextReviewStep = selected.reviewSteps?.find((step) => step.status === '待评审');
+  const diffItems = diffVersion ? compareEmergencyPlanConfigs(diffVersion, display) : [];
 
   return (
     <PageContainer title={false} className={styles.page} extra={<Button type="primary" icon={<FileProtectOutlined />} onClick={() => openEditor()}>新建预案</Button>}>
@@ -126,6 +159,7 @@ export default function EmergencyPlans() {
           <div><strong>{activeCount}</strong><span>生效中</span></div>
           <div className={styles.review}><strong>{reviewCount}</strong><span>待评审</span></div>
           <div className={styles.expiring}><strong>{expiringCount}</strong><span>即将到期</span></div>
+          <div className={styles.drill}><strong>{plannedDrillCount}</strong><span>演练计划</span></div>
         </div>
       </header>
 
@@ -166,13 +200,26 @@ export default function EmergencyPlans() {
         <aside className={styles.planDetail}>
           <header><div><span>PLAN DOSSIER</span><h2>{display.name}</h2></div><Tag color={publishColor[selected.publishStatus]}>{getPlanStatus(selected)}</Tag></header>
           <div className={styles.identity}><code>{selected.code}</code><b>{selected.version}</b><span>{display.ownerDepartment}</span></div>
-          <section className={styles.workflow}><div><span className={selected.publishStatus === '草稿' ? styles.workflowActive : ''}>1 草稿</span><i /><span className={selected.publishStatus === '待评审' ? styles.workflowActive : ''}>2 待评审</span><i /><span className={selected.publishStatus === '已发布' ? styles.workflowActive : ''}>3 已发布</span></div><p>{selected.draft ? `当前展示未发布草稿；应急匹配仍使用 ${selected.version}。` : `${selected.version} 已生效，编辑后将生成独立草稿。`}</p><Space wrap><Button size="small" icon={<EditOutlined />} onClick={() => openEditor(selected)}>编辑</Button>{selected.publishStatus === '草稿' && <Button size="small" type="primary" icon={<SendOutlined />} onClick={() => { submitEmergencyPlan(selected.id); message.success('预案已提交评审'); }}>提交评审</Button>}{selected.publishStatus === '待评审' && <Button size="small" type="primary" icon={<CheckCircleFilled />} onClick={() => { approveEmergencyPlan(selected.id); message.success('预案评审通过并发布'); }}>评审发布</Button>}<Button size="small" icon={<HistoryOutlined />} disabled={selected.versions.length === 0} onClick={() => setVersionsOpen(true)}>版本历史</Button></Space></section>
+          <section className={styles.workflow}>
+            <div><span className={selected.publishStatus === '草稿' ? styles.workflowActive : ''}>1 草稿</span><i /><span className={selected.publishStatus === '待评审' ? styles.workflowActive : ''}>2 双人会签</span><i /><span className={selected.publishStatus === '已发布' ? styles.workflowActive : ''}>3 已发布</span></div>
+            <p>{selected.draft ? `当前展示未发布草稿；应急匹配仍使用 ${selected.version}。` : `${selected.version} 已生效，编辑后将生成独立草稿。`}</p>
+            {selected.reviewSteps && <div className={styles.reviewSteps}>{selected.reviewSteps.map((step) => <span key={step.role} className={step.status === '已通过' ? styles.reviewed : ''}><AuditOutlined /> {step.role} · {step.reviewer} · {step.status}</span>)}</div>}
+            <Space wrap><Button size="small" icon={<EditOutlined />} onClick={() => openEditor(selected)}>编辑</Button>{selected.publishStatus === '草稿' && <Button size="small" type="primary" icon={<SendOutlined />} onClick={() => { submitEmergencyPlan(selected.id); message.success('预案已提交双人会签'); }}>提交会签</Button>}{selected.publishStatus === '待评审' && nextReviewStep && <Button size="small" type="primary" icon={<CheckCircleFilled />} onClick={() => { const isFinal = selected.reviewSteps?.filter((step) => step.status === '待评审').length === 1; approveEmergencyPlan(selected.id); message.success(isFinal ? '双人会签完成，预案已发布' : `${nextReviewStep.role}已通过，等待下一会签人`); }}>{nextReviewStep.role}</Button>}<Button size="small" icon={<HistoryOutlined />} disabled={selected.versions.length === 0} onClick={() => setVersionsOpen(true)}>版本历史</Button></Space>
+          </section>
           <section className={styles.expiryNotice}><CalendarOutlined /><span>有效期<strong>{display.effectiveDate} 至 {display.expiryDate}</strong></span><Tag color={expiryState === '已过期' ? 'error' : expiryState === '即将到期' ? 'warning' : 'success'}>{expiryState}</Tag></section>
           <section className={styles.ruleBox}><span>MATCH RULE / 触发规则</span><p>{display.triggerRule}</p><div><Tag>{display.eventType}</Tag><Tag>{display.medium}</Tag><Tag color={levelColor[display.responseLevel]}>{display.responseLevel}响应</Tag></div></section>
 
           <section className={styles.detailSection}><h3><RocketOutlined /> 关键处置步骤</h3><ol>{display.steps.map((step) => <li key={step}><i /><span>{step}</span></li>)}</ol></section>
           <section className={styles.detailSection}><h3><NotificationOutlined /> 通知对象</h3><div className={styles.chips}>{display.notificationTargets.map((target) => <span key={target}><TeamOutlined /> {target}</span>)}</div></section>
           <section className={styles.detailSection}><h3><ToolOutlined /> 应急资源</h3><div className={styles.chips}>{display.resources.map((resource) => <span key={resource}>{resource}</span>)}</div></section>
+          <section className={`${styles.detailSection} ${styles.drillSection}`}>
+            <div className={styles.sectionHeading}><h3><CalendarOutlined /> 演练计划与记录</h3><Button size="small" icon={<PlusOutlined />} onClick={() => { drillForm.resetFields(); setDrillEditorOpen(true); }}>安排演练</Button></div>
+            <div className={styles.drillList}>{(selected.drills ?? []).map((drill) => <article key={drill.id} className={styles.drillCard}>
+              <div><Tag color={drill.status === '已完成' ? 'success' : drill.status === '待复盘' ? 'warning' : 'processing'}>{drill.status}</Tag><strong>{drill.title}</strong><span>{drill.type} · {drill.plannedAt.replace('T', ' ')} · {drill.location}</span><small>负责人 {drill.leader} · {drill.participants.join('、')}</small>{drill.status === '已完成' && <p><b>{drill.score} 分</b> {drill.summary}{drill.issues?.length ? `；问题：${drill.issues.join('、')}` : ''}</p>}</div>
+              {drill.status === '计划中' && <Button size="small" icon={<PlayCircleOutlined />} onClick={() => { startEmergencyDrill(selected.id, drill.id); message.success('演练已开始，结束后请填写复盘记录'); }}>开始</Button>}
+              {drill.status === '待复盘' && <Button size="small" type="primary" onClick={() => { recordForm.resetFields(); setRecordingDrillId(drill.id); }}>填写复盘</Button>}
+            </article>)}{(selected.drills ?? []).length === 0 && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="尚未安排演练" />}</div>
+          </section>
 
           <footer className={styles.detailFooter}>
             <div><CheckCircleFilled /><span>生效日期<strong>{display.effectiveDate}</strong></span></div>
@@ -198,8 +245,28 @@ export default function EmergencyPlans() {
           <Form.Item name="resources" label="资源清单" rules={[{ required: true, message: '至少配置一项资源' }]}><Select mode="tags" tokenSeparators={[',']} placeholder="输入资源后回车" /></Form.Item>
         </Form>
       </Modal>
-      <Modal title={`${selected.code} 版本历史`} open={versionsOpen} footer={null} width={680} onCancel={() => setVersionsOpen(false)}>
-        <section className={styles.versionList}>{[...selected.versions].reverse().map((version) => <article key={version.version}><div><strong>{version.version}</strong><span>{version.publishedAt}</span><p>{version.triggerRule}</p><small>{version.publisher}</small></div><Popconfirm title={`回滚至 ${version.version}？`} description="历史预案将生成新草稿，当前生效版本不会立即改变。" okText="生成草稿" cancelText="取消" onConfirm={() => { rollbackEmergencyPlanVersion(selected.id, version.version); setVersionsOpen(false); message.success(`${version.version} 已恢复为预案草稿`); }}><Button size="small" icon={<RollbackOutlined />}>回滚为草稿</Button></Popconfirm></article>)}</section>
+      <Modal title={`${selected.code} 版本历史`} open={versionsOpen} footer={null} width={760} onCancel={() => setVersionsOpen(false)}>
+        <section className={styles.versionList}>{[...selected.versions].reverse().map((version) => <article key={version.version}><div><strong>{version.version}</strong><span>{version.publishedAt}</span><p>{version.triggerRule}</p><small>{version.publisher}</small></div><Space><Button size="small" icon={<DiffOutlined />} onClick={() => setDiffVersion(version)}>与当前对比</Button><Popconfirm title={`回滚至 ${version.version}？`} description="历史预案将生成新草稿，当前生效版本不会立即改变。" okText="生成草稿" cancelText="取消" onConfirm={() => { rollbackEmergencyPlanVersion(selected.id, version.version); setVersionsOpen(false); message.success(`${version.version} 已恢复为预案草稿`); }}><Button size="small" icon={<RollbackOutlined />}>回滚为草稿</Button></Popconfirm></Space></article>)}</section>
+      </Modal>
+      <Modal title={`${diffVersion?.version ?? ''} 与当前内容差异`} open={Boolean(diffVersion)} footer={null} width={760} onCancel={() => setDiffVersion(undefined)}>
+        <section className={styles.diffList}>{diffItems.map((item) => <article key={item.key}><strong>{item.label}</strong><div><span>历史版本</span><p>{item.before || '—'}</p></div><div><span>当前内容</span><p>{item.after || '—'}</p></div></article>)}{diffItems.length === 0 && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="该版本与当前内容一致" />}</section>
+      </Modal>
+      <Modal title="安排应急演练" open={drillEditorOpen} okText="创建计划" cancelText="取消" onOk={() => void handleAddDrill()} onCancel={() => setDrillEditorOpen(false)}>
+        <Form form={drillForm} layout="vertical" className={styles.drillForm}>
+          <Form.Item name="title" label="演练名称" rules={[{ required: true, message: '请输入演练名称' }]}><Input /></Form.Item>
+          <Form.Item name="type" label="演练类型" rules={[{ required: true }]}><Select options={['桌面推演', '专项演练', '综合演练'].map((value) => ({ value, label: value }))} /></Form.Item>
+          <Form.Item name="plannedAt" label="计划时间" rules={[{ required: true, message: '请选择计划时间' }]}><Input type="datetime-local" /></Form.Item>
+          <Form.Item name="location" label="演练地点" rules={[{ required: true, message: '请输入演练地点' }]}><Input /></Form.Item>
+          <Form.Item name="leader" label="负责人" rules={[{ required: true, message: '请输入负责人' }]}><Input /></Form.Item>
+          <Form.Item name="participants" label="参与单位" rules={[{ required: true, message: '至少填写一个参与单位' }]}><Select mode="tags" tokenSeparators={[',']} placeholder="输入后回车" /></Form.Item>
+        </Form>
+      </Modal>
+      <Modal title="填写演练复盘" open={Boolean(recordingDrillId)} okText="归档记录" cancelText="取消" onOk={() => void handleRecordDrill()} onCancel={() => setRecordingDrillId(undefined)}>
+        <Form form={recordForm} layout="vertical">
+          <Form.Item name="score" label="演练评分" rules={[{ required: true, message: '请输入 0-100 分' }]}><InputNumber min={0} max={100} precision={0} addonAfter="分" style={{ width: '100%' }} /></Form.Item>
+          <Form.Item name="summary" label="复盘结论" rules={[{ required: true, whitespace: true, message: '请输入复盘结论' }]}><Input.TextArea rows={3} /></Form.Item>
+          <Form.Item name="issues" label="发现问题"><Select mode="tags" tokenSeparators={[',']} placeholder="输入问题后回车，可留空" /></Form.Item>
+        </Form>
       </Modal>
     </PageContainer>
   );
