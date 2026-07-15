@@ -1,6 +1,7 @@
 import { getDashboard } from '@/services/qhse/dashboard';
 import type {
   DashboardData,
+  CommunicationDispatch,
   EmergencyDrillInput,
   EmergencyDrillRecordInput,
   EmergencyEvent,
@@ -85,6 +86,11 @@ import {
   inspectEmergencyResource as inspectEmergencyResourceByApi,
   returnEmergencyResource as returnEmergencyResourceByApi,
 } from '@/services/qhse/emergencyResources';
+import {
+  confirmCommunicationTask as confirmCommunicationTaskByApi,
+  escalateCommunication as escalateCommunicationByApi,
+  getCommunicationDispatches,
+} from '@/services/qhse/communications';
 import {
   withCommunicationConfirmation,
   withCommunicationEscalation,
@@ -194,6 +200,8 @@ export default function useQhseModel() {
   const [emergencyPlanLoading, setEmergencyPlanLoading] = useState(false);
   const [emergencyResourceRecords, setEmergencyResourceRecords] = useState<EmergencyResource[]>([]);
   const [emergencyResourceLoading, setEmergencyResourceLoading] = useState(false);
+  const [communicationRecords, setCommunicationRecords] = useState<CommunicationDispatch[]>([]);
+  const [communicationLoading, setCommunicationLoading] = useState(false);
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
@@ -284,6 +292,12 @@ export default function useQhseModel() {
     try { setEmergencyResourceRecords(await getEmergencyResources()); } finally { setEmergencyResourceLoading(false); }
   }, [dashboard, loadDashboard]);
 
+  const loadCommunications = useCallback(async () => {
+    if (!hazardApiMode) { if (!dashboard) await loadDashboard(); return; }
+    setCommunicationLoading(true);
+    try { setCommunicationRecords(await getCommunicationDispatches()); } finally { setCommunicationLoading(false); }
+  }, [dashboard, loadDashboard]);
+
   useEffect(() => {
     const storage = getBrowserStorage();
     if (storage && dashboard) persistDashboard(storage, dashboard);
@@ -357,21 +371,35 @@ export default function useQhseModel() {
     });
   }, []);
 
-  const advanceCommunication = useCallback((eventId: string) => {
+  const advanceCommunication = useCallback(async (eventId: string) => {
+    if (hazardApiMode) {
+      const item = communicationRecords.find((entry) => entry.eventId === eventId);
+      if (!item) throw new Error('通信事件不存在');
+      const updated = await escalateCommunicationByApi(eventId, item.version);
+      setCommunicationRecords((records) => records.map((entry) => entry.eventId === eventId ? updated : entry));
+      return updated;
+    }
     setDashboard((current) => current ? withCommunicationEscalation(
       current,
       eventId,
       new Date().toLocaleTimeString('zh-CN', { hour12: false }),
     ) : current);
-  }, []);
+  }, [communicationRecords]);
 
-  const confirmCommunication = useCallback((taskId: string) => {
+  const confirmCommunication = useCallback(async (taskId: string) => {
+    if (hazardApiMode) {
+      const item = communicationRecords.find((entry) => entry.tasks.some((task) => task.id === taskId));
+      if (!item) throw new Error('通信任务不存在');
+      const updated = await confirmCommunicationTaskByApi(item.eventId, taskId, item.version);
+      setCommunicationRecords((records) => records.map((entry) => entry.eventId === item.eventId ? updated : entry));
+      return updated;
+    }
     setDashboard((current) => current ? withCommunicationConfirmation(
       current,
       taskId,
       new Date().toLocaleTimeString('zh-CN', { hour12: false }),
     ) : current);
-  }, []);
+  }, [communicationRecords]);
 
   const advanceEmergencyTask = useCallback((taskId: string) => {
     setDashboard((current) => {
@@ -1024,6 +1052,11 @@ export default function useQhseModel() {
     emergencyResourceLoading: hazardApiMode ? emergencyResourceLoading : loading,
     emergencyResourceApiMode: hazardApiMode,
     loadEmergencyResources,
+    communicationDispatches: communicationRecords,
+    communicationTasks: hazardApiMode ? communicationRecords.flatMap((item) => item.tasks) : (dashboard?.communicationTasks ?? []),
+    communicationLoading: hazardApiMode ? communicationLoading : loading,
+    communicationApiMode: hazardApiMode,
+    loadCommunications,
     simulateGdsAlarm,
     confirmAlarm,
     startEmergency,

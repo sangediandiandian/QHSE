@@ -106,6 +106,7 @@ export default [
     name: '融合通信',
     icon: 'phone',
     path: '/communication',
+    access: 'canViewCommunication',
     component: './Communication',
   },
   {

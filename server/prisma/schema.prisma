@@ -468,6 +468,24 @@ model EmergencyResourceInventory {
   @@map("emergency_resource_inventory")
 }
 
+model CommunicationDispatch {
+  id              String   @id @default(uuid())
+  eventId         String   @unique
+  eventCode       String
+  eventTitle      String
+  areaName        String
+  eventLevel      String
+  status          String
+  escalationLevel Int      @default(0)
+  tasks           Json
+  version         Int      @default(1)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([status, escalationLevel])
+  @@map("communication_dispatches")
+}
+
 model RiskAssessment {
   id          String    @id @default(uuid())
   riskUnitId  String

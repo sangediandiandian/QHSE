@@ -14,6 +14,7 @@ import { warningRuleSeed } from '../modules/warning-rules/warning-rule.seed';
 import { emergencyEventSeed } from '../modules/emergency-events/emergency-event.seed';
 import { emergencyPlanSeed } from '../modules/emergency-plans/emergency-plan.seed';
 import { emergencyResourceSeed } from '../modules/emergency-resources/emergency-resource.seed';
+import { communicationSeed } from '../modules/communications/communication.seed';
 
 const prisma = new PrismaClient();
 
@@ -396,6 +397,11 @@ async function main() {
   for (const resource of emergencyResourceSeed) {
     const data = { code: resource.code, name: resource.name, type: resource.type, totalQuantity: resource.totalQuantity, availableQuantity: resource.availableQuantity, unit: resource.unit, location: resource.location, eta: resource.eta, status: resource.status, owner: resource.owner, contact: resource.contact, lastInspection: resource.lastInspection, nextInspection: resource.nextInspection, inspectionStatus: resource.inspectionStatus, batches: resource.batches as unknown as Prisma.InputJsonValue, dispatches: resource.dispatches as unknown as Prisma.InputJsonValue, inspectionRecords: resource.inspectionRecords as unknown as Prisma.InputJsonValue, version: resource.version };
     await prisma.emergencyResourceInventory.upsert({ where: { id: resource.id }, update: data, create: { id: resource.id, ...data, createdAt: new Date(resource.createdAt), updatedAt: new Date(resource.updatedAt) } });
+  }
+
+  for (const communication of communicationSeed) {
+    const data = { eventCode: communication.eventCode, eventTitle: communication.eventTitle, areaName: communication.areaName, eventLevel: communication.eventLevel, status: communication.status, escalationLevel: communication.escalationLevel, tasks: communication.tasks as unknown as Prisma.InputJsonValue, version: communication.version };
+    await prisma.communicationDispatch.upsert({ where: { eventId: communication.eventId }, update: data, create: { id: communication.id, eventId: communication.eventId, ...data, createdAt: new Date(communication.createdAt), updatedAt: new Date(communication.updatedAt) } });
   }
 }
 

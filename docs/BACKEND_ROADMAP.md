@@ -30,7 +30,7 @@
 | 5A | 应急事件生命周期 | 告警转事件、响应调整、证据、关闭审批和审计闭环 | 已完成 |
 | 5B1 | 应急预案与演练 | 预案发布、版本回滚、到期和演练复盘服务端闭环 | 已完成 |
 | 5B2 | 应急资源 | 库存、批次、FEFO 调拨、归还和巡检维护服务端闭环 | 已完成 |
-| 5C | 融合通信 | 多渠道发送、回执、重试、升级和审计 | 待开发 |
+| 5C | 融合通信 | 多渠道发送、回执、重试、升级和审计 | 已完成 |
 | 6 | GDS/VOC/MES、WebSocket/MQTT、对象存储 | 真实数据稳定接入，附件与证据可固化 | 待开发 |
 | 7 | 报表、缓存、消息队列、部署、安全与性能 | 完成生产容量、安全和恢复验证 | 待开发 |
 
@@ -77,6 +77,9 @@
 - `POST /api/v1/emergency-resources/:id/dispatches`：按有效期 FEFO 分配可用批次并占用库存。
 - `POST /api/v1/emergency-resources/:id/dispatches/:dispatchId/arrival|return`：确认到位或归还并恢复批次库存。
 - `POST /api/v1/emergency-resources/:id/inspections`：登记巡检结果和下次检查日期。
+- `GET /api/v1/communications`、`GET /api/v1/communications/:eventId`：查询通信事件、发送任务、回执和升级状态。
+- `POST /api/v1/communications/:eventId/escalate`：按重呼、班长、负责人/调度链逐级发送通知。
+- `POST /api/v1/communications/:eventId/tasks/:taskId/receipt|confirm`：登记送达/失败回执或可信人员确认。
 
 除健康检查、登录和 Swagger 外，接口默认需要 Bearer Token。演示账号包括 `admin`、`leader`、`qhse`、`dispatcher`、`unit_manager`、`operator`、`environment` 和 `commander`，本地演示密码统一为 `ant.design`。当前会话默认保存在进程内存中，仅用于开发；正式环境需切换统一身份认证或 Redis 会话并独立配置密码。
 
@@ -97,6 +100,8 @@
 应急预案草稿与当前生效版本隔离，QHSE 与生产负责人按通用审批流异人会签，末节点通过后生成不可变版本；历史回滚只生成草稿。演练计划、启动和复盘评分使用同一预案修订号控制并发，前端 API 模式已直接接入该领域切片。
 
 应急资源已形成独立领域切片。调拨按有效批次 FEFO 分配并排除过期库存，维护中资源禁止调拨；到位和归还由服务端状态机控制，归还同步恢复批次及汇总库存。巡检人、调拨操作人取认证主体，写操作执行权限、审计和乐观锁，前端 API 模式不再依赖驾驶舱缓存。
+
+融合通信已形成通信事件聚合。服务端维护 0/2/3/5 分钟升级链，多渠道发送任务记录送达、失败、重试和确认状态；失败回执最多自动重试 2 次，任一任务确认后阻断继续升级。确认人取认证主体，升级、回执和确认均执行权限、审计与乐观锁；真实电话、短信、App 和广播网关适配器安排在阶段 6。
 
 ## 本地启动
 

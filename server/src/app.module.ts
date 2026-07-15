@@ -13,6 +13,7 @@ import { WarningExecutionModule } from './modules/warning-execution/warning-exec
 import { EmergencyEventModule } from './modules/emergency-events/emergency-event.module';
 import { EmergencyPlanModule } from './modules/emergency-plans/emergency-plan.module';
 import { EmergencyResourceModule } from './modules/emergency-resources/emergency-resource.module';
+import { CommunicationModule } from './modules/communications/communication.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { EmergencyResourceModule } from './modules/emergency-resources/emergency
     EmergencyEventModule,
     EmergencyPlanModule,
     EmergencyResourceModule,
+    CommunicationModule,
   ],
   controllers: [HealthController],
 })

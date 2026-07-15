@@ -142,8 +142,25 @@ export interface CommunicationTask {
   deliveryStatus: '发送中' | '已送达' | '失败';
   confirmStatus: '待确认' | '未确认' | '已确认';
   confirmTime?: string;
+  confirmedBy?: string;
+  sentBy?: string;
   retryCount: number;
   escalationLevel: 0 | 1 | 2 | 3;
+}
+
+export interface CommunicationDispatch {
+  id: string;
+  eventId: string;
+  eventCode: string;
+  eventTitle: string;
+  areaName: string;
+  eventLevel: 'low' | 'medium' | 'high' | 'critical';
+  status: '待确认' | '已确认' | '升级完成';
+  escalationLevel: 0 | 1 | 2 | 3;
+  tasks: CommunicationTask[];
+  version: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export type EmergencyTaskStatus = '待执行' | '执行中' | '已完成';

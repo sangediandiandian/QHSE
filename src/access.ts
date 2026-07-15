@@ -41,6 +41,9 @@ export default function access(initialState: { currentUser?: API.CurrentUser } |
     canManageResource: Boolean(currentUser && (isLegacyAdmin || granted.has('resource:manage'))),
     canDispatchResource: Boolean(currentUser && (isLegacyAdmin || granted.has('resource:dispatch'))),
     canInspectResource: Boolean(currentUser && (isLegacyAdmin || granted.has('resource:inspect'))),
+    canViewCommunication: Boolean(currentUser && (isLegacyAdmin || granted.has('communication:read'))),
+    canSendCommunication: Boolean(currentUser && (isLegacyAdmin || granted.has('communication:send'))),
+    canConfirmCommunication: Boolean(currentUser && (isLegacyAdmin || granted.has('communication:confirm'))),
     canReadAudit: Boolean(currentUser && (isLegacyAdmin || granted.has('audit:read'))),
     hasPermission: (permission: string) => Boolean(currentUser && (
       isLegacyAdmin || granted.has(permission)
