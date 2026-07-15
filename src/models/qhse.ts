@@ -7,6 +7,7 @@ import type {
   EmergencyEventAction,
   EmergencyEventEvidence,
   EmergencyPlanDraftInput,
+  EmergencyPlanTemplate,
   EmergencyResourceBatchInput,
   EmergencyResourceDispatchInput,
   EmergencyResourceInput,
@@ -63,6 +64,17 @@ import {
   requestEmergencyClosure,
   transitionEmergencyEvent as transitionEmergencyEventByApi,
 } from '@/services/qhse/emergencyEvents';
+import {
+  addEmergencyDrill as addEmergencyDrillByApi,
+  approveEmergencyPlan as approveEmergencyPlanByApi,
+  createEmergencyPlan,
+  getEmergencyPlans,
+  recordEmergencyDrill as recordEmergencyDrillByApi,
+  rollbackEmergencyPlan as rollbackEmergencyPlanByApi,
+  startEmergencyDrill as startEmergencyDrillByApi,
+  submitEmergencyPlan as submitEmergencyPlanByApi,
+  updateEmergencyPlan,
+} from '@/services/qhse/emergencyPlans';
 import {
   withCommunicationConfirmation,
   withCommunicationEscalation,
@@ -168,6 +180,8 @@ export default function useQhseModel() {
   const [warningRuleLoading, setWarningRuleLoading] = useState(false);
   const [emergencyEventRecords, setEmergencyEventRecords] = useState<EmergencyEvent[]>([]);
   const [emergencyEventLoading, setEmergencyEventLoading] = useState(false);
+  const [emergencyPlanRecords, setEmergencyPlanRecords] = useState<EmergencyPlanTemplate[]>([]);
+  const [emergencyPlanLoading, setEmergencyPlanLoading] = useState(false);
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
@@ -244,6 +258,12 @@ export default function useQhseModel() {
     } finally {
       setEmergencyEventLoading(false);
     }
+  }, [dashboard, loadDashboard]);
+
+  const loadEmergencyPlans = useCallback(async () => {
+    if (!hazardApiMode) { if (!dashboard) await loadDashboard(); return; }
+    setEmergencyPlanLoading(true);
+    try { setEmergencyPlanRecords(await getEmergencyPlans()); } finally { setEmergencyPlanLoading(false); }
   }, [dashboard, loadDashboard]);
 
   useEffect(() => {
@@ -415,23 +435,32 @@ export default function useQhseModel() {
     } : current);
   }, []);
 
-  const saveEmergencyPlan = useCallback((planId: string, input: EmergencyPlanDraftInput) => {
+  const saveEmergencyPlan = useCallback(async (planId: string | undefined, input: EmergencyPlanDraftInput) => {
+    if (hazardApiMode) {
+      const plan = emergencyPlanRecords.find((item) => item.id === planId);
+      const updated = plan ? await updateEmergencyPlan(plan.id, input, plan.revision ?? 1) : await createEmergencyPlan(input);
+      setEmergencyPlanRecords((items) => plan ? items.map((item) => item.id === plan.id ? updated : item) : [...items, updated]);
+      return updated;
+    }
+    const localId = planId ?? `plan-custom-${Date.now()}`;
     setDashboard((current) => current ? {
       ...current,
-      emergencyPlans: saveEmergencyPlanDraft(current.emergencyPlans, planId, input),
+      emergencyPlans: saveEmergencyPlanDraft(current.emergencyPlans, localId, input),
     } : current);
-  }, []);
+  }, [emergencyPlanRecords]);
 
-  const submitEmergencyPlan = useCallback((planId: string) => {
+  const submitEmergencyPlan = useCallback(async (planId: string) => {
+    if (hazardApiMode) { const plan = emergencyPlanRecords.find((item) => item.id === planId); if (!plan) throw new Error('应急预案不存在'); const updated = await submitEmergencyPlanByApi(planId, plan.revision ?? 1); setEmergencyPlanRecords((items) => items.map((item) => item.id === planId ? updated : item)); return updated; }
     setDashboard((current) => current ? {
       ...current,
       emergencyPlans: current.emergencyPlans.map((plan) => plan.id === planId
         ? submitEmergencyPlanForReview(plan)
         : plan),
     } : current);
-  }, []);
+  }, [emergencyPlanRecords]);
 
-  const approveEmergencyPlan = useCallback((planId: string) => {
+  const approveEmergencyPlan = useCallback(async (planId: string) => {
+    if (hazardApiMode) { const plan = emergencyPlanRecords.find((item) => item.id === planId); if (!plan) throw new Error('应急预案不存在'); const updated = await approveEmergencyPlanByApi(planId, plan.revision ?? 1); setEmergencyPlanRecords((items) => items.map((item) => item.id === planId ? updated : item)); return updated; }
     setDashboard((current) => current ? {
       ...current,
       emergencyPlans: current.emergencyPlans.map((plan) => {
@@ -443,43 +472,47 @@ export default function useQhseModel() {
         return withPublishedEmergencyPlan(reviewed, reviewedAt, publisher);
       }),
     } : current);
-  }, []);
+  }, [emergencyPlanRecords]);
 
-  const addEmergencyDrill = useCallback((planId: string, input: EmergencyDrillInput) => {
+  const addEmergencyDrill = useCallback(async (planId: string, input: EmergencyDrillInput) => {
+    if (hazardApiMode) { const plan = emergencyPlanRecords.find((item) => item.id === planId); if (!plan) throw new Error('应急预案不存在'); const updated = await addEmergencyDrillByApi(planId, input, plan.revision ?? 1); setEmergencyPlanRecords((items) => items.map((item) => item.id === planId ? updated : item)); return updated; }
     setDashboard((current) => current ? {
       ...current,
       emergencyPlans: current.emergencyPlans.map((plan) => plan.id === planId
         ? withAddedEmergencyDrill(plan, input, `drill-${Date.now()}`)
         : plan),
     } : current);
-  }, []);
+  }, [emergencyPlanRecords]);
 
-  const startEmergencyDrill = useCallback((planId: string, drillId: string) => {
+  const startEmergencyDrill = useCallback(async (planId: string, drillId: string) => {
+    if (hazardApiMode) { const plan = emergencyPlanRecords.find((item) => item.id === planId); if (!plan) throw new Error('应急预案不存在'); const updated = await startEmergencyDrillByApi(planId, drillId, plan.revision ?? 1); setEmergencyPlanRecords((items) => items.map((item) => item.id === planId ? updated : item)); return updated; }
     setDashboard((current) => current ? {
       ...current,
       emergencyPlans: current.emergencyPlans.map((plan) => plan.id === planId
         ? withStartedEmergencyDrill(plan, drillId, getCurrentTimestamp())
         : plan),
     } : current);
-  }, []);
+  }, [emergencyPlanRecords]);
 
-  const recordEmergencyDrill = useCallback((planId: string, drillId: string, input: EmergencyDrillRecordInput) => {
+  const recordEmergencyDrill = useCallback(async (planId: string, drillId: string, input: EmergencyDrillRecordInput) => {
+    if (hazardApiMode) { const plan = emergencyPlanRecords.find((item) => item.id === planId); if (!plan) throw new Error('应急预案不存在'); const updated = await recordEmergencyDrillByApi(planId, drillId, input, plan.revision ?? 1); setEmergencyPlanRecords((items) => items.map((item) => item.id === planId ? updated : item)); return updated; }
     setDashboard((current) => current ? {
       ...current,
       emergencyPlans: current.emergencyPlans.map((plan) => plan.id === planId
         ? withRecordedEmergencyDrill(plan, drillId, input, getCurrentTimestamp())
         : plan),
     } : current);
-  }, []);
+  }, [emergencyPlanRecords]);
 
-  const rollbackEmergencyPlanVersion = useCallback((planId: string, version: string) => {
+  const rollbackEmergencyPlanVersion = useCallback(async (planId: string, version: string) => {
+    if (hazardApiMode) { const plan = emergencyPlanRecords.find((item) => item.id === planId); if (!plan) throw new Error('应急预案不存在'); const updated = await rollbackEmergencyPlanByApi(planId, version, plan.revision ?? 1); setEmergencyPlanRecords((items) => items.map((item) => item.id === planId ? updated : item)); return updated; }
     setDashboard((current) => current ? {
       ...current,
       emergencyPlans: current.emergencyPlans.map((plan) => plan.id === planId
         ? rollbackEmergencyPlan(plan, version)
         : plan),
     } : current);
-  }, []);
+  }, [emergencyPlanRecords]);
 
   const advanceReviewAction = useCallback((actionId: string) => {
     setDashboard((current) => current ? {
@@ -959,6 +992,10 @@ export default function useQhseModel() {
     emergencyEventLoading: hazardApiMode ? emergencyEventLoading : loading,
     emergencyEventApiMode: hazardApiMode,
     loadEmergencyEvents,
+    emergencyPlans: hazardApiMode ? emergencyPlanRecords : (dashboard?.emergencyPlans ?? []),
+    emergencyPlanLoading: hazardApiMode ? emergencyPlanLoading : loading,
+    emergencyPlanApiMode: hazardApiMode,
+    loadEmergencyPlans,
     simulateGdsAlarm,
     confirmAlarm,
     startEmergency,

@@ -119,6 +119,7 @@ export default [
     icon: 'fileProtect',
     path: '/plans',
     component: './EmergencyPlans',
+    access: 'canViewPlan',
   },
   {
     name: '应急资源',

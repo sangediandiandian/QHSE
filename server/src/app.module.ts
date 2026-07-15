@@ -11,6 +11,7 @@ import { WorkflowModule } from './modules/workflows/workflow.module';
 import { WarningRuleModule } from './modules/warning-rules/warning-rule.module';
 import { WarningExecutionModule } from './modules/warning-execution/warning-execution.module';
 import { EmergencyEventModule } from './modules/emergency-events/emergency-event.module';
+import { EmergencyPlanModule } from './modules/emergency-plans/emergency-plan.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { EmergencyEventModule } from './modules/emergency-events/emergency-event
     WarningRuleModule,
     WarningExecutionModule,
     EmergencyEventModule,
+    EmergencyPlanModule,
   ],
   controllers: [HealthController],
 })

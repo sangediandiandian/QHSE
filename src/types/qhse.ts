@@ -344,6 +344,10 @@ export interface EmergencyPlanTemplate extends EmergencyPlanTemplateConfig {
   versions: EmergencyPlanVersion[];
   reviewSteps?: EmergencyPlanReviewStep[];
   drills?: EmergencyDrill[];
+  workflowId?: string;
+  revision?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type EmergencyPlanDraftInput = EmergencyPlanTemplateConfig & { code: string };

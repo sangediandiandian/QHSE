@@ -34,7 +34,7 @@ import {
   ToolOutlined,
 } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
-import { history, useModel } from '@umijs/max';
+import { history, useAccess, useModel } from '@umijs/max';
 import {
   Button,
   Empty,
@@ -67,8 +67,9 @@ function getPlanStatus(plan: EmergencyPlanTemplate) {
 }
 
 export default function EmergencyPlans() {
+  const access = useAccess();
   const {
-    dashboard, loading, loadDashboard, saveEmergencyPlan, submitEmergencyPlan,
+    emergencyPlans: planRecords, emergencyPlanLoading, loadEmergencyPlans, saveEmergencyPlan, submitEmergencyPlan,
     approveEmergencyPlan, rollbackEmergencyPlanVersion, addEmergencyDrill,
     startEmergencyDrill, recordEmergencyDrill,
   } = useModel('qhse');
@@ -86,27 +87,27 @@ export default function EmergencyPlans() {
   const [drillForm] = Form.useForm<EmergencyDrillInput>();
   const [recordForm] = Form.useForm<EmergencyDrillRecordInput>();
 
-  useEffect(() => { if (!dashboard) void loadDashboard(); }, [dashboard, loadDashboard]);
+  useEffect(() => { void loadEmergencyPlans(); }, [loadEmergencyPlans]);
 
-  const plans = useMemo(() => (dashboard?.emergencyPlans ?? []).filter((plan) => {
+  const plans = useMemo(() => planRecords.filter((plan) => {
     const display = getEmergencyPlanDisplayConfig(plan);
     const categoryMatch = category === '全部预案' || display.category === category;
     const statusMatch = status === '全部状态' || getPlanStatus(plan) === status;
     const keyword = query.trim().toLowerCase();
     const queryMatch = !keyword || `${display.name}${plan.code}${display.eventType}${display.applicableArea}`.toLowerCase().includes(keyword);
     return categoryMatch && statusMatch && queryMatch;
-  }), [category, dashboard, query, status]);
+  }), [category, planRecords, query, status]);
 
-  const selected = plans.find((plan) => plan.id === selectedId) ?? plans[0] ?? dashboard?.emergencyPlans[0];
+  const selected = plans.find((plan) => plan.id === selectedId) ?? plans[0] ?? planRecords[0];
   const display = selected ? getEmergencyPlanDisplayConfig(selected) : undefined;
 
-  if (!dashboard && loading) return <PageContainer><Skeleton active paragraph={{ rows: 14 }} /></PageContainer>;
-  if (!dashboard || !selected || !display) return <PageContainer><Empty description="预案数据暂不可用" /></PageContainer>;
+  if (emergencyPlanLoading && !planRecords.length) return <PageContainer><Skeleton active paragraph={{ rows: 14 }} /></PageContainer>;
+  if (!selected || !display) return <PageContainer><Empty description="预案数据暂不可用" /></PageContainer>;
 
-  const activeCount = dashboard.emergencyPlans.filter((plan) => plan.status === '生效中').length;
-  const reviewCount = dashboard.emergencyPlans.filter((plan) => plan.publishStatus === '待评审').length;
-  const expiringCount = dashboard.emergencyPlans.filter((plan) => getEmergencyPlanExpiryState(plan, '2026-07-13') === '即将到期').length;
-  const plannedDrillCount = dashboard.emergencyPlans.flatMap((plan) => plan.drills ?? []).filter((drill) => drill.status === '计划中').length;
+  const activeCount = planRecords.filter((plan) => plan.status === '生效中').length;
+  const reviewCount = planRecords.filter((plan) => plan.publishStatus === '待评审').length;
+  const expiringCount = planRecords.filter((plan) => getEmergencyPlanExpiryState(plan, '2026-07-13') === '即将到期').length;
+  const plannedDrillCount = planRecords.flatMap((plan) => plan.drills ?? []).filter((drill) => drill.status === '计划中').length;
   const openEditor = (plan?: EmergencyPlanTemplate) => {
     const config = plan ? getEmergencyPlanDisplayConfig(plan) : {
       name: '', category: '现场处置方案' as const, eventType: '', applicableArea: '', medium: '',
@@ -123,9 +124,8 @@ export default function EmergencyPlans() {
       form.setFields([{ name: 'expiryDate', errors: ['到期日期必须晚于生效日期'] }]);
       return;
     }
-    const planId = editingId ?? `plan-custom-${Date.now()}`;
-    saveEmergencyPlan(planId, { ...values, code: values.code.trim().toUpperCase() });
-    setSelectedId(planId);
+    const saved = await saveEmergencyPlan(editingId, { ...values, code: values.code.trim().toUpperCase() });
+    setSelectedId(saved?.id ?? editingId ?? '');
     setCategory('全部预案');
     setStatus('全部状态');
     setEditorOpen(false);
@@ -133,7 +133,7 @@ export default function EmergencyPlans() {
   };
   const handleAddDrill = async () => {
     const values = await drillForm.validateFields();
-    addEmergencyDrill(selected.id, values);
+    await addEmergencyDrill(selected.id, values);
     setDrillEditorOpen(false);
     drillForm.resetFields();
     message.success('演练计划已创建');
@@ -141,7 +141,7 @@ export default function EmergencyPlans() {
   const handleRecordDrill = async () => {
     const values = await recordForm.validateFields();
     if (!recordingDrillId) return;
-    recordEmergencyDrill(selected.id, recordingDrillId, values);
+    await recordEmergencyDrill(selected.id, recordingDrillId, values);
     setRecordingDrillId(undefined);
     recordForm.resetFields();
     message.success('演练复盘记录已归档');
@@ -151,11 +151,11 @@ export default function EmergencyPlans() {
   const diffItems = diffVersion ? compareEmergencyPlanConfigs(diffVersion, display) : [];
 
   return (
-    <PageContainer title={false} className={styles.page} extra={<Button type="primary" icon={<FileProtectOutlined />} onClick={() => openEditor()}>新建预案</Button>}>
+    <PageContainer title={false} className={styles.page} extra={<Button type="primary" icon={<FileProtectOutlined />} disabled={!access.canEditPlan} onClick={() => openEditor()}>新建预案</Button>}>
       <header className={styles.heading}>
         <div><span>EMERGENCY PLAN LIBRARY</span><h1>应急预案库</h1><p>统一维护预案触发条件、处置步骤、通知对象、资源清单与版本状态。</p></div>
         <div className={styles.summary}>
-          <div><strong>{dashboard.emergencyPlans.length}</strong><span>预案总数</span></div>
+          <div><strong>{planRecords.length}</strong><span>预案总数</span></div>
           <div><strong>{activeCount}</strong><span>生效中</span></div>
           <div className={styles.review}><strong>{reviewCount}</strong><span>待评审</span></div>
           <div className={styles.expiring}><strong>{expiringCount}</strong><span>即将到期</span></div>
@@ -173,7 +173,7 @@ export default function EmergencyPlans() {
         <nav className={styles.categoryRail} aria-label="预案分类">
           <span>PLAN CLASS</span>
           {categories.map((item) => {
-            const count = item === '全部预案' ? dashboard.emergencyPlans.length : dashboard.emergencyPlans.filter((plan) => getEmergencyPlanDisplayConfig(plan).category === item).length;
+            const count = item === '全部预案' ? planRecords.length : planRecords.filter((plan) => getEmergencyPlanDisplayConfig(plan).category === item).length;
             return <button key={item} type="button" className={category === item ? styles.active : ''} onClick={() => setCategory(item)}><i>{item === '全部预案' ? <ApartmentOutlined /> : <FileProtectOutlined />}</i><strong>{item}</strong><em>{count}</em></button>;
           })}
           <div className={styles.coverage}><SafetyCertificateOutlined /><strong>12 类事故场景</strong><span>覆盖泄漏、火灾、环保、公用工程等风险</span></div>
@@ -204,7 +204,7 @@ export default function EmergencyPlans() {
             <div><span className={selected.publishStatus === '草稿' ? styles.workflowActive : ''}>1 草稿</span><i /><span className={selected.publishStatus === '待评审' ? styles.workflowActive : ''}>2 双人会签</span><i /><span className={selected.publishStatus === '已发布' ? styles.workflowActive : ''}>3 已发布</span></div>
             <p>{selected.draft ? `当前展示未发布草稿；应急匹配仍使用 ${selected.version}。` : `${selected.version} 已生效，编辑后将生成独立草稿。`}</p>
             {selected.reviewSteps && <div className={styles.reviewSteps}>{selected.reviewSteps.map((step) => <span key={step.role} className={step.status === '已通过' ? styles.reviewed : ''}><AuditOutlined /> {step.role} · {step.reviewer} · {step.status}</span>)}</div>}
-            <Space wrap><Button size="small" icon={<EditOutlined />} onClick={() => openEditor(selected)}>编辑</Button>{selected.publishStatus === '草稿' && <Button size="small" type="primary" icon={<SendOutlined />} onClick={() => { submitEmergencyPlan(selected.id); message.success('预案已提交双人会签'); }}>提交会签</Button>}{selected.publishStatus === '待评审' && nextReviewStep && <Button size="small" type="primary" icon={<CheckCircleFilled />} onClick={() => { const isFinal = selected.reviewSteps?.filter((step) => step.status === '待评审').length === 1; approveEmergencyPlan(selected.id); message.success(isFinal ? '双人会签完成，预案已发布' : `${nextReviewStep.role}已通过，等待下一会签人`); }}>{nextReviewStep.role}</Button>}<Button size="small" icon={<HistoryOutlined />} disabled={selected.versions.length === 0} onClick={() => setVersionsOpen(true)}>版本历史</Button></Space>
+            <Space wrap><Button size="small" icon={<EditOutlined />} disabled={!access.canEditPlan} onClick={() => openEditor(selected)}>编辑</Button>{selected.publishStatus === '草稿' && <Button size="small" type="primary" icon={<SendOutlined />} disabled={!access.canSubmitPlan} onClick={() => { void submitEmergencyPlan(selected.id).then(() => message.success('预案已提交双人会签')); }}>提交会签</Button>}{selected.publishStatus === '待评审' && nextReviewStep && <Button size="small" type="primary" icon={<CheckCircleFilled />} disabled={!access.canApprovePlan} onClick={() => { const isFinal = selected.reviewSteps?.filter((step) => step.status === '待评审').length === 1; void approveEmergencyPlan(selected.id).then(() => message.success(isFinal ? '双人会签完成，预案已发布' : `${nextReviewStep.role}已通过，等待下一会签人`)); }}>{nextReviewStep.role}</Button>}<Button size="small" icon={<HistoryOutlined />} disabled={selected.versions.length === 0} onClick={() => setVersionsOpen(true)}>版本历史</Button></Space>
           </section>
           <section className={styles.expiryNotice}><CalendarOutlined /><span>有效期<strong>{display.effectiveDate} 至 {display.expiryDate}</strong></span><Tag color={expiryState === '已过期' ? 'error' : expiryState === '即将到期' ? 'warning' : 'success'}>{expiryState}</Tag></section>
           <section className={styles.ruleBox}><span>MATCH RULE / 触发规则</span><p>{display.triggerRule}</p><div><Tag>{display.eventType}</Tag><Tag>{display.medium}</Tag><Tag color={levelColor[display.responseLevel]}>{display.responseLevel}响应</Tag></div></section>
@@ -213,10 +213,10 @@ export default function EmergencyPlans() {
           <section className={styles.detailSection}><h3><NotificationOutlined /> 通知对象</h3><div className={styles.chips}>{display.notificationTargets.map((target) => <span key={target}><TeamOutlined /> {target}</span>)}</div></section>
           <section className={styles.detailSection}><h3><ToolOutlined /> 应急资源</h3><div className={styles.chips}>{display.resources.map((resource) => <span key={resource}>{resource}</span>)}</div></section>
           <section className={`${styles.detailSection} ${styles.drillSection}`}>
-            <div className={styles.sectionHeading}><h3><CalendarOutlined /> 演练计划与记录</h3><Button size="small" icon={<PlusOutlined />} onClick={() => { drillForm.resetFields(); setDrillEditorOpen(true); }}>安排演练</Button></div>
+            <div className={styles.sectionHeading}><h3><CalendarOutlined /> 演练计划与记录</h3><Button size="small" icon={<PlusOutlined />} disabled={!access.canManageDrill} onClick={() => { drillForm.resetFields(); setDrillEditorOpen(true); }}>安排演练</Button></div>
             <div className={styles.drillList}>{(selected.drills ?? []).map((drill) => <article key={drill.id} className={styles.drillCard}>
               <div><Tag color={drill.status === '已完成' ? 'success' : drill.status === '待复盘' ? 'warning' : 'processing'}>{drill.status}</Tag><strong>{drill.title}</strong><span>{drill.type} · {drill.plannedAt.replace('T', ' ')} · {drill.location}</span><small>负责人 {drill.leader} · {drill.participants.join('、')}</small>{drill.status === '已完成' && <p><b>{drill.score} 分</b> {drill.summary}{drill.issues?.length ? `；问题：${drill.issues.join('、')}` : ''}</p>}</div>
-              {drill.status === '计划中' && <Button size="small" icon={<PlayCircleOutlined />} onClick={() => { startEmergencyDrill(selected.id, drill.id); message.success('演练已开始，结束后请填写复盘记录'); }}>开始</Button>}
+              {drill.status === '计划中' && <Button size="small" icon={<PlayCircleOutlined />} disabled={!access.canManageDrill} onClick={() => { void startEmergencyDrill(selected.id, drill.id).then(() => message.success('演练已开始，结束后请填写复盘记录')); }}>开始</Button>}
               {drill.status === '待复盘' && <Button size="small" type="primary" onClick={() => { recordForm.resetFields(); setRecordingDrillId(drill.id); }}>填写复盘</Button>}
             </article>)}{(selected.drills ?? []).length === 0 && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="尚未安排演练" />}</div>
           </section>
@@ -229,7 +229,7 @@ export default function EmergencyPlans() {
       </main>
       <Modal title={editingId ? '编辑预案草稿' : '新建应急预案'} open={editorOpen} okText="保存草稿" cancelText="取消" width={780} onOk={() => void handleSave()} onCancel={() => setEditorOpen(false)}>
         <Form form={form} layout="vertical" className={styles.planForm}>
-          <Form.Item name="code" label="预案编码" rules={[{ required: true, message: '请输入预案编码' }, { pattern: /^[A-Za-z][A-Za-z0-9-]{2,39}$/, message: '使用字母、数字或连字符，长度 3-40 位' }, { validator: (_, value) => dashboard.emergencyPlans.some((plan) => plan.code === String(value).trim().toUpperCase() && plan.id !== editingId) ? Promise.reject(new Error('预案编码已存在')) : Promise.resolve() }]}><Input disabled={Boolean(editingId)} placeholder="例如 QHSE-FCC-LEAK-02" /></Form.Item>
+          <Form.Item name="code" label="预案编码" rules={[{ required: true, message: '请输入预案编码' }, { pattern: /^[A-Za-z][A-Za-z0-9-]{2,39}$/, message: '使用字母、数字或连字符，长度 3-40 位' }, { validator: (_, value) => planRecords.some((plan) => plan.code === String(value).trim().toUpperCase() && plan.id !== editingId) ? Promise.reject(new Error('预案编码已存在')) : Promise.resolve() }]}><Input disabled={Boolean(editingId)} placeholder="例如 QHSE-FCC-LEAK-02" /></Form.Item>
           <Form.Item name="name" label="预案名称" rules={[{ required: true, message: '请输入预案名称' }]}><Input /></Form.Item>
           <Form.Item name="category" label="预案类别" rules={[{ required: true }]}><Select options={categories.slice(1).map((value) => ({ value, label: value }))} /></Form.Item>
           <Form.Item name="responseLevel" label="响应等级" rules={[{ required: true }]}><Select options={['IV级', 'III级', 'II级', 'I级'].map((value) => ({ value, label: value }))} /></Form.Item>

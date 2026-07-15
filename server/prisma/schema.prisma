@@ -420,6 +420,26 @@ model EmergencyEvent {
   @@map("emergency_events")
 }
 
+model EmergencyPlanTemplate {
+  id            String   @id @default(uuid())
+  code          String   @unique
+  config        Json
+  version       String
+  status        String
+  publishStatus String
+  draft         Json?
+  versions      Json
+  reviewSteps   Json?
+  drills        Json
+  workflowId    String?
+  revision      Int      @default(1)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([publishStatus, updatedAt])
+  @@map("emergency_plan_templates")
+}
+
 model RiskAssessment {
   id          String    @id @default(uuid())
   riskUnitId  String

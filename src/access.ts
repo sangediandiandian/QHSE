@@ -32,6 +32,11 @@ export default function access(initialState: { currentUser?: API.CurrentUser } |
     canManageEmergency: Boolean(currentUser && (isLegacyAdmin || granted.has('emergency:manage'))),
     canAddEmergencyEvidence: Boolean(currentUser && (isLegacyAdmin || granted.has('emergency:evidence'))),
     canApproveEmergencyClosure: Boolean(currentUser && (isLegacyAdmin || granted.has('emergency:approve'))),
+    canViewPlan: Boolean(currentUser && (isLegacyAdmin || granted.has('plan:read'))),
+    canEditPlan: Boolean(currentUser && (isLegacyAdmin || granted.has('plan:edit'))),
+    canSubmitPlan: Boolean(currentUser && (isLegacyAdmin || granted.has('plan:submit'))),
+    canApprovePlan: Boolean(currentUser && (isLegacyAdmin || granted.has('plan:approve'))),
+    canManageDrill: Boolean(currentUser && (isLegacyAdmin || granted.has('plan:drill'))),
     canReadAudit: Boolean(currentUser && (isLegacyAdmin || granted.has('audit:read'))),
     hasPermission: (permission: string) => Boolean(currentUser && (
       isLegacyAdmin || granted.has(permission)
