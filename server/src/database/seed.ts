@@ -4,6 +4,7 @@ import { areas, organizations, roles, users } from '../modules/iam/iam.seed';
 import { riskSeed } from '../modules/risks/risk.seed';
 import { hazardSeed } from '../modules/hazards/hazard.seed';
 import { workPermitSeed } from '../modules/work-permits/work-permit.seed';
+import { warningRuleSeed } from '../modules/warning-rules/warning-rule.seed';
 
 const prisma = new PrismaClient();
 
@@ -258,6 +259,87 @@ async function main() {
           ...confirmation,
           confirmedAt: new Date(confirmation.confirmedAt),
           workPermitId: permit.id,
+        },
+      });
+    }
+  }
+
+  for (const rule of warningRuleSeed) {
+    const config = {
+      name: rule.name,
+      source: rule.source,
+      scenario: rule.scenario,
+      level: rule.level as RiskLevel,
+      scope: rule.scope,
+      condition: rule.condition,
+      duration: rule.duration,
+      notifyTargets: rule.notifyTargets,
+      description: rule.description,
+      expression: rule.expression as unknown as Prisma.InputJsonValue,
+      rolloutPercentage: rule.rolloutPercentage,
+    };
+    await prisma.warningRule.upsert({
+      where: { id: rule.id },
+      update: {
+        code: rule.code,
+        ...config,
+        enabled: rule.enabled,
+        triggerCount: rule.triggerCount,
+        lastTriggeredAt: rule.lastTriggeredAt ? new Date(rule.lastTriggeredAt) : undefined,
+        publishStatus: rule.publishStatus,
+        version: rule.version,
+        revision: rule.revision,
+      },
+      create: {
+        id: rule.id,
+        code: rule.code,
+        ...config,
+        enabled: rule.enabled,
+        triggerCount: rule.triggerCount,
+        lastTriggeredAt: rule.lastTriggeredAt ? new Date(rule.lastTriggeredAt) : undefined,
+        publishStatus: rule.publishStatus,
+        version: rule.version,
+        revision: rule.revision,
+      },
+    });
+    for (const version of rule.versions) {
+      await prisma.warningRuleVersion.upsert({
+        where: { id: version.id },
+        update: {
+          version: version.version,
+          name: version.name,
+          source: version.source,
+          scenario: version.scenario,
+          level: version.level as RiskLevel,
+          scope: version.scope,
+          condition: version.condition,
+          duration: version.duration,
+          notifyTargets: version.notifyTargets,
+          description: version.description,
+          expression: version.expression as unknown as Prisma.InputJsonValue,
+          rolloutPercentage: version.rolloutPercentage,
+          publishedAt: new Date(version.publishedAt),
+          publisherId: version.publisherId,
+          publisher: version.publisher,
+        },
+        create: {
+          id: version.id,
+          warningRuleId: rule.id,
+          version: version.version,
+          name: version.name,
+          source: version.source,
+          scenario: version.scenario,
+          level: version.level as RiskLevel,
+          scope: version.scope,
+          condition: version.condition,
+          duration: version.duration,
+          notifyTargets: version.notifyTargets,
+          description: version.description,
+          expression: version.expression as unknown as Prisma.InputJsonValue,
+          rolloutPercentage: version.rolloutPercentage,
+          publishedAt: new Date(version.publishedAt),
+          publisherId: version.publisherId,
+          publisher: version.publisher,
         },
       });
     }

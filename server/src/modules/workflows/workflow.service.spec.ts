@@ -56,6 +56,25 @@ describe('WorkflowService', () => {
     );
   });
 
+  test('同一账号不能完成多个会签节点', async () => {
+    const service = createService();
+    const instance = await service.create(
+      {
+        ...definition,
+        steps: definition.steps.map((step) => ({
+          ...step,
+          allowedRoleCodes: ['system_admin'],
+        })),
+      },
+      { actorId: 'author', actorName: '发起人', roleCodes: ['qhse_manager'] },
+    );
+    const admin = { actorId: 'user-admin', actorName: '管理员', roleCodes: ['system_admin'] };
+    await service.approve(instance.id, '第一节点', 1, admin);
+    await expect(service.approve(instance.id, '第二节点', 2, admin)).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+  });
+
   test('驳回必须填写意见并终止流程', async () => {
     const service = createService();
     const instance = await service.create(definition, author);

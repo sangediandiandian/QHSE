@@ -301,6 +301,62 @@ model WorkflowStep {
   @@map("workflow_steps")
 }
 
+model WarningRule {
+  id                String               @id @default(uuid())
+  code              String               @unique
+  name              String
+  source            String
+  scenario          String
+  level             RiskLevel
+  scope             String
+  condition         String
+  duration          String
+  notifyTargets     String[]
+  description       String
+  expression        Json
+  rolloutPercentage Int                  @default(100)
+  enabled           Boolean              @default(false)
+  triggerCount      Int                  @default(0)
+  lastTriggeredAt   DateTime?
+  publishStatus     String
+  version           Int                  @default(0)
+  revision          Int                  @default(1)
+  draft             Json?
+  workflowId        String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  versions          WarningRuleVersion[]
+
+  @@index([source, enabled])
+  @@index([publishStatus, updatedAt])
+  @@map("warning_rules")
+}
+
+model WarningRuleVersion {
+  id                String      @id @default(uuid())
+  warningRuleId     String
+  version           Int
+  name              String
+  source            String
+  scenario          String
+  level             RiskLevel
+  scope             String
+  condition         String
+  duration          String
+  notifyTargets     String[]
+  description       String
+  expression        Json
+  rolloutPercentage Int
+  publishedAt       DateTime
+  publisherId       String
+  publisher         String
+  warningRule       WarningRule @relation(fields: [warningRuleId], references: [id], onDelete: Cascade)
+
+  @@unique([warningRuleId, version])
+  @@index([warningRuleId, publishedAt])
+  @@map("warning_rule_versions")
+}
+
 model RiskAssessment {
   id          String    @id @default(uuid())
   riskUnitId  String

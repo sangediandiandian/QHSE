@@ -99,6 +99,7 @@ export default [
     name: '预警规则',
     icon: 'control',
     path: '/rules',
+    access: 'canViewWarningRule',
     component: './WarningRules',
   },
   {

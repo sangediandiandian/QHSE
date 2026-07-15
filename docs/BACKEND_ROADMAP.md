@@ -25,7 +25,8 @@
 | 3A | 隐患治理 | 上报、整改、证据、验收、督办、权限与审计闭环 | 已完成 |
 | 3B | 作业许可 | 票证申请、分权审批、现场确认、暂停恢复和关闭持久化 | 已完成 |
 | 4A | 通用审批流内核 | 有序节点、角色会签、驳回撤回、流程防重和并发控制 | 已完成 |
-| 4B | 预警规则执行与发布 | 规则草稿、冲突检测、会签、灰度、版本和回滚由服务端管理 | 待开发 |
+| 4B | 预警规则配置与发布 | 规则草稿、冲突检测、会签、灰度、版本和回滚由服务端管理 | 已完成 |
+| 4C | 预警规则实时执行 | 采样窗口、表达式计算、去重抑制和告警事件生成 | 待开发 |
 | 5 | 应急事件、预案、资源、通信 | 告警到事件关闭全链路可审计 | 待开发 |
 | 6 | GDS/VOC/MES、WebSocket/MQTT、对象存储 | 真实数据稳定接入，附件与证据可固化 | 待开发 |
 | 7 | 报表、缓存、消息队列、部署、安全与性能 | 完成生产容量、安全和恢复验证 | 待开发 |
@@ -53,6 +54,11 @@
 - `POST /api/v1/work-permits/:id/approvals/next`：按属地、QHSE、负责人顺序分权签署。
 - `POST /api/v1/work-permits/:id/site-confirmations`：作业负责人与现场监护人双人确认。
 - `POST /api/v1/work-permits/:id/pause-recommendation|pause|resume|close`：暂停建议、确认暂停、复测恢复和关闭。
+- `GET /api/v1/warning-rules`、`GET /api/v1/warning-rules/:id`：查询规则、草稿、会签和版本。
+- `POST /api/v1/warning-rules`、`PUT /api/v1/warning-rules/:id/draft`：创建或维护独立草稿。
+- `POST /api/v1/warning-rules/:id/submit|approve|reject`：提交双人会签、审批或驳回。
+- `POST /api/v1/warning-rules/:id/rollback`：将历史版本恢复为新草稿。
+- `PUT /api/v1/warning-rules/:id/enabled`：显式设置已发布规则的启停状态。
 
 除健康检查、登录和 Swagger 外，接口默认需要 Bearer Token。演示账号包括 `admin`、`leader`、`qhse`、`dispatcher`、`unit_manager`、`operator`、`environment` 和 `commander`，本地演示密码统一为 `ant.design`。当前会话默认保存在进程内存中，仅用于开发；正式环境需切换统一身份认证或 Redis 会话并独立配置密码。
 
@@ -63,6 +69,8 @@
 作业许可接口增加 `permit:read/apply/approve/confirm/control` 权限点。三级审批节点分别校验属地、QHSE 和企业负责人角色；现场双人确认禁止同一账号代签。实时告警自动判定依赖阶段 4 的规则执行引擎，本阶段已提供可审计的暂停建议入口和完整后续状态流转。
 
 通用审批流作为内部业务能力提供，不暴露绕过领域权限的万能审批接口。业务服务可按 `businessType + businessId` 创建有序会签实例，节点执行角色匹配、活动流程防重、驳回/撤回和 `expectedVersion` 并发控制；预警规则和后续应急预案将复用该能力。
+
+预警规则配置已接入通用审批流。草稿与当前运行版本隔离，提交时由服务端检测启用规则的作用域/表达式冲突；QHSE 与生产负责人必须使用不同账号会签，发布后生成不可变版本快照。历史回滚只生成草稿，不会直接覆盖运行配置。实时数据窗口计算和告警事件生成安排在阶段 4C。
 
 ## 本地启动
 

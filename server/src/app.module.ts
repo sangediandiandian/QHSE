@@ -8,9 +8,10 @@ import { RiskModule } from './modules/risks/risk.module';
 import { HazardModule } from './modules/hazards/hazard.module';
 import { WorkPermitModule } from './modules/work-permits/work-permit.module';
 import { WorkflowModule } from './modules/workflows/workflow.module';
+import { WarningRuleModule } from './modules/warning-rules/warning-rule.module';
 
 @Module({
-  imports: [DatabaseModule, AuthModule, AuditModule, RiskModule, HazardModule, WorkPermitModule, WorkflowModule],
+  imports: [DatabaseModule, AuthModule, AuditModule, RiskModule, HazardModule, WorkPermitModule, WorkflowModule, WarningRuleModule],
   controllers: [HealthController],
 })
 export class AppModule implements NestModule {

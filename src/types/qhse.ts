@@ -667,9 +667,11 @@ export interface WarningRuleExpressionItem {
 export type WarningRulePublishStatus = '草稿' | '待审批' | '已发布';
 
 export interface WarningRuleVersion extends WarningRuleConfig {
+  id?: string;
   version: number;
   publishedAt: string;
   publisher: string;
+  publisherId?: string;
 }
 
 export interface WarningRule extends WarningRuleConfig {
@@ -683,6 +685,10 @@ export interface WarningRule extends WarningRuleConfig {
   draft?: WarningRuleConfig;
   versions: WarningRuleVersion[];
   approvalSteps?: WarningRuleApprovalStep[];
+  revision?: number;
+  workflowId?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface WarningRuleApprovalStep {

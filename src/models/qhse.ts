@@ -20,6 +20,7 @@ import type {
   WorkPermitApplyInput,
   WorkPermitSiteConfirmation,
   WarningEvidenceCategory,
+  WarningRule,
   WarningRuleDraftInput,
 } from '@/types/qhse';
 import {
@@ -40,6 +41,15 @@ import {
   pauseWorkPermit,
   resumeWorkPermit,
 } from '@/services/qhse/workPermits';
+import {
+  approveWarningRule as approveWarningRuleByApi,
+  createWarningRuleDraft,
+  getWarningRules,
+  rollbackWarningRule as rollbackWarningRuleByApi,
+  submitWarningRule as submitWarningRuleByApi,
+  toggleWarningRule as toggleWarningRuleByApi,
+  updateWarningRuleDraft,
+} from '@/services/qhse/warningRules';
 import {
   withCommunicationConfirmation,
   withCommunicationEscalation,
@@ -140,6 +150,8 @@ export default function useQhseModel() {
   const [workPermitRecords, setWorkPermitRecords] = useState<WorkPermit[]>([]);
   const [workPermitAreas, setWorkPermitAreas] = useState<Array<{ id: string; name: string }>>([]);
   const [workPermitLoading, setWorkPermitLoading] = useState(false);
+  const [warningRuleRecords, setWarningRuleRecords] = useState<WarningRule[]>([]);
+  const [warningRuleLoading, setWarningRuleLoading] = useState(false);
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
@@ -187,6 +199,19 @@ export default function useQhseModel() {
       }])).values()));
     } finally {
       setWorkPermitLoading(false);
+    }
+  }, [dashboard, loadDashboard]);
+
+  const loadWarningRules = useCallback(async () => {
+    if (!hazardApiMode) {
+      if (!dashboard) await loadDashboard();
+      return;
+    }
+    setWarningRuleLoading(true);
+    try {
+      setWarningRuleRecords(await getWarningRules());
+    } finally {
+      setWarningRuleLoading(false);
     }
   }, [dashboard, loadDashboard]);
 
@@ -650,32 +675,64 @@ export default function useQhseModel() {
     } : current);
   }, []);
 
-  const toggleWarningRule = useCallback((ruleId: string) => {
+  const toggleWarningRule = useCallback(async (ruleId: string) => {
+    if (hazardApiMode) {
+      const rule = warningRuleRecords.find((item) => item.id === ruleId);
+      if (!rule) throw new Error('预警规则不存在');
+      const updated = await toggleWarningRuleByApi(ruleId, !rule.enabled, rule.revision ?? 1);
+      setWarningRuleRecords((items) => items.map((item) => item.id === ruleId ? updated : item));
+      return updated;
+    }
     setDashboard((current) => current ? {
       ...current,
       warningRules: current.warningRules.map((rule) => rule.id === ruleId
         && rule.version > 0 ? { ...rule, enabled: !rule.enabled }
         : rule),
     } : current);
-  }, []);
+  }, [warningRuleRecords]);
 
-  const saveWarningRule = useCallback((ruleId: string, input: WarningRuleDraftInput) => {
+  const saveWarningRule = useCallback(async (ruleId: string | undefined, input: WarningRuleDraftInput) => {
+    if (hazardApiMode) {
+      const rule = warningRuleRecords.find((item) => item.id === ruleId);
+      const updated = rule
+        ? await updateWarningRuleDraft(rule.id, input, rule.revision ?? 1)
+        : await createWarningRuleDraft(input);
+      setWarningRuleRecords((items) => rule
+        ? items.map((item) => item.id === rule.id ? updated : item)
+        : [...items, updated]);
+      return updated;
+    }
+    const localRuleId = ruleId ?? `rule-custom-${Date.now()}`;
     setDashboard((current) => current ? {
       ...current,
-      warningRules: saveWarningRuleDraft(current.warningRules, ruleId, input),
+      warningRules: saveWarningRuleDraft(current.warningRules, localRuleId, input),
     } : current);
-  }, []);
+  }, [warningRuleRecords]);
 
-  const submitWarningRule = useCallback((ruleId: string) => {
+  const submitWarningRule = useCallback(async (ruleId: string) => {
+    if (hazardApiMode) {
+      const rule = warningRuleRecords.find((item) => item.id === ruleId);
+      if (!rule) throw new Error('预警规则不存在');
+      const updated = await submitWarningRuleByApi(ruleId, rule.revision ?? 1);
+      setWarningRuleRecords((items) => items.map((item) => item.id === ruleId ? updated : item));
+      return updated;
+    }
     setDashboard((current) => current ? {
       ...current,
       warningRules: current.warningRules.map((rule) => rule.id === ruleId
         ? submitWarningRuleForApproval(rule)
         : rule),
     } : current);
-  }, []);
+  }, [warningRuleRecords]);
 
-  const approveWarningRule = useCallback((ruleId: string) => {
+  const approveWarningRule = useCallback(async (ruleId: string) => {
+    if (hazardApiMode) {
+      const rule = warningRuleRecords.find((item) => item.id === ruleId);
+      if (!rule) throw new Error('预警规则不存在');
+      const updated = await approveWarningRuleByApi(ruleId, rule.revision ?? 1, '规则配置校验通过，同意进入下一节点');
+      setWarningRuleRecords((items) => items.map((item) => item.id === ruleId ? updated : item));
+      return updated;
+    }
     setDashboard((current) => current ? {
       ...current,
       warningRules: current.warningRules.map((rule) => {
@@ -687,16 +744,23 @@ export default function useQhseModel() {
           : approved;
       }),
     } : current);
-  }, []);
+  }, [warningRuleRecords]);
 
-  const rollbackWarningRuleVersion = useCallback((ruleId: string, version: number) => {
+  const rollbackWarningRuleVersion = useCallback(async (ruleId: string, version: number) => {
+    if (hazardApiMode) {
+      const rule = warningRuleRecords.find((item) => item.id === ruleId);
+      if (!rule) throw new Error('预警规则不存在');
+      const updated = await rollbackWarningRuleByApi(ruleId, version, rule.revision ?? 1);
+      setWarningRuleRecords((items) => items.map((item) => item.id === ruleId ? updated : item));
+      return updated;
+    }
     setDashboard((current) => current ? {
       ...current,
       warningRules: current.warningRules.map((rule) => rule.id === ruleId
         ? rollbackWarningRule(rule, version)
         : rule),
     } : current);
-  }, []);
+  }, [warningRuleRecords]);
 
   const resetDashboard = useCallback(async () => {
     const storage = getBrowserStorage();
@@ -805,6 +869,10 @@ export default function useQhseModel() {
     workPermitLinkageAvailable: !hazardApiMode,
     workPermitLoading: hazardApiMode ? workPermitLoading : loading,
     loadWorkPermits,
+    warningRules: hazardApiMode ? warningRuleRecords : (dashboard?.warningRules ?? []),
+    warningRuleLoading: hazardApiMode ? warningRuleLoading : loading,
+    warningRuleApiMode: hazardApiMode,
+    loadWarningRules,
     simulateGdsAlarm,
     confirmAlarm,
     startEmergency,

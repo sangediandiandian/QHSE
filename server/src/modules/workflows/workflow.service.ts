@@ -140,6 +140,12 @@ export class WorkflowService {
         message: `当前角色不能处理“${step.name}”`,
       });
     }
+    if (instance.steps.some((item) => item.status === '已通过' && item.actorId === actor.actorId)) {
+      throw new ConflictException({
+        code: 'WORKFLOW_DUAL_CONTROL_REQUIRED',
+        message: '同一账号不能连续完成多个会签节点',
+      });
+    }
     const updatedAt = this.now().toISOString();
     const isLast = instance.steps.every((item) => item.id === step.id || item.status === '已通过');
     return this.mutate(instance, expectedVersion, {
