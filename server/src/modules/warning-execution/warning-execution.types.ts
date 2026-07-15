@@ -36,6 +36,7 @@ export interface WarningSignal {
   occurredAt: string;
   status: 'active' | 'acknowledged' | 'processing' | 'closed';
   operations: WarningSignalOperation[];
+  evidenceChecks: WarningEvidenceCheck[];
   version: number;
   createdAt: string;
   updatedAt: string;
@@ -43,16 +44,27 @@ export interface WarningSignal {
 
 export interface WarningSignalOperation {
   id: string;
-  action: '确认' | '开始处置' | '关闭';
+  action: '证据核验' | '确认' | '开始处置' | '关闭';
   operatorId: string;
   operator: string;
   operatedAt: string;
   detail: string;
 }
 
+export const warningEvidenceCategories = ['监测数据', '工艺参数', '作业票证', '关联人员'] as const;
+export type WarningEvidenceCategory = (typeof warningEvidenceCategories)[number];
+
+export interface WarningEvidenceCheck {
+  category: WarningEvidenceCategory;
+  checkedById: string;
+  checkedBy: string;
+  checkedAt: string;
+}
+
 export interface WarningSignalMutation {
-  status: WarningSignal['status'];
+  status?: WarningSignal['status'];
   operation: WarningSignalOperation;
+  evidenceCheck?: WarningEvidenceCheck;
   updatedAt: string;
 }
 

@@ -163,4 +163,38 @@ describe('WarningExecutionService', () => {
       response: expect.objectContaining({ code: 'WARNING_SIGNAL_STATE_CONFLICT' }),
     });
   });
+
+  test('证据核验记录可信操作人并阻止重复核验', async () => {
+    const { execution } = createFixture();
+    const signal = (
+      await execution.evaluate({
+        source: 'GDS',
+        subjectId: 'GDS-101',
+        areaId: 'area-02',
+        occurredAt: '2026-07-15T08:00:00.000Z',
+        metrics: { 'GDS.currentValue': 55 },
+      })
+    ).triggeredSignals[0];
+    const access = {
+      actorId: 'user-unit',
+      actorName: '李建国',
+      allowedAreaIds: ['area-02'],
+    };
+
+    const verified = await execution.verifyEvidence(signal.id, 1, '监测数据', access);
+    expect(verified).toMatchObject({ status: 'active', version: 2 });
+    expect(verified.evidenceChecks).toEqual([
+      expect.objectContaining({
+        category: '监测数据',
+        checkedById: 'user-unit',
+        checkedBy: '李建国',
+      }),
+    ]);
+    expect(verified.operations).toEqual([
+      expect.objectContaining({ action: '证据核验', operatorId: 'user-unit' }),
+    ]);
+    await expect(execution.verifyEvidence(signal.id, 2, '监测数据', access)).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'WARNING_EVIDENCE_ALREADY_VERIFIED' }),
+    });
+  });
 });

@@ -982,11 +982,17 @@ export interface WarningSignal {
   status: 'active' | 'acknowledged' | 'processing' | 'closed';
   operations: Array<{
     id: string;
-    action: '确认' | '开始处置' | '关闭';
+    action: '证据核验' | '确认' | '开始处置' | '关闭';
     operatorId: string;
     operator: string;
     operatedAt: string;
     detail: string;
+  }>;
+  evidenceChecks: Array<{
+    category: WarningEvidenceCategory;
+    checkedById: string;
+    checkedBy: string;
+    checkedAt: string;
   }>;
   version: number;
   createdAt: string;

@@ -9,7 +9,12 @@ import {
   WarningSignalNotFoundError,
   WarningSignalVersionConflictError,
 } from './warning-execution.repository';
-import type { MetricValue, WarningEvaluationState, WarningSignal } from './warning-execution.types';
+import type {
+  MetricValue,
+  WarningEvaluationState,
+  WarningEvidenceCategory,
+  WarningSignal,
+} from './warning-execution.types';
 
 interface WarningExecutionOptions {
   createId?: () => string;
@@ -95,6 +100,30 @@ export class WarningExecutionService {
     return this.mutate(signal, 'acknowledged', expectedVersion, access, '确认', '预警信号已确认');
   }
 
+  async verifyEvidence(
+    id: string,
+    expectedVersion: number,
+    category: WarningEvidenceCategory,
+    access: WarningSignalAccess,
+  ) {
+    const signal = await this.getSignal(id, access.allowedAreaIds);
+    if (signal.status === 'closed') this.stateConflict(signal, '核验证据');
+    if (signal.evidenceChecks.some((item) => item.category === category))
+      throw new ConflictException({
+        code: 'WARNING_EVIDENCE_ALREADY_VERIFIED',
+        message: `${category}已经完成核验`,
+      });
+    return this.mutate(
+      signal,
+      undefined,
+      expectedVersion,
+      access,
+      '证据核验',
+      `${category}已完成一致性核验`,
+      category,
+    );
+  }
+
   async startHandling(id: string, expectedVersion: number, access: WarningSignalAccess) {
     const signal = await this.getSignal(id, access.allowedAreaIds);
     if (signal.status !== 'acknowledged') this.stateConflict(signal, '开始处置');
@@ -152,6 +181,7 @@ export class WarningExecutionService {
       occurredAt,
       status: 'active',
       operations: [],
+      evidenceChecks: [],
       version: 1,
       createdAt: occurredAt,
       updatedAt: occurredAt,
@@ -160,11 +190,12 @@ export class WarningExecutionService {
 
   private async mutate(
     signal: WarningSignal,
-    status: WarningSignal['status'],
+    status: WarningSignal['status'] | undefined,
     expectedVersion: number,
     access: WarningSignalAccess,
-    action: '确认' | '开始处置' | '关闭',
+    action: '证据核验' | '确认' | '开始处置' | '关闭',
     detail: string,
+    evidenceCategory?: WarningEvidenceCategory,
   ) {
     const timestamp = this.now().toISOString();
     try {
@@ -180,6 +211,14 @@ export class WarningExecutionService {
             operatedAt: timestamp,
             detail,
           },
+          evidenceCheck: evidenceCategory
+            ? {
+                category: evidenceCategory,
+                checkedById: access.actorId,
+                checkedBy: access.actorName,
+                checkedAt: timestamp,
+              }
+            : undefined,
           updatedAt: timestamp,
         },
         expectedVersion,

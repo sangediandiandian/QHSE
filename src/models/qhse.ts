@@ -65,6 +65,7 @@ import {
   rollbackWarningRule as rollbackWarningRuleByApi,
   submitWarningRule as submitWarningRuleByApi,
   startWarningSignalHandling,
+  verifyWarningSignalEvidence,
   toggleWarningRule as toggleWarningRuleByApi,
   updateWarningRuleDraft,
 } from '@/services/qhse/warningRules';
@@ -208,6 +209,7 @@ function withSignalState(event: AlarmEvent, signal: WarningSignal): AlarmEvent {
     closed: '监控中',
   } as const;
   const operationType = {
+    证据核验: '证据核验',
     确认: '事件确认',
     开始处置: '处置启动',
     关闭: '预警关闭',
@@ -222,6 +224,11 @@ function withSignalState(event: AlarmEvent, signal: WarningSignal): AlarmEvent {
       operator: operation.operator,
       operatedAt: operation.operatedAt,
       detail: operation.detail,
+    })),
+    evidenceChecks: signal.evidenceChecks.map((check) => ({
+      category: check.category,
+      checkedBy: check.checkedBy,
+      checkedAt: check.checkedAt,
     })),
   };
 }
@@ -456,14 +463,25 @@ export default function useQhseModel() {
     return signal;
   }, [dashboard]);
 
-  const verifyAlarmEvidence = useCallback((eventId: string, category: WarningEvidenceCategory) => {
+  const verifyAlarmEvidence = useCallback(async (eventId: string, category: WarningEvidenceCategory) => {
+    if (hazardApiMode) {
+      const event = dashboard?.alarms.find((item) => item.id === eventId);
+      if (!event?.version) throw new Error('预警信号不存在或不支持证据核验');
+      const signal = await verifyWarningSignalEvidence(eventId, event.version, category);
+      setDashboard((current) => current ? {
+        ...current,
+        alarms: current.alarms.map((alarm) => alarm.id === eventId ? withSignalState(alarm, signal) : alarm),
+      } : current);
+      return signal;
+    }
     setDashboard((current) => current ? {
       ...current,
       alarms: current.alarms.map((event) => event.id === eventId
         ? withVerifiedWarningEvidence(event, category, '赵磊 / QHSE 值班', getCurrentTimestamp())
         : event),
     } : current);
-  }, []);
+    return undefined;
+  }, [dashboard]);
 
   const simulateVocAlarm = useCallback(() => {
     setDashboard((current) => {

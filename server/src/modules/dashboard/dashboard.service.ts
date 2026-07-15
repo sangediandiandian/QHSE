@@ -86,6 +86,7 @@ function mapSignal(signal: WarningSignal, areaNames: Map<string, string>) {
     operations: signal.operations.map((operation) => ({
       id: operation.id,
       type: {
+        证据核验: '证据核验',
         确认: '事件确认',
         开始处置: '处置启动',
         关闭: '预警关闭',
@@ -93,6 +94,11 @@ function mapSignal(signal: WarningSignal, areaNames: Map<string, string>) {
       operator: operation.operator,
       operatedAt: operation.operatedAt,
       detail: operation.detail,
+    })),
+    evidenceChecks: signal.evidenceChecks.map((check) => ({
+      category: check.category,
+      checkedBy: check.checkedBy,
+      checkedAt: check.checkedAt,
     })),
     version: signal.version,
   };

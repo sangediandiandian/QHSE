@@ -63,8 +63,25 @@ function createService() {
         detail: '50 %LEL',
         occurredAt: timestamp,
         status: 'active',
-        operations: [],
-        version: 1,
+        operations: [
+          {
+            id: 'operation-1',
+            action: '证据核验',
+            operatorId: 'user-unit',
+            operator: '李建国',
+            operatedAt: timestamp,
+            detail: '监测数据已完成一致性核验',
+          },
+        ],
+        evidenceChecks: [
+          {
+            category: '监测数据',
+            checkedById: 'user-unit',
+            checkedBy: '李建国',
+            checkedAt: timestamp,
+          },
+        ],
+        version: 2,
         createdAt: timestamp,
         updatedAt: timestamp,
       },
@@ -80,6 +97,7 @@ function createService() {
         occurredAt: timestamp,
         status: 'active',
         operations: [],
+        evidenceChecks: [],
         version: 1,
         createdAt: timestamp,
         updatedAt: timestamp,
@@ -171,6 +189,11 @@ describe('DashboardService', () => {
     expect(result.riskUnits).toHaveLength(1);
     expect(result.emergencyEvents).toHaveLength(1);
     expect(result.alarms).toHaveLength(1);
+    expect(result.alarms[0]).toMatchObject({
+      version: 2,
+      evidenceChecks: [{ category: '监测数据', checkedBy: '李建国' }],
+      operations: [expect.objectContaining({ type: '证据核验', operator: '李建国' })],
+    });
     expect(result.communicationTasks.map((task) => task.id)).toEqual(['task-1']);
     expect(result.metrics).toMatchObject({
       overallRisk: '重大风险',

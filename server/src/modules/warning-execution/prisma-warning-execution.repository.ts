@@ -12,6 +12,7 @@ import type {
   WarningSignal,
   WarningSignalMutation,
   WarningSignalOperation,
+  WarningEvidenceCheck,
 } from './warning-execution.types';
 
 @Injectable()
@@ -67,6 +68,7 @@ export class PrismaWarningExecutionRepository implements WarningExecutionReposit
           createdAt: new Date(signal.createdAt),
           updatedAt: new Date(signal.updatedAt),
           operations: signal.operations as unknown as Prisma.InputJsonValue,
+          evidenceChecks: signal.evidenceChecks as unknown as Prisma.InputJsonValue,
           version: signal.version,
         },
       }),
@@ -109,6 +111,12 @@ export class PrismaWarningExecutionRepository implements WarningExecutionReposit
       data: {
         status: mutation.status,
         operations: [...current.operations, mutation.operation] as unknown as Prisma.InputJsonValue,
+        evidenceChecks: mutation.evidenceCheck
+          ? ([
+              ...current.evidenceChecks,
+              mutation.evidenceCheck,
+            ] as unknown as Prisma.InputJsonValue)
+          : undefined,
         version: { increment: 1 },
         updatedAt: new Date(mutation.updatedAt),
       },
@@ -157,6 +165,7 @@ function mapSignal(record: {
   occurredAt: Date;
   status: string;
   operations: Prisma.JsonValue;
+  evidenceChecks: Prisma.JsonValue;
   version: number;
   createdAt: Date;
   updatedAt: Date;
@@ -168,6 +177,7 @@ function mapSignal(record: {
     occurredAt: record.occurredAt.toISOString(),
     status: record.status as WarningSignal['status'],
     operations: record.operations as unknown as WarningSignalOperation[],
+    evidenceChecks: record.evidenceChecks as unknown as WarningEvidenceCheck[],
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
   };

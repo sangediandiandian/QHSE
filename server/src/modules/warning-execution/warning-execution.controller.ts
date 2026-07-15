@@ -8,7 +8,11 @@ import { RequirePermissions } from '../auth/permissions.decorator';
 import type { AuthPrincipal } from '../iam/iam.types';
 import { EvaluateWarningSampleDto } from './dto/evaluate-warning-sample.dto';
 import { WarningExecutionService } from './warning-execution.service';
-import { CloseWarningSignalDto, WarningSignalVersionDto } from './warning-signal.dto';
+import {
+  CloseWarningSignalDto,
+  VerifyWarningEvidenceDto,
+  WarningSignalVersionDto,
+} from './warning-signal.dto';
 
 class SignalQueryDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(200) limit?: number;
@@ -64,6 +68,27 @@ export class WarningExecutionController {
     @CurrentPrincipal() principal: AuthPrincipal,
   ) {
     return this.service.acknowledge(id, input.expectedVersion, access(principal));
+  }
+
+  @Post('signals/:id/evidence')
+  @HttpCode(200)
+  @RequirePermissions('warning:handle')
+  @AuditAction({
+    action: 'warning.signal.evidence.verify',
+    resourceType: 'warning_signal',
+    resourceIdParam: 'id',
+  })
+  verifyEvidence(
+    @Param('id') id: string,
+    @Body() input: VerifyWarningEvidenceDto,
+    @CurrentPrincipal() principal: AuthPrincipal,
+  ) {
+    return this.service.verifyEvidence(
+      id,
+      input.expectedVersion,
+      input.category,
+      access(principal),
+    );
   }
 
   @Post('signals/:id/handling')

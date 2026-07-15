@@ -1,4 +1,5 @@
-import { IsInt, IsNotEmpty, IsString, MaxLength, Min } from 'class-validator';
+import { IsIn, IsInt, IsNotEmpty, IsString, MaxLength, Min } from 'class-validator';
+import { type WarningEvidenceCategory, warningEvidenceCategories } from './warning-execution.types';
 
 export class WarningSignalVersionDto {
   @IsInt()
@@ -11,4 +12,9 @@ export class CloseWarningSignalDto extends WarningSignalVersionDto {
   @IsNotEmpty()
   @MaxLength(500)
   reason!: string;
+}
+
+export class VerifyWarningEvidenceDto extends WarningSignalVersionDto {
+  @IsIn(warningEvidenceCategories)
+  category!: WarningEvidenceCategory;
 }

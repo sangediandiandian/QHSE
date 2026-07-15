@@ -70,9 +70,13 @@ export class InMemoryWarningExecutionRepository implements WarningExecutionRepos
       throw new WarningSignalVersionConflictError(expectedVersion, signal.version);
     const next: WarningSignal = {
       ...signal,
-      ...mutation,
+      status: mutation.status ?? signal.status,
       operations: [...signal.operations, mutation.operation],
+      evidenceChecks: mutation.evidenceCheck
+        ? [...signal.evidenceChecks, mutation.evidenceCheck]
+        : signal.evidenceChecks,
       version: signal.version + 1,
+      updatedAt: mutation.updatedAt,
     };
     this.signals.set(id, clone(next));
     return clone(next);

@@ -402,22 +402,23 @@ model WarningEvaluationState {
 }
 
 model WarningSignal {
-  id         String    @id @default(uuid())
-  code       String    @unique
-  ruleId     String
-  ruleCode   String
-  subjectId  String
-  areaId     String?
-  source     String
-  level      RiskLevel
-  title      String
-  detail     String
-  occurredAt DateTime
-  status     String    @default("active")
-  operations Json      @default("[]")
-  version    Int       @default(1)
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  id             String    @id @default(uuid())
+  code           String    @unique
+  ruleId         String
+  ruleCode       String
+  subjectId      String
+  areaId         String?
+  source         String
+  level          RiskLevel
+  title          String
+  detail         String
+  occurredAt     DateTime
+  status         String    @default("active")
+  operations     Json      @default("[]")
+  evidenceChecks Json      @default("[]")
+  version        Int       @default(1)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   @@index([ruleId, subjectId, occurredAt])
   @@index([areaId, level, status])
