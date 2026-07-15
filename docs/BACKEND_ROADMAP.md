@@ -32,13 +32,15 @@
 | 5B2 | 应急资源 | 库存、批次、FEFO 调拨、归还和巡检维护服务端闭环 | 已完成 |
 | 5C | 融合通信 | 多渠道发送、回执、重试、升级和审计 | 已完成 |
 | 6 | GDS/VOC/MES、WebSocket/MQTT、对象存储 | 真实数据稳定接入，附件与证据可固化 | 已完成 |
-| 7 | 报表、缓存、消息队列、部署、安全与性能 | 完成生产容量、安全和恢复验证 | 进行中：报表、配置、诊断、安全、缓存、队列、日志和分布式会话已完成，待生产化验证 |
+| 7 | 报表、缓存、消息队列、部署、安全与性能 | 完成生产容量、安全和恢复验证 | 进行中：平台能力和容器健康探针已完成，待链路追踪、容量与灾备验证 |
 
 应急资源基础闭环已经后端化；仓库/库位、完整库存流水、扫码盘点、维修工单和跨库调拨作为后续生产化增强项建设。
 
 ## 当前 API
 
 - `GET /api/health`：服务健康状态。
+- `GET /api/health/live`：不依赖外部系统的容器存活探针。
+- `GET /api/health/ready`：主动检查数据库、缓存、会话和任务队列的容器就绪探针。
 - `POST /api/v1/auth/login`、`GET /api/v1/auth/me`、`POST /api/v1/auth/logout`：会话认证。
 - `GET /api/v1/iam/organizations|roles|users`：组织、角色与用户授权查询。
 - `GET /api/v1/audit-logs`：操作、登录与安全拒绝审计查询。
@@ -136,6 +138,8 @@
 
 会话存储支持进程内和 Redis 双模式。Redis 模式使用带 TTL 的会话键和用户会话有序集合，同一账号最多保留最新 5 个活动会话；HTTP Guard、登录/退出和遥测 WebSocket 握手均使用异步会话存储，不存在只对 HTTP 生效的分裂认证链。会话后端不可用时登录或鉴权快速返回稳定 503，禁止静默降级到本地会话，以免多实例产生不一致身份状态。
 
+容器健康检查拆分为存活和就绪两个端点。存活探针只证明 Node 进程可响应；就绪探针并行主动检查当前启用的 PostgreSQL、缓存、会话和任务队列，每项返回后端类型、状态和耗时。任一生产依赖失败或超过默认 1500 ms 时返回 `503/SERVICE_NOT_READY`，但存活探针继续返回 200，便于编排平台停止接流而不是盲目重启进程。
+
 ## 本地启动
 
 无需数据库即可启动内存仓储模式：
@@ -208,3 +212,5 @@ QHSE_SESSION_REDIS_URL=rediss://session.example.com:6379 npm run server:dev
 ```
 
 未设置 `QHSE_SESSION_STORE=redis` 时使用进程内会话。当前 Redis Lua 会话上限逻辑面向单实例或 Sentinel 部署；Redis Cluster 哈希槽方案需在生产拓扑确定后单独验证。
+
+就绪探针单依赖超时默认 1500 ms，可通过 `QHSE_READINESS_TIMEOUT_MS` 在 100–10000 ms 范围调整。容器编排应将 `/api/health/live` 配置为 livenessProbe，将 `/api/health/ready` 配置为 readinessProbe。

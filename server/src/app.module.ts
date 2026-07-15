@@ -5,7 +5,7 @@ import { CacheModule } from './infrastructure/cache/cache.module';
 import { LoggingModule } from './infrastructure/logging/logging.module';
 import { AccessLogMiddleware } from './infrastructure/logging/access-log.middleware';
 import { DatabaseModule } from './database/database.module';
-import { HealthController } from './health/health.controller';
+import { HealthModule } from './health/health.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { RiskModule } from './modules/risks/risk.module';
@@ -28,6 +28,7 @@ import { RuntimeMetricsMiddleware } from './modules/diagnostics/runtime-metrics.
 @Module({
   imports: [
     LoggingModule,
+    HealthModule,
     CacheModule,
     DatabaseModule,
     AuthModule,
@@ -48,7 +49,6 @@ import { RuntimeMetricsMiddleware } from './modules/diagnostics/runtime-metrics.
     PlatformConfigModule,
     DiagnosticsModule,
   ],
-  controllers: [HealthController],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

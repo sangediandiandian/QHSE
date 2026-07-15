@@ -42,6 +42,7 @@ describe('CacheService', () => {
       backend: 'redis',
       get: jest.fn().mockRejectedValue(new Error('offline')),
       set: jest.fn(),
+      ping: jest.fn(),
       close: jest.fn(),
     } as unknown as CacheStore;
     const service = new CacheService(store);

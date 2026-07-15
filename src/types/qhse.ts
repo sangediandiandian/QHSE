@@ -656,6 +656,10 @@ export interface SystemDiagnostics {
   };
   queue: {
     backend: 'memory' | 'redis';
+    status: 'ready' | 'degraded';
+    failures: number;
+    lastErrorAt?: string;
+    lastSuccessAt?: string;
     retainedJobs?: number;
   };
   sessions: {

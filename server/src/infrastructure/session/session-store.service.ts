@@ -22,6 +22,10 @@ export class SessionStoreService implements OnModuleDestroy {
     return this.execute(() => this.store.delete(token));
   }
 
+  async check() {
+    await this.execute(() => this.store.ping());
+  }
+
   snapshot() {
     const degraded = Boolean(
       this.lastErrorAt && (!this.lastSuccessAt || this.lastErrorAt > this.lastSuccessAt),

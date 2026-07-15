@@ -402,3 +402,22 @@
 - 前后端 TypeScript、后端生产编译和阶段文件 ESLint：通过。
 - Jest：共享存储语义、五会话上限、过期/删除、会话后端故障、认证和诊断共 12 项测试通过。
 - 运行时联调：内存模式登录、`/auth/me`、退出后 401 全部通过，遥测 WebSocket 异步认证收到 `telemetry:ready`；Redis 不可用时登录 45 ms 内返回稳定 503。
+
+## 2026-07-15 · Stage 7I 容器存活与就绪探针
+
+计划提交：`build dependency readiness probes`
+
+完成内容：
+
+- 保留兼容健康接口，新增独立 `/api/health/live` 和 `/api/health/ready` 公共探针。
+- liveness 仅检查 API 进程可响应，不访问外部依赖，避免依赖波动触发无意义进程重启。
+- readiness 并行主动检查当前启用的 PostgreSQL、缓存、会话和任务队列，返回后端类型、状态和耗时。
+- 单依赖检查默认 1500 ms 超时，可通过运行环境在 100–10000 ms 范围调整；超时或失败统一返回 `503/SERVICE_NOT_READY`。
+- 缓存、会话和队列适配器增加主动 ping/check 能力，健康成功或失败同步更新各自诊断状态。
+- 错误响应只公开依赖名称、后端、状态和耗时，不返回连接地址、账号、密码或底层异常消息。
+
+验证记录：
+
+- 前后端 TypeScript、后端生产编译和阶段文件 ESLint：通过。
+- Jest：全依赖就绪、单依赖失败、检查超时及缓存/会话/队列回归共 13 项测试通过。
+- 运行时联调：内存模式 legacy/live/ready 均返回 200，四项依赖全部 ready；Redis 缓存不可用时 liveness 保持 200，readiness 在 5 ms 内返回结构化 503，并只标记 cache 为 not_ready。

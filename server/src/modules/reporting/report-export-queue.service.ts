@@ -56,6 +56,9 @@ export class ReportExportQueueService implements OnModuleDestroy {
   private readonly memoryJobs = new Map<string, MemoryExportJob>();
   private queue?: Queue<ExportPayload, ExportResult>;
   private worker?: Worker<ExportPayload, ExportResult>;
+  private failures = 0;
+  private lastErrorAt?: string;
+  private lastSuccessAt?: string;
 
   constructor(private readonly reports: ReportingService) {
     if (this.mode === 'redis') this.initializeRedis();
@@ -73,7 +76,9 @@ export class ReportExportQueueService implements OnModuleDestroy {
           removeOnComplete: { age: 86_400, count: 1_000 },
           removeOnFail: { age: 86_400, count: 1_000 },
         });
+        this.recordSuccess();
       } catch {
+        this.recordFailure();
         throw new ServiceUnavailableException({
           code: 'REPORT_QUEUE_UNAVAILABLE',
           message: '报表任务队列暂不可用，请稍后重试',
@@ -85,6 +90,7 @@ export class ReportExportQueueService implements OnModuleDestroy {
     this.cleanupMemoryJobs();
     const job: MemoryExportJob = { ...payload, id, status: 'queued', createdAt };
     this.memoryJobs.set(id, job);
+    this.recordSuccess();
     setImmediate(() => void this.processMemoryJob(job));
     return { id, status: job.status, createdAt, backend: 'memory' as const };
   }
@@ -118,10 +124,27 @@ export class ReportExportQueueService implements OnModuleDestroy {
   }
 
   snapshot() {
+    const degraded = Boolean(
+      this.lastErrorAt && (!this.lastSuccessAt || this.lastErrorAt > this.lastSuccessAt),
+    );
     return {
       backend: this.mode,
+      status: degraded ? 'degraded' : 'ready',
+      failures: this.failures,
+      lastErrorAt: this.lastErrorAt,
+      lastSuccessAt: this.lastSuccessAt,
       retainedJobs: this.mode === 'memory' ? this.memoryJobs.size : undefined,
     };
+  }
+
+  async check() {
+    try {
+      if (this.mode === 'redis') await this.queue!.getJobCounts('waiting', 'active', 'delayed');
+      this.recordSuccess();
+    } catch (error) {
+      this.recordFailure();
+      throw error;
+    }
   }
 
   async onModuleDestroy() {
@@ -221,5 +244,14 @@ export class ReportExportQueueService implements OnModuleDestroy {
 
   private notReady() {
     return new ConflictException({ code: 'REPORT_EXPORT_NOT_READY', message: '导出任务尚未完成' });
+  }
+
+  private recordSuccess() {
+    this.lastSuccessAt = new Date().toISOString();
+  }
+
+  private recordFailure() {
+    this.failures += 1;
+    this.lastErrorAt = new Date().toISOString();
   }
 }

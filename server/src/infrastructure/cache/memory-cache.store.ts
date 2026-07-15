@@ -25,6 +25,8 @@ export class MemoryCacheStore implements CacheStore {
     this.entries.set(key, { value: JSON.stringify(value), expiresAt: this.now() + ttlMs });
   }
 
+  async ping() {}
+
   async close() {
     this.entries.clear();
   }

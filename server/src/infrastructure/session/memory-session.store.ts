@@ -29,6 +29,8 @@ export class MemorySessionStore implements SessionStore {
     this.sessions.delete(token);
   }
 
+  async ping() {}
+
   async close() {
     this.sessions.clear();
   }

@@ -61,6 +61,11 @@ export class RedisSessionStore implements SessionStore {
     await transaction.exec();
   }
 
+  async ping() {
+    await this.connect();
+    await this.client.ping();
+  }
+
   async close() {
     if (this.client.isOpen) await this.client.close();
   }

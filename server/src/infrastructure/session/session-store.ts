@@ -16,5 +16,6 @@ export interface SessionStore {
   ): Promise<void>;
   get(token: string): Promise<StoredSession | undefined>;
   delete(token: string): Promise<void>;
+  ping(): Promise<void>;
   close(): Promise<void>;
 }

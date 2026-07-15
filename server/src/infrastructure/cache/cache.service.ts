@@ -70,6 +70,17 @@ export class CacheService implements OnModuleDestroy {
     };
   }
 
+  async check() {
+    try {
+      await this.store.ping();
+      this.lastSuccessAt = new Date().toISOString();
+      this.unavailableUntil = 0;
+    } catch (error) {
+      this.recordFailure();
+      throw error;
+    }
+  }
+
   async onModuleDestroy() {
     await this.store.close();
   }

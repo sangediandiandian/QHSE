@@ -62,6 +62,7 @@ describe('AuthService', () => {
       create: jest.fn().mockRejectedValue(new Error('offline')),
       get: jest.fn(),
       delete: jest.fn(),
+      ping: jest.fn(),
       close: jest.fn(),
     } as unknown as SessionStore;
     const service = new AuthService(

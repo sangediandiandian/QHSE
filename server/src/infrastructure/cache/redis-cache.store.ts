@@ -25,6 +25,11 @@ export class RedisCacheStore implements CacheStore {
     await this.client.set(key, JSON.stringify(value), { PX: ttlMs });
   }
 
+  async ping() {
+    await this.connect();
+    await this.client.ping();
+  }
+
   async close() {
     if (this.client.isOpen) await this.client.close();
   }
