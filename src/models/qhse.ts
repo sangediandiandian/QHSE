@@ -10,8 +10,10 @@ import type {
   EmergencyResourceDispatchInput,
   EmergencyResourceInput,
   EmergencyResourceInspectionInput,
-  HazardEvidence,
-  HazardInput,
+  Hazard,
+  HazardEvidenceInput,
+  HazardReportInput,
+  RiskUnit,
   RiskAssessmentInput,
   RiskControlRecord,
   WorkPermitInput,
@@ -19,6 +21,16 @@ import type {
   WarningEvidenceCategory,
   WarningRuleDraftInput,
 } from '@/types/qhse';
+import {
+  addHazardEvidence as addHazardEvidenceByApi,
+  closeHazard as closeHazardByApi,
+  getHazardRiskUnits,
+  getHazards,
+  reportHazard,
+  setHazardSupervision,
+  startHazardRectification as startHazardByApi,
+  submitHazardAcceptance as submitHazardByApi,
+} from '@/services/qhse/hazards';
 import {
   withCommunicationConfirmation,
   withCommunicationEscalation,
@@ -89,6 +101,8 @@ import {
 } from '@/utils/warningRuleWorkflow';
 import { useCallback, useEffect, useState } from 'react';
 
+const hazardApiMode = process.env.REACT_APP_QHSE_DATA_MODE === 'api';
+
 function getBrowserStorage() {
   try {
     return typeof window === 'undefined' ? undefined : window.localStorage;
@@ -111,6 +125,9 @@ function getCurrentTimestamp() {
 export default function useQhseModel() {
   const [dashboard, setDashboard] = useState<DashboardData>();
   const [loading, setLoading] = useState(false);
+  const [hazardRecords, setHazardRecords] = useState<Hazard[]>([]);
+  const [hazardRiskUnits, setHazardRiskUnits] = useState<RiskUnit[]>([]);
+  const [hazardLoading, setHazardLoading] = useState(false);
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
@@ -127,6 +144,21 @@ export default function useQhseModel() {
       setLoading(false);
     }
   }, []);
+
+  const loadHazards = useCallback(async () => {
+    if (!hazardApiMode) {
+      if (!dashboard) await loadDashboard();
+      return;
+    }
+    setHazardLoading(true);
+    try {
+      const [hazards, risks] = await Promise.all([getHazards(), getHazardRiskUnits()]);
+      setHazardRecords(hazards);
+      setHazardRiskUnits(risks);
+    } finally {
+      setHazardLoading(false);
+    }
+  }, [dashboard, loadDashboard]);
 
   useEffect(() => {
     const storage = getBrowserStorage();
@@ -471,62 +503,115 @@ export default function useQhseModel() {
     } : current);
   }, []);
 
-  const addHazard = useCallback((input: HazardInput) => {
+  const addHazard = useCallback(async (input: HazardReportInput) => {
+    if (hazardApiMode) {
+      const created = await reportHazard(input);
+      setHazardRecords((current) => [...current, created]);
+      return created;
+    }
     setDashboard((current) => {
       if (!current) return current;
+      const unit = current.riskUnits.find((item) => item.id === input.riskUnitId);
+      if (!unit) return current;
       const dateCode = getCurrentTimestamp().slice(0, 10).replace(/-/g, '');
       const code = `YH${dateCode}${String(current.hazards.length + 1).padStart(3, '0')}`;
       return {
         ...current,
-        hazards: [...current.hazards, withCreatedHazard(input, `hazard-${Date.now()}`, code, '赵磊 / QHSE 管理部', getCurrentTimestamp())],
+        hazards: [...current.hazards, withCreatedHazard({
+          ...input,
+          areaId: unit.areaId,
+          areaName: unit.areaName,
+        }, `hazard-${Date.now()}`, code, '赵磊 / QHSE 管理部', getCurrentTimestamp())],
       };
     });
   }, []);
 
-  const addHazardEvidence = useCallback((hazardId: string, evidence: Omit<HazardEvidence, 'id' | 'uploadedAt'>) => {
+  const addHazardEvidence = useCallback(async (hazardId: string, evidence: HazardEvidenceInput) => {
+    if (hazardApiMode) {
+      const current = hazardRecords.find((item) => item.id === hazardId);
+      if (!current) throw new Error('隐患不存在');
+      const updated = await addHazardEvidenceByApi(hazardId, evidence, current.version ?? 1);
+      setHazardRecords((items) => items.map((item) => item.id === hazardId ? updated : item));
+      return updated;
+    }
     setDashboard((current) => current ? {
       ...current,
       hazards: current.hazards.map((hazard) => hazard.id === hazardId
-        ? withAddedHazardEvidence(hazard, evidence, `evidence-${Date.now()}`, getCurrentTimestamp())
+        ? withAddedHazardEvidence(hazard, {
+          ...evidence,
+          uploader: '赵磊 / QHSE 管理部',
+        }, `evidence-${Date.now()}`, getCurrentTimestamp())
         : hazard),
     } : current);
-  }, []);
+  }, [hazardRecords]);
 
-  const startHazard = useCallback((hazardId: string) => {
+  const startHazard = useCallback(async (hazardId: string) => {
+    if (hazardApiMode) {
+      const current = hazardRecords.find((item) => item.id === hazardId);
+      if (!current) throw new Error('隐患不存在');
+      const updated = await startHazardByApi(hazardId, current.version ?? 1);
+      setHazardRecords((items) => items.map((item) => item.id === hazardId ? updated : item));
+      return updated;
+    }
     setDashboard((current) => current ? {
       ...current,
       hazards: current.hazards.map((hazard) => hazard.id === hazardId
         ? startHazardRectification(hazard, hazard.owner, getCurrentTimestamp())
         : hazard),
     } : current);
-  }, []);
+  }, [hazardRecords]);
 
-  const submitHazard = useCallback((hazardId: string) => {
+  const submitHazard = useCallback(async (hazardId: string) => {
+    if (hazardApiMode) {
+      const current = hazardRecords.find((item) => item.id === hazardId);
+      if (!current) throw new Error('隐患不存在');
+      const updated = await submitHazardByApi(hazardId, current.version ?? 1);
+      setHazardRecords((items) => items.map((item) => item.id === hazardId ? updated : item));
+      return updated;
+    }
     setDashboard((current) => current ? {
       ...current,
       hazards: current.hazards.map((hazard) => hazard.id === hazardId
         ? submitHazardAcceptance(hazard, hazard.owner, getCurrentTimestamp())
         : hazard),
     } : current);
-  }, []);
+  }, [hazardRecords]);
 
-  const acceptHazard = useCallback((hazardId: string, opinion: string) => {
+  const acceptHazard = useCallback(async (hazardId: string, opinion: string) => {
+    if (hazardApiMode) {
+      const current = hazardRecords.find((item) => item.id === hazardId);
+      if (!current) throw new Error('隐患不存在');
+      const updated = await closeHazardByApi(hazardId, opinion, current.version ?? 1);
+      setHazardRecords((items) => items.map((item) => item.id === hazardId ? updated : item));
+      return updated;
+    }
     setDashboard((current) => current ? {
       ...current,
       hazards: current.hazards.map((hazard) => hazard.id === hazardId
         ? acceptAndCloseHazard(hazard, opinion, '赵磊 / QHSE 管理部', getCurrentTimestamp())
         : hazard),
     } : current);
-  }, []);
+  }, [hazardRecords]);
 
-  const toggleHazardSupervision = useCallback((hazardId: string) => {
+  const toggleHazardSupervision = useCallback(async (hazardId: string) => {
+    if (hazardApiMode) {
+      const current = hazardRecords.find((item) => item.id === hazardId);
+      if (!current) throw new Error('隐患不存在');
+      const updated = await setHazardSupervision(
+        hazardId,
+        !current.supervised,
+        current.version ?? 1,
+      );
+      setHazardRecords((items) => items.map((item) => item.id === hazardId ? updated : item));
+      return updated;
+    }
     setDashboard((current) => current ? {
       ...current,
       hazards: current.hazards.map((hazard) => hazard.id === hazardId
         ? withToggledHazardSupervision(hazard, '赵磊 / QHSE 管理部', getCurrentTimestamp())
         : hazard),
     } : current);
-  }, []);
+  }, [hazardRecords]);
 
   const triggerPermitLinkage = useCallback(() => {
     setDashboard((current) => current && isWarningScenarioEnabled(current, 'permit-linkage') ? {
@@ -643,6 +728,10 @@ export default function useQhseModel() {
     dashboard,
     loading,
     loadDashboard,
+    hazards: hazardApiMode ? hazardRecords : (dashboard?.hazards ?? []),
+    hazardRiskUnits: hazardApiMode ? hazardRiskUnits : (dashboard?.riskUnits ?? []),
+    hazardLoading: hazardApiMode ? hazardLoading : loading,
+    loadHazards,
     simulateGdsAlarm,
     confirmAlarm,
     startEmergency,

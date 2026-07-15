@@ -32,7 +32,7 @@
     "prisma:migrate": "prisma migrate dev --schema server/prisma/schema.prisma",
     "prisma:seed": "ts-node --project server/tsconfig.json server/src/database/seed.ts",
     "start": "cross-env UMI_ENV=dev max dev",
-    "start:dev": "cross-env REACT_APP_ENV=dev MOCK=none UMI_ENV=dev max dev",
+    "start:dev": "cross-env REACT_APP_ENV=dev REACT_APP_QHSE_DATA_MODE=api MOCK=none UMI_ENV=dev max dev",
     "start:no-mock": "cross-env MOCK=none UMI_ENV=dev max dev",
     "start:pre": "cross-env REACT_APP_ENV=pre UMI_ENV=dev max dev",
     "start:test": "cross-env REACT_APP_ENV=test MOCK=none UMI_ENV=dev max dev",

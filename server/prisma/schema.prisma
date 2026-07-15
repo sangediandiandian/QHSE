@@ -133,9 +133,73 @@ model RiskUnit {
   updatedAt       DateTime         @updatedAt
   assessments     RiskAssessment[]
   controlRecords  RiskControl[]
+  hazards         Hazard[]
 
   @@index([areaId, currentLevel])
   @@map("risk_units")
+}
+
+model Hazard {
+  id                String            @id @default(uuid())
+  code              String            @unique
+  title             String
+  areaId            String
+  areaName          String
+  level             String
+  source            String
+  category          String
+  ownerDepartment   String
+  owner              String
+  discoveredAt      DateTime
+  deadline          DateTime
+  status            String
+  riskUnitId        String
+  recurrenceCount   Int               @default(0)
+  description       String
+  measures          String[]
+  supervised        Boolean           @default(false)
+  acceptanceOpinion String?
+  version           Int               @default(1)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  riskUnit          RiskUnit          @relation(fields: [riskUnitId], references: [id])
+  evidence          HazardEvidence[]
+  operations        HazardOperation[]
+
+  @@index([areaId, status])
+  @@index([riskUnitId, status])
+  @@index([deadline, status])
+  @@index([supervised, status])
+  @@map("hazards")
+}
+
+model HazardEvidence {
+  id         String   @id @default(uuid())
+  hazardId   String
+  name       String
+  category   String
+  uploaderId String
+  uploader   String
+  uploadedAt DateTime @default(now())
+  note       String?
+  hazard     Hazard   @relation(fields: [hazardId], references: [id], onDelete: Cascade)
+
+  @@index([hazardId, uploadedAt])
+  @@map("hazard_evidence")
+}
+
+model HazardOperation {
+  id         String   @id @default(uuid())
+  hazardId   String
+  action     String
+  operatorId String
+  operator   String
+  operatedAt DateTime @default(now())
+  detail     String
+  hazard     Hazard   @relation(fields: [hazardId], references: [id], onDelete: Cascade)
+
+  @@index([hazardId, operatedAt])
+  @@map("hazard_operations")
 }
 
 model RiskAssessment {

@@ -19,14 +19,14 @@ export const areas: AreaAssignment[] = [
 ];
 
 export const roles: Role[] = [
-  { id: 'role-leader', code: 'enterprise_leader', name: '企业领导', permissions: ['risk:read'], dataScope: 'all' },
-  { id: 'role-qhse', code: 'qhse_manager', name: 'QHSE 管理人员', permissions: ['risk:read', 'risk:assess', 'risk:controls:update', 'audit:read'], dataScope: 'all' },
-  { id: 'role-dispatcher', code: 'production_dispatcher', name: '生产调度人员', permissions: ['risk:read'], dataScope: 'all' },
-  { id: 'role-unit-manager', code: 'unit_manager', name: '装置负责人', permissions: ['risk:read', 'risk:assess', 'risk:controls:update'], dataScope: 'assigned_areas' },
-  { id: 'role-operator', code: 'operator', name: '岗位操作人员', permissions: ['risk:read'], dataScope: 'assigned_areas' },
-  { id: 'role-environment', code: 'environment_manager', name: '环保管理人员', permissions: ['risk:read'], dataScope: 'assigned_areas' },
-  { id: 'role-emergency', code: 'emergency_commander', name: '应急指挥人员', permissions: ['risk:read'], dataScope: 'all' },
-  { id: 'role-admin', code: 'system_admin', name: '系统管理员', permissions: ['risk:read', 'risk:assess', 'risk:controls:update', 'iam:read', 'iam:manage', 'audit:read'], dataScope: 'all' },
+  { id: 'role-leader', code: 'enterprise_leader', name: '企业领导', permissions: ['risk:read', 'hazard:read'], dataScope: 'all' },
+  { id: 'role-qhse', code: 'qhse_manager', name: 'QHSE 管理人员', permissions: ['risk:read', 'risk:assess', 'risk:controls:update', 'hazard:read', 'hazard:report', 'hazard:rectify', 'hazard:accept', 'hazard:supervise', 'audit:read'], dataScope: 'all' },
+  { id: 'role-dispatcher', code: 'production_dispatcher', name: '生产调度人员', permissions: ['risk:read', 'hazard:read', 'hazard:report'], dataScope: 'all' },
+  { id: 'role-unit-manager', code: 'unit_manager', name: '装置负责人', permissions: ['risk:read', 'risk:assess', 'risk:controls:update', 'hazard:read', 'hazard:report', 'hazard:rectify'], dataScope: 'assigned_areas' },
+  { id: 'role-operator', code: 'operator', name: '岗位操作人员', permissions: ['risk:read', 'hazard:read', 'hazard:report', 'hazard:rectify'], dataScope: 'assigned_areas' },
+  { id: 'role-environment', code: 'environment_manager', name: '环保管理人员', permissions: ['risk:read', 'hazard:read', 'hazard:report', 'hazard:rectify'], dataScope: 'assigned_areas' },
+  { id: 'role-emergency', code: 'emergency_commander', name: '应急指挥人员', permissions: ['risk:read', 'hazard:read'], dataScope: 'all' },
+  { id: 'role-admin', code: 'system_admin', name: '系统管理员', permissions: ['risk:read', 'risk:assess', 'risk:controls:update', 'hazard:read', 'hazard:report', 'hazard:rectify', 'hazard:accept', 'hazard:supervise', 'iam:read', 'iam:manage', 'audit:read'], dataScope: 'all' },
 ];
 
 export const users: UserAccount[] = [

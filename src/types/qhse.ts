@@ -517,6 +517,9 @@ export interface Hazard {
   evidence?: HazardEvidence[];
   acceptanceOpinion?: string;
   operations?: HazardOperation[];
+  version?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface HazardEvidence {
@@ -524,14 +527,16 @@ export interface HazardEvidence {
   name: string;
   category: '整改前' | '整改过程' | '整改完成';
   uploader: string;
+  uploaderId?: string;
   uploadedAt: string;
-  note: string;
+  note?: string;
 }
 
 export interface HazardOperation {
   id: string;
   action: '上报' | '开始整改' | '提交验收' | '验收关闭' | '挂牌督办' | '解除挂牌';
   operator: string;
+  operatorId?: string;
   operatedAt: string;
   detail: string;
 }
@@ -550,6 +555,18 @@ export interface HazardInput {
   riskUnitId: string;
   description: string;
   measures: string[];
+}
+
+export type HazardReportInput = Omit<HazardInput, 'areaId' | 'areaName'>;
+export type HazardEvidenceInput = Pick<HazardEvidence, 'name' | 'category' | 'note'>;
+
+export interface HazardQuery {
+  status?: HazardStatus;
+  level?: Hazard['level'];
+  areaId?: string;
+  keyword?: string;
+  overdue?: boolean;
+  supervised?: boolean;
 }
 
 export type WorkPermitStatus = '待审批' | '作业中' | '建议暂停' | '已暂停' | '已关闭';

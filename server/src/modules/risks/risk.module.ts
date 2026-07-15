@@ -25,5 +25,6 @@ import { RiskService } from './risk.service';
       ),
     },
   ],
+  exports: [RiskService],
 })
 export class RiskModule {}

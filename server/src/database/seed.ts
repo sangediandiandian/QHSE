@@ -2,6 +2,7 @@ import { Prisma, PrismaClient, type DataScope, type RiskLevel, type UserStatus }
 import { hashPassword } from '../modules/auth/auth.service';
 import { areas, organizations, roles, users } from '../modules/iam/iam.seed';
 import { riskSeed } from '../modules/risks/risk.seed';
+import { hazardSeed } from '../modules/hazards/hazard.seed';
 
 const prisma = new PrismaClient();
 
@@ -111,6 +112,90 @@ async function main() {
         version: risk.version,
       },
     });
+  }
+
+  for (const hazard of hazardSeed) {
+    await prisma.hazard.upsert({
+      where: { id: hazard.id },
+      update: {
+        code: hazard.code,
+        title: hazard.title,
+        areaId: hazard.areaId,
+        areaName: hazard.areaName,
+        level: hazard.level,
+        source: hazard.source,
+        category: hazard.category,
+        ownerDepartment: hazard.ownerDepartment,
+        owner: hazard.owner,
+        discoveredAt: new Date(`${hazard.discoveredAt}T00:00:00.000Z`),
+        deadline: new Date(`${hazard.deadline}T00:00:00.000Z`),
+        status: hazard.status,
+        riskUnitId: hazard.riskUnitId,
+        recurrenceCount: hazard.recurrenceCount,
+        description: hazard.description,
+        measures: hazard.measures,
+        supervised: hazard.supervised,
+        acceptanceOpinion: hazard.acceptanceOpinion,
+        version: hazard.version,
+      },
+      create: {
+        id: hazard.id,
+        code: hazard.code,
+        title: hazard.title,
+        areaId: hazard.areaId,
+        areaName: hazard.areaName,
+        level: hazard.level,
+        source: hazard.source,
+        category: hazard.category,
+        ownerDepartment: hazard.ownerDepartment,
+        owner: hazard.owner,
+        discoveredAt: new Date(`${hazard.discoveredAt}T00:00:00.000Z`),
+        deadline: new Date(`${hazard.deadline}T00:00:00.000Z`),
+        status: hazard.status,
+        riskUnitId: hazard.riskUnitId,
+        recurrenceCount: hazard.recurrenceCount,
+        description: hazard.description,
+        measures: hazard.measures,
+        supervised: hazard.supervised,
+        acceptanceOpinion: hazard.acceptanceOpinion,
+        version: hazard.version,
+      },
+    });
+    for (const evidence of hazard.evidence) {
+      await prisma.hazardEvidence.upsert({
+        where: { id: evidence.id },
+        update: {
+          name: evidence.name,
+          category: evidence.category,
+          uploaderId: evidence.uploaderId,
+          uploader: evidence.uploader,
+          uploadedAt: new Date(evidence.uploadedAt),
+          note: evidence.note,
+        },
+        create: {
+          ...evidence,
+          uploadedAt: new Date(evidence.uploadedAt),
+          hazardId: hazard.id,
+        },
+      });
+    }
+    for (const operation of hazard.operations) {
+      await prisma.hazardOperation.upsert({
+        where: { id: operation.id },
+        update: {
+          action: operation.action,
+          operatorId: operation.operatorId,
+          operator: operation.operator,
+          operatedAt: new Date(operation.operatedAt),
+          detail: operation.detail,
+        },
+        create: {
+          ...operation,
+          operatedAt: new Date(operation.operatedAt),
+          hazardId: hazard.id,
+        },
+      });
+    }
   }
 }
 

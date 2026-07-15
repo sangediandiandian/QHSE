@@ -5,9 +5,10 @@ import { HealthController } from './health/health.controller';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { RiskModule } from './modules/risks/risk.module';
+import { HazardModule } from './modules/hazards/hazard.module';
 
 @Module({
-  imports: [DatabaseModule, AuthModule, AuditModule, RiskModule],
+  imports: [DatabaseModule, AuthModule, AuditModule, RiskModule, HazardModule],
   controllers: [HealthController],
 })
 export class AppModule implements NestModule {

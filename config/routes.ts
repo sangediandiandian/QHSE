@@ -52,6 +52,7 @@ export default [
       {
         path: '/management/hazards',
         name: '隐患治理',
+        access: 'canViewHazard',
         component: './HazardManagement',
       },
       {

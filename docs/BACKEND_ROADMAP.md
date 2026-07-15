@@ -1,6 +1,6 @@
 # QHSE 后端开发路线
 
-更新时间：2026-07-14
+更新时间：2026-07-15
 
 ## 技术方案
 
@@ -22,7 +22,8 @@
 | 0 | NestJS 骨架、健康检查、统一错误/响应、请求追踪、Swagger、开发代理 | 后端可独立启动，API 构建和健康检查通过 | 已完成 |
 | 1 | 风险分级首切片、Prisma 模型、种子和乐观锁 | 风险查询、LEC 评估、措施维护和并发冲突测试通过 | 已完成 |
 | 2 | 组织、用户、角色、数据权限与审计拦截器 | 所有真实写接口有身份、权限和审计上下文 | 基线已完成 |
-| 3 | 隐患治理、作业许可 | 两域持久化，并与风险域形成主业务联动 | 待开发 |
+| 3A | 隐患治理 | 上报、整改、证据、验收、督办、权限与审计闭环 | 已完成 |
+| 3B | 作业许可 | 票证申请、审批、现场确认和监测联动持久化 | 待开发 |
 | 4 | 通用审批流、预警规则执行与发布 | 审批、会签、版本、灰度和回滚由服务端管理 | 待开发 |
 | 5 | 应急事件、预案、资源、通信 | 告警到事件关闭全链路可审计 | 待开发 |
 | 6 | GDS/VOC/MES、WebSocket/MQTT、对象存储 | 真实数据稳定接入，附件与证据可固化 | 待开发 |
@@ -40,10 +41,18 @@
 - `GET /api/v1/risks/:id`：风险详情。
 - `POST /api/v1/risks/:id/assessments`：提交 LEC 评估。
 - `PUT /api/v1/risks/:id/controls`：更新管控措施。
+- `GET /api/v1/hazards`、`GET /api/v1/hazards/:id`：按角色区域范围查询隐患。
+- `POST /api/v1/hazards`：上报隐患，区域和操作人由服务端生成。
+- `POST /api/v1/hazards/:id/evidence`：归档整改证据元数据。
+- `POST /api/v1/hazards/:id/rectification/start`：开始整改。
+- `POST /api/v1/hazards/:id/acceptance/submit|close`：提交验收、验收关闭。
+- `PUT /api/v1/hazards/:id/supervision`：显式设置挂牌督办状态。
 
 除健康检查、登录和 Swagger 外，接口默认需要 Bearer Token。演示账号包括 `admin`、`leader`、`qhse`、`dispatcher`、`unit_manager`、`operator`、`environment` 和 `commander`，本地演示密码统一为 `ant.design`。当前会话默认保存在进程内存中，仅用于开发；正式环境需切换统一身份认证或 Redis 会话并独立配置密码。
 
 风险接口已经执行权限点和区域数据范围校验。企业领导只读，QHSE 管理人员拥有全厂风险维护权限，装置负责人只能访问分配区域；越权读取或更新统一返回 404，权限不足返回 403。评估人由认证主体生成，不接受客户端指定。
+
+隐患接口采用同一数据范围策略，并增加 `hazard:read/report/rectify/accept/supervise` 权限点。状态机拒绝非法流转，提交验收必须存在证据，写操作使用 `expectedVersion` 防止并发覆盖；证据上传人、业务操作人和风险单元所属区域均取服务端可信数据。
 
 ## 本地启动
 
@@ -53,6 +62,8 @@
 npm run server:dev
 npm run dev
 ```
+
+`npm run dev` 使用 API 数据模式；仅演示前端 Mock 数据时使用 `npm start`。
 
 前端开发服务器会将 `/api` 代理到 `http://127.0.0.1:3001`，可用 `QHSE_API_URL` 覆盖目标地址。
 
