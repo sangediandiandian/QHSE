@@ -579,6 +579,7 @@ export interface WorkPermit {
   areaName: string;
   workContent: string;
   applicant: string;
+  applicantId?: string;
   guardian: string;
   startAt: string;
   endAt: string;
@@ -592,19 +593,27 @@ export interface WorkPermit {
   workY?: number;
   approvalSteps?: WorkPermitApprovalStep[];
   siteConfirmations?: WorkPermitSiteConfirmation[];
+  version?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface WorkPermitApprovalStep {
+  id?: string;
+  sequence?: number;
   role: '属地审核' | 'QHSE 审核' | '负责人批准';
   approver: string;
+  approverId?: string;
   status: '待审批' | '已通过';
   signedAt?: string;
   signature?: string;
 }
 
 export interface WorkPermitSiteConfirmation {
+  id?: string;
   role: '作业负责人' | '现场监护人';
   confirmer: string;
+  confirmerId?: string;
   confirmedAt: string;
 }
 
@@ -624,6 +633,8 @@ export interface WorkPermitInput {
   workX: number;
   workY: number;
 }
+
+export type WorkPermitApplyInput = Omit<WorkPermitInput, 'areaName' | 'applicant'>;
 
 export type WarningRuleScenario =
   | 'gds-level2'

@@ -16,7 +16,8 @@ import type {
   RiskUnit,
   RiskAssessmentInput,
   RiskControlRecord,
-  WorkPermitInput,
+  WorkPermit,
+  WorkPermitApplyInput,
   WorkPermitSiteConfirmation,
   WarningEvidenceCategory,
   WarningRuleDraftInput,
@@ -31,6 +32,14 @@ import {
   startHazardRectification as startHazardByApi,
   submitHazardAcceptance as submitHazardByApi,
 } from '@/services/qhse/hazards';
+import {
+  applyWorkPermit,
+  approveWorkPermit as approveWorkPermitByApi,
+  confirmWorkPermitSite as confirmWorkPermitSiteByApi,
+  getWorkPermits,
+  pauseWorkPermit,
+  resumeWorkPermit,
+} from '@/services/qhse/workPermits';
 import {
   withCommunicationConfirmation,
   withCommunicationEscalation,
@@ -128,6 +137,9 @@ export default function useQhseModel() {
   const [hazardRecords, setHazardRecords] = useState<Hazard[]>([]);
   const [hazardRiskUnits, setHazardRiskUnits] = useState<RiskUnit[]>([]);
   const [hazardLoading, setHazardLoading] = useState(false);
+  const [workPermitRecords, setWorkPermitRecords] = useState<WorkPermit[]>([]);
+  const [workPermitAreas, setWorkPermitAreas] = useState<Array<{ id: string; name: string }>>([]);
+  const [workPermitLoading, setWorkPermitLoading] = useState(false);
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
@@ -157,6 +169,24 @@ export default function useQhseModel() {
       setHazardRiskUnits(risks);
     } finally {
       setHazardLoading(false);
+    }
+  }, [dashboard, loadDashboard]);
+
+  const loadWorkPermits = useCallback(async () => {
+    if (!hazardApiMode) {
+      if (!dashboard) await loadDashboard();
+      return;
+    }
+    setWorkPermitLoading(true);
+    try {
+      const [permits, risks] = await Promise.all([getWorkPermits(), getHazardRiskUnits()]);
+      setWorkPermitRecords(permits);
+      setWorkPermitAreas(Array.from(new Map(risks.map((risk) => [risk.areaId, {
+        id: risk.areaId,
+        name: risk.areaName,
+      }])).values()));
+    } finally {
+      setWorkPermitLoading(false);
     }
   }, [dashboard, loadDashboard]);
 
@@ -680,7 +710,18 @@ export default function useQhseModel() {
     }
   }, []);
 
-  const advanceWorkPermit = useCallback((permitId: string) => {
+  const advanceWorkPermit = useCallback(async (permitId: string) => {
+    if (hazardApiMode) {
+      const permit = workPermitRecords.find((item) => item.id === permitId);
+      if (!permit) throw new Error('作业票不存在');
+      const updated = permit.status === '建议暂停'
+        ? await pauseWorkPermit(permitId, permit.version ?? 1)
+        : permit.status === '已暂停'
+          ? await resumeWorkPermit(permitId, `${getCurrentTimestamp()} 复测合格，准予恢复`, permit.version ?? 1)
+          : permit;
+      setWorkPermitRecords((items) => items.map((item) => item.id === permitId ? updated : item));
+      return updated;
+    }
     setDashboard((current) => current ? {
       ...current,
       workPermits: current.workPermits.map((permit) => {
@@ -694,17 +735,35 @@ export default function useQhseModel() {
         };
       }),
     } : current);
-  }, []);
+  }, [workPermitRecords]);
 
-  const addWorkPermit = useCallback((input: WorkPermitInput) => {
+  const addWorkPermit = useCallback(async (input: WorkPermitApplyInput) => {
+    if (hazardApiMode) {
+      const created = await applyWorkPermit(input);
+      setWorkPermitRecords((items) => [...items, created]);
+      return created;
+    }
     setDashboard((current) => {
       if (!current) return current;
+      const area = current.areas.find((item) => item.id === input.areaId);
+      if (!area) return current;
       const code = `${{ 动火作业: 'DH', 受限空间: 'SX', 高处作业: 'GC', 吊装作业: 'DZ', 临时用电: 'LD' }[input.type]}-${getCurrentTimestamp().slice(0, 10).replace(/-/g, '')}-${String(current.workPermits.length + 1).padStart(3, '0')}`;
-      return { ...current, workPermits: [...current.workPermits, withCreatedWorkPermit(input, `permit-${Date.now()}`, code)] };
+      return { ...current, workPermits: [...current.workPermits, withCreatedWorkPermit({
+        ...input,
+        areaName: area.name,
+        applicant: '李建国',
+      }, `permit-${Date.now()}`, code)] };
     });
   }, []);
 
-  const approveWorkPermit = useCallback((permitId: string) => {
+  const approveWorkPermit = useCallback(async (permitId: string) => {
+    if (hazardApiMode) {
+      const permit = workPermitRecords.find((item) => item.id === permitId);
+      if (!permit) throw new Error('作业票不存在');
+      const updated = await approveWorkPermitByApi(permitId, permit.version ?? 1);
+      setWorkPermitRecords((items) => items.map((item) => item.id === permitId ? updated : item));
+      return updated;
+    }
     setDashboard((current) => current ? {
       ...current,
       workPermits: current.workPermits.map((permit) => {
@@ -713,16 +772,23 @@ export default function useQhseModel() {
         return approveNextWorkPermitStep(permit, next?.approver ?? '赵磊', getCurrentTimestamp());
       }),
     } : current);
-  }, []);
+  }, [workPermitRecords]);
 
-  const confirmWorkPermitSite = useCallback((permitId: string, role: WorkPermitSiteConfirmation['role']) => {
+  const confirmWorkPermitSite = useCallback(async (permitId: string, role: WorkPermitSiteConfirmation['role']) => {
+    if (hazardApiMode) {
+      const permit = workPermitRecords.find((item) => item.id === permitId);
+      if (!permit) throw new Error('作业票不存在');
+      const updated = await confirmWorkPermitSiteByApi(permitId, role, permit.version ?? 1);
+      setWorkPermitRecords((items) => items.map((item) => item.id === permitId ? updated : item));
+      return updated;
+    }
     setDashboard((current) => current ? {
       ...current,
       workPermits: current.workPermits.map((permit) => permit.id === permitId
         ? withConfirmedWorkPermitSite(permit, role, role === '作业负责人' ? permit.applicant : permit.guardian, getCurrentTimestamp())
         : permit),
     } : current);
-  }, []);
+  }, [workPermitRecords]);
 
   return {
     dashboard,
@@ -732,6 +798,13 @@ export default function useQhseModel() {
     hazardRiskUnits: hazardApiMode ? hazardRiskUnits : (dashboard?.riskUnits ?? []),
     hazardLoading: hazardApiMode ? hazardLoading : loading,
     loadHazards,
+    workPermits: hazardApiMode ? workPermitRecords : (dashboard?.workPermits ?? []),
+    workPermitAreas: hazardApiMode ? workPermitAreas : (dashboard?.areas ?? []),
+    workPermitGdsPoints: hazardApiMode ? [] : (dashboard?.gdsPoints ?? []),
+    workPermitAlarms: hazardApiMode ? [] : (dashboard?.alarms ?? []),
+    workPermitLinkageAvailable: !hazardApiMode,
+    workPermitLoading: hazardApiMode ? workPermitLoading : loading,
+    loadWorkPermits,
     simulateGdsAlarm,
     confirmAlarm,
     startEmergency,

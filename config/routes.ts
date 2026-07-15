@@ -58,6 +58,7 @@ export default [
       {
         path: '/management/permits',
         name: '作业许可',
+        access: 'canViewPermit',
         component: './WorkPermit',
       },
     ],

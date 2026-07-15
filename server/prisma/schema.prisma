@@ -202,6 +202,69 @@ model HazardOperation {
   @@map("hazard_operations")
 }
 
+model WorkPermit {
+  id                String                       @id @default(uuid())
+  code              String                       @unique
+  type              String
+  areaId            String
+  areaName          String
+  workContent       String
+  applicantId       String
+  applicant         String
+  guardian          String
+  startAt           DateTime
+  endAt             DateTime
+  riskLevel         String
+  status            String
+  gasTest           String
+  linkedGdsCodes    String[]
+  safetyMeasures    String[]
+  alertReason       String?
+  workX             Float
+  workY             Float
+  version           Int                          @default(1)
+  createdAt         DateTime                     @default(now())
+  updatedAt         DateTime                     @updatedAt
+  approvalSteps     WorkPermitApprovalStep[]
+  siteConfirmations WorkPermitSiteConfirmation[]
+
+  @@index([areaId, status])
+  @@index([startAt, endAt])
+  @@index([riskLevel, status])
+  @@map("work_permits")
+}
+
+model WorkPermitApprovalStep {
+  id           String     @id @default(uuid())
+  workPermitId String
+  sequence     Int
+  role         String
+  approverId   String?
+  approver     String
+  status       String
+  signedAt     DateTime?
+  signature    String?
+  workPermit   WorkPermit @relation(fields: [workPermitId], references: [id], onDelete: Cascade)
+
+  @@unique([workPermitId, sequence])
+  @@index([workPermitId, status])
+  @@map("work_permit_approval_steps")
+}
+
+model WorkPermitSiteConfirmation {
+  id           String     @id @default(uuid())
+  workPermitId String
+  role         String
+  confirmerId  String
+  confirmer    String
+  confirmedAt  DateTime   @default(now())
+  workPermit   WorkPermit @relation(fields: [workPermitId], references: [id], onDelete: Cascade)
+
+  @@unique([workPermitId, role])
+  @@index([workPermitId, confirmedAt])
+  @@map("work_permit_site_confirmations")
+}
+
 model RiskAssessment {
   id          String    @id @default(uuid())
   riskUnitId  String

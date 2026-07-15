@@ -17,6 +17,11 @@ export default function access(initialState: { currentUser?: API.CurrentUser } |
     canRectifyHazard: Boolean(currentUser && (isLegacyAdmin || granted.has('hazard:rectify'))),
     canAcceptHazard: Boolean(currentUser && (isLegacyAdmin || granted.has('hazard:accept'))),
     canSuperviseHazard: Boolean(currentUser && (isLegacyAdmin || granted.has('hazard:supervise'))),
+    canViewPermit: Boolean(currentUser && (isLegacyAdmin || granted.has('permit:read'))),
+    canApplyPermit: Boolean(currentUser && (isLegacyAdmin || granted.has('permit:apply'))),
+    canApprovePermit: Boolean(currentUser && (isLegacyAdmin || granted.has('permit:approve'))),
+    canConfirmPermit: Boolean(currentUser && (isLegacyAdmin || granted.has('permit:confirm'))),
+    canControlPermit: Boolean(currentUser && (isLegacyAdmin || granted.has('permit:control'))),
     canReadAudit: Boolean(currentUser && (isLegacyAdmin || granted.has('audit:read'))),
     hasPermission: (permission: string) => Boolean(currentUser && (
       isLegacyAdmin || granted.has(permission)

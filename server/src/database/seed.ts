@@ -3,6 +3,7 @@ import { hashPassword } from '../modules/auth/auth.service';
 import { areas, organizations, roles, users } from '../modules/iam/iam.seed';
 import { riskSeed } from '../modules/risks/risk.seed';
 import { hazardSeed } from '../modules/hazards/hazard.seed';
+import { workPermitSeed } from '../modules/work-permits/work-permit.seed';
 
 const prisma = new PrismaClient();
 
@@ -193,6 +194,70 @@ async function main() {
           ...operation,
           operatedAt: new Date(operation.operatedAt),
           hazardId: hazard.id,
+        },
+      });
+    }
+  }
+
+  for (const permit of workPermitSeed) {
+    const data = {
+      code: permit.code,
+      type: permit.type,
+      areaId: permit.areaId,
+      areaName: permit.areaName,
+      workContent: permit.workContent,
+      applicantId: permit.applicantId,
+      applicant: permit.applicant,
+      guardian: permit.guardian,
+      startAt: new Date(`${permit.startAt.replace(' ', 'T')}:00.000Z`),
+      endAt: new Date(`${permit.endAt.replace(' ', 'T')}:00.000Z`),
+      riskLevel: permit.riskLevel,
+      status: permit.status,
+      gasTest: permit.gasTest,
+      linkedGdsCodes: permit.linkedGdsCodes,
+      safetyMeasures: permit.safetyMeasures,
+      alertReason: permit.alertReason,
+      workX: permit.workX,
+      workY: permit.workY,
+      version: permit.version,
+    };
+    await prisma.workPermit.upsert({
+      where: { id: permit.id },
+      update: data,
+      create: { id: permit.id, ...data },
+    });
+    for (const step of permit.approvalSteps) {
+      await prisma.workPermitApprovalStep.upsert({
+        where: { id: step.id },
+        update: {
+          sequence: step.sequence,
+          role: step.role,
+          approverId: step.approverId,
+          approver: step.approver,
+          status: step.status,
+          signedAt: step.signedAt ? new Date(step.signedAt) : undefined,
+          signature: step.signature,
+        },
+        create: {
+          ...step,
+          signedAt: step.signedAt ? new Date(step.signedAt) : undefined,
+          workPermitId: permit.id,
+        },
+      });
+    }
+    for (const confirmation of permit.siteConfirmations) {
+      await prisma.workPermitSiteConfirmation.upsert({
+        where: { id: confirmation.id },
+        update: {
+          role: confirmation.role,
+          confirmerId: confirmation.confirmerId,
+          confirmer: confirmation.confirmer,
+          confirmedAt: new Date(confirmation.confirmedAt),
+        },
+        create: {
+          ...confirmation,
+          confirmedAt: new Date(confirmation.confirmedAt),
+          workPermitId: permit.id,
         },
       });
     }
