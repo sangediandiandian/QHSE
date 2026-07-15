@@ -15,5 +15,9 @@ export interface TelemetryRepository {
   listPoints(query: TelemetryPointQuery): Promise<TelemetryPoint[]>;
   findPoint(id: string): Promise<TelemetryPoint | undefined>;
   listSamples(pointId: string, limit: number): Promise<TelemetrySample[]>;
-  ingest(point: TelemetryPoint, sample: TelemetrySample): Promise<IngestResult>;
+  ingest(
+    point: TelemetryPoint,
+    sample: TelemetrySample,
+    updatePoint?: boolean,
+  ): Promise<IngestResult>;
 }

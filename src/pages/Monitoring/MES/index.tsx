@@ -46,7 +46,7 @@ function ParameterCard({ tag }: { tag: MesTag }) {
 
 export default function MesMonitoring() {
   const access = useAccess();
-  const { dashboard, mesTags, gdsPoints, telemetryLoading, telemetryApiMode, loadTelemetry, ingestTelemetrySample, simulateJointAlarm } = useModel('qhse');
+  const { dashboard, mesTags, gdsPoints, telemetryLoading, telemetryApiMode, telemetryRealtimeStatus, loadTelemetry, ingestTelemetrySample, simulateJointAlarm } = useModel('qhse');
   const [step, setStep] = useState('全部');
   useEffect(() => { void loadTelemetry(); }, [loadTelemetry]);
 
@@ -78,7 +78,7 @@ export default function MesMonitoring() {
   };
 
   return (
-    <PageContainer title={false} className={styles.page} extra={<Button danger disabled={telemetryApiMode && !access.canIngestTelemetry} icon={<ThunderboltFilled />} onClick={() => void handleSimulation()}>模拟 GDS + MES 联合预警</Button>}>
+    <PageContainer title={false} className={styles.page} extra={[telemetryApiMode && <Tag key="realtime" color={telemetryRealtimeStatus === 'connected' ? 'success' : 'warning'}>实时通道：{telemetryRealtimeStatus === 'connected' ? '已连接' : '重连中'}</Tag>, <Button key="simulate" danger disabled={telemetryApiMode && !access.canIngestTelemetry} icon={<ThunderboltFilled />} onClick={() => void handleSimulation()}>模拟 GDS + MES 联合预警</Button>]}>
       <section className={styles.hero}>
         <div><span>MANUFACTURING EXECUTION SYSTEM</span><h1>MES 工艺数据关联</h1><p>生产负荷、设备参数与安全监测按装置和工艺节点统一关联。</p></div>
         <div className={styles.metrics}>

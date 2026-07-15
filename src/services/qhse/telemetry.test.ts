@@ -1,5 +1,5 @@
 import type { TelemetryPoint } from '@/types/qhse';
-import { toGdsPoint, toMesTag, toVocPoint } from './telemetry';
+import { normalizeTelemetryCursor, toGdsPoint, toMesTag, toVocPoint } from './telemetry';
 const base: TelemetryPoint = {
   id: 'point-1',
   code: 'P-1',
@@ -59,5 +59,10 @@ describe('telemetry view mapping', () => {
         unit: 'MPa',
       }),
     ).toMatchObject({ currentValue: 0.82, processStep: '进料', lowerLimit: 0.5, upperLimit: 1.2 });
+  });
+  it('服务端重启导致序号归零时重置客户端补传游标', () => {
+    expect(normalizeTelemetryCursor(28, 0, 'stream-a', 'stream-b')).toBe(0);
+    expect(normalizeTelemetryCursor(28, 32, 'stream-a', 'stream-b')).toBe(0);
+    expect(normalizeTelemetryCursor(28, 32, 'stream-a', 'stream-a')).toBe(28);
   });
 });

@@ -27,12 +27,16 @@ export class InMemoryTelemetryRepository implements TelemetryRepository {
       .slice(0, limit)
       .map(clone);
   }
-  async ingest(point: TelemetryPoint, sample: TelemetrySample) {
+  async ingest(point: TelemetryPoint, sample: TelemetrySample, updatePoint = true) {
     const existing = this.samples.get(sample.id);
     if (existing)
       return { point: clone(this.points.get(point.id)!), sample: clone(existing), created: false };
-    this.points.set(point.id, clone(point));
+    if (updatePoint) this.points.set(point.id, clone(point));
     this.samples.set(sample.id, clone(sample));
-    return { point: clone(point), sample: clone(sample), created: true };
+    return {
+      point: clone(this.points.get(point.id)!),
+      sample: clone(sample),
+      created: true,
+    };
   }
 }

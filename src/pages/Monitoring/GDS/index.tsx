@@ -51,7 +51,7 @@ function DetectorCard({ point, onOpen }: { point: GdsPoint; onOpen: () => void }
 
 export default function GdsMonitoring() {
   const access = useAccess();
-  const { dashboard, gdsPoints, telemetryLoading, telemetryApiMode, loadTelemetry, ingestTelemetrySample, simulateGdsAlarm } = useModel('qhse');
+  const { dashboard, gdsPoints, telemetryLoading, telemetryApiMode, telemetryRealtimeStatus, loadTelemetry, ingestTelemetrySample, simulateGdsAlarm } = useModel('qhse');
   const [areaId, setAreaId] = useState('all');
   const [state, setState] = useState('全部');
 
@@ -89,7 +89,7 @@ export default function GdsMonitoring() {
   };
 
   return (
-    <PageContainer title={false} className={styles.page} extra={<Button danger disabled={telemetryApiMode && !access.canIngestTelemetry} icon={<ThunderboltFilled />} onClick={() => void handleSimulation()}>模拟 GDS 二级报警</Button>}>
+    <PageContainer title={false} className={styles.page} extra={[telemetryApiMode && <Tag key="realtime" color={telemetryRealtimeStatus === 'connected' ? 'success' : 'warning'}>实时通道：{telemetryRealtimeStatus === 'connected' ? '已连接' : '重连中'}</Tag>, <Button key="simulate" danger disabled={telemetryApiMode && !access.canIngestTelemetry} icon={<ThunderboltFilled />} onClick={() => void handleSimulation()}>模拟 GDS 二级报警</Button>]}>
       <section className={styles.heading}>
         <div><span>GAS DETECTION SYSTEM</span><h1>GDS 气体监测</h1><p>{gdsPoints.length} 个固定式探测器正在监测可燃气体、有毒气体与氧含量。</p></div>
         <div className={styles.summary}>

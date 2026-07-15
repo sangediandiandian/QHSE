@@ -33,3 +33,24 @@ export interface IngestResult {
   sample: TelemetrySample;
   created: boolean;
 }
+
+export interface TelemetryIngestOutcome extends IngestResult {
+  outOfOrder: boolean;
+  clockDriftMs: number;
+  evaluation?: {
+    evaluatedRuleCount: number;
+    triggeredSignals: unknown[];
+    suppressedRuleIds: string[];
+    linkedPermitIds: string[];
+  };
+}
+
+export interface TelemetryStreamEvent {
+  streamId: string;
+  sequence: number;
+  emittedAt: string;
+  point: TelemetryPoint;
+  sample: TelemetrySample;
+  outOfOrder: boolean;
+  clockDriftMs: number;
+}

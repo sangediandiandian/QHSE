@@ -15,6 +15,11 @@ export default {
       target: process.env.QHSE_API_URL || 'http://127.0.0.1:3001',
       changeOrigin: true,
     },
+    '/socket.io': {
+      target: process.env.QHSE_API_URL || 'http://127.0.0.1:3001',
+      changeOrigin: true,
+      ws: true,
+    },
   },
   /**
    * @name 详细的代理配置

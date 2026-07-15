@@ -83,4 +83,42 @@ describe('TelemetryService', () => {
       }),
     ).rejects.toMatchObject({ response: { code: 'TELEMETRY_PRIMARY_METRIC_REQUIRED' } });
   });
+  it('保存乱序样本但不覆盖当前值或重复执行规则', async () => {
+    const instance = service();
+    await instance.ingest({
+      sampleId: 'ordered-sample',
+      pointId: 'gds-101',
+      source: 'GDS',
+      occurredAt: '2026-07-15T08:59:00.000Z',
+      metrics: { gasConcentration: 42 },
+      quality: 'good',
+    });
+    const result = await instance.ingest({
+      sampleId: 'late-sample',
+      pointId: 'gds-101',
+      source: 'GDS',
+      occurredAt: '2026-07-15T08:58:00.000Z',
+      metrics: { gasConcentration: 5 },
+      quality: 'good',
+    });
+    expect(result).toMatchObject({
+      created: true,
+      outOfOrder: true,
+      point: { currentMetrics: { gasConcentration: 42 }, version: 2 },
+    });
+    expect(await instance.history('gds-101', 10)).toHaveLength(2);
+    expect(warnings.evaluate).toHaveBeenCalledTimes(1);
+  });
+  it('拒绝超出允许偏差的未来样本', async () => {
+    await expect(
+      service().ingest({
+        sampleId: 'future-sample',
+        pointId: 'mes-pt-101',
+        source: 'MES',
+        occurredAt: '2026-07-15T09:02:00.000Z',
+        metrics: { value: 0.9 },
+        quality: 'good',
+      }),
+    ).rejects.toMatchObject({ response: { code: 'TELEMETRY_CLOCK_AHEAD' } });
+  });
 });

@@ -55,7 +55,7 @@ export class PrismaTelemetryRepository implements TelemetryRepository {
       })
     ).map(mapSample);
   }
-  async ingest(point: TelemetryPoint, sample: TelemetrySample) {
+  async ingest(point: TelemetryPoint, sample: TelemetrySample, updatePoint = true) {
     const existing = await this.prisma.telemetrySample.findUnique({ where: { id: sample.id } });
     if (existing)
       return {
@@ -66,6 +66,23 @@ export class PrismaTelemetryRepository implements TelemetryRepository {
         created: false,
       };
     try {
+      if (!updatePoint) {
+        const created = await this.prisma.telemetrySample.create({
+          data: {
+            id: sample.id,
+            pointId: sample.pointId,
+            source: sample.source,
+            occurredAt: new Date(sample.occurredAt),
+            metrics: sample.metrics as Prisma.InputJsonValue,
+            quality: sample.quality,
+            createdAt: new Date(sample.createdAt),
+          },
+        });
+        const current = await this.prisma.telemetryPoint.findUniqueOrThrow({
+          where: { id: point.id },
+        });
+        return { point: mapPoint(current), sample: mapSample(created), created: true };
+      }
       const [updated, created] = await this.prisma.$transaction([
         this.prisma.telemetryPoint.update({
           where: { id: point.id },

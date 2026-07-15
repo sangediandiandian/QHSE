@@ -157,6 +157,26 @@ export interface TelemetryIngestInput {
   quality: 'good' | 'uncertain' | 'bad';
 }
 
+export interface TelemetryStreamEvent {
+  streamId: string;
+  sequence: number;
+  emittedAt: string;
+  point: TelemetryPoint;
+  sample: {
+    id: string;
+    pointId: string;
+    source: TelemetrySource;
+    occurredAt: string;
+    metrics: Record<string, string | number | boolean>;
+    quality: 'good' | 'uncertain' | 'bad';
+    createdAt: string;
+  };
+  outOfOrder: boolean;
+  clockDriftMs: number;
+}
+
+export type TelemetryRealtimeStatus = 'disabled' | 'connecting' | 'connected' | 'disconnected' | 'unauthorized';
+
 export type CommunicationChannel = 'App消息' | '电话语音' | '短信' | 'IP广播';
 
 export interface CommunicationTask {

@@ -10,11 +10,31 @@ import {
   TelemetryPointQueryDto,
 } from './telemetry.dto';
 import { TelemetryService } from './telemetry.service';
+import { TelemetryMqttAdapter } from './telemetry-mqtt.adapter';
+import { TelemetryStreamService } from './telemetry-stream.service';
+const areas = (principal: AuthPrincipal) =>
+  principal.dataScope === 'all' ? undefined : principal.areaIds;
 @ApiTags('统一遥测接入')
 @ApiBearerAuth()
 @Controller('v1/telemetry')
 export class TelemetryController {
-  constructor(private readonly service: TelemetryService) {}
+  constructor(
+    private readonly service: TelemetryService,
+    private readonly mqtt: TelemetryMqttAdapter,
+    private readonly stream: TelemetryStreamService,
+  ) {}
+  @Get('integrations') @RequirePermissions('telemetry:read') integrations() {
+    return {
+      mqtt: this.mqtt.status(),
+      websocket: {
+        namespace: '/telemetry',
+        streamId: this.stream.streamId(),
+        latestSequence: this.stream.latestSequence(),
+        replayFromSequence: this.stream.earliestSequence(),
+      },
+      maxFutureClockSkewMs: Number(process.env.QHSE_TELEMETRY_MAX_FUTURE_SKEW_MS || 60_000),
+    };
+  }
   @Get('points') @RequirePermissions('telemetry:read') list(
     @Query() query: TelemetryPointQueryDto,
     @CurrentPrincipal() principal: AuthPrincipal,
@@ -41,5 +61,3 @@ export class TelemetryController {
     return this.service.ingest(input, areas(principal));
   }
 }
-const areas = (principal: AuthPrincipal) =>
-  principal.dataScope === 'all' ? undefined : principal.areaIds;

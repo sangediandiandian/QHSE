@@ -3,10 +3,13 @@ import type {
   MesTag,
   TelemetryIngestInput,
   TelemetryPoint,
+  TelemetryRealtimeStatus,
   TelemetrySource,
+  TelemetryStreamEvent,
   VocPoint,
 } from '@/types/qhse';
 import { request } from '@umijs/max';
+import { io } from 'socket.io-client';
 interface ApiResponse<T> {
   success: boolean;
   data: T;
@@ -24,6 +27,86 @@ export const ingestTelemetrySample = async (input: TelemetryIngestInput) =>
       { method: 'POST', data: input },
     )
   ).data;
+
+interface TelemetryStreamOptions {
+  onSample: (event: TelemetryStreamEvent) => void;
+  onStatus: (status: TelemetryRealtimeStatus) => void;
+}
+
+const sequenceStorageKey = 'qhse_telemetry_sequence';
+const streamStorageKey = 'qhse_telemetry_stream_id';
+export const normalizeTelemetryCursor = (
+  clientSequence: number,
+  serverSequence: number,
+  clientStreamId?: string,
+  serverStreamId?: string,
+) =>
+  (clientStreamId && serverStreamId && clientStreamId !== serverStreamId) ||
+  serverSequence < clientSequence
+    ? 0
+    : clientSequence;
+
+export function connectTelemetryStream({ onSample, onStatus }: TelemetryStreamOptions) {
+  if (typeof window === 'undefined') return () => undefined;
+  const token = localStorage.getItem('qhse_access_token');
+  if (!token) {
+    onStatus('unauthorized');
+    return () => undefined;
+  }
+  let latestSequence = Number(sessionStorage.getItem(sequenceStorageKey) || 0);
+  let streamId = sessionStorage.getItem(streamStorageKey) || undefined;
+  onStatus('connecting');
+  const socket = io('/telemetry', {
+    path: '/socket.io',
+    auth: { token },
+    transports: ['websocket', 'polling'],
+    reconnection: true,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+  });
+  socket.on('connect', () => {
+    onStatus('connecting');
+  });
+  socket.on('telemetry:ready', (state: { streamId?: string; latestSequence?: number }) => {
+    const serverSequence = Number(state?.latestSequence || 0);
+    latestSequence = normalizeTelemetryCursor(
+      latestSequence,
+      serverSequence,
+      streamId,
+      state.streamId,
+    );
+    streamId = state.streamId;
+    sessionStorage.setItem(sequenceStorageKey, String(latestSequence));
+    if (streamId) sessionStorage.setItem(streamStorageKey, streamId);
+    onStatus('connected');
+    socket.emit('telemetry:subscribe', { afterSequence: latestSequence });
+  });
+  socket.on('disconnect', () => onStatus('disconnected'));
+  socket.on('connect_error', () => onStatus('disconnected'));
+  socket.on('telemetry:error', (error: { code?: string }) => {
+    onStatus(
+      error?.code === 'SESSION_INVALID' || error?.code === 'PERMISSION_DENIED'
+        ? 'unauthorized'
+        : 'disconnected',
+    );
+  });
+  socket.on('telemetry:sample', (event: TelemetryStreamEvent) => {
+    if (!event) return;
+    if (streamId && event.streamId !== streamId) latestSequence = 0;
+    if (event.sequence <= latestSequence) return;
+    streamId = event.streamId;
+    latestSequence = event.sequence;
+    sessionStorage.setItem(sequenceStorageKey, String(latestSequence));
+    sessionStorage.setItem(streamStorageKey, streamId);
+    onSample(event);
+  });
+  return () => {
+    socket.removeAllListeners();
+    socket.disconnect();
+    onStatus('disabled');
+  };
+}
+
 export const toGdsPoint = (point: TelemetryPoint): GdsPoint => ({
   id: point.id,
   code: point.code,

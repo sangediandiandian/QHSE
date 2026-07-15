@@ -60,7 +60,7 @@ function FacilityCard({ facility }: { facility: VocFacility }) {
 
 export default function VocMonitoring() {
   const access = useAccess();
-  const { dashboard, vocPoints, telemetryLoading, telemetryApiMode, loadTelemetry, ingestTelemetrySample, simulateVocAlarm } = useModel('qhse');
+  const { dashboard, vocPoints, telemetryLoading, telemetryApiMode, telemetryRealtimeStatus, loadTelemetry, ingestTelemetrySample, simulateVocAlarm } = useModel('qhse');
   useEffect(() => { void loadTelemetry(); }, [loadTelemetry]);
 
   if (telemetryLoading && !vocPoints.length) return <PageContainer><Skeleton active paragraph={{ rows: 14 }} /></PageContainer>;
@@ -90,7 +90,7 @@ export default function VocMonitoring() {
   };
 
   return (
-    <PageContainer title={false} className={styles.page} extra={<Button danger disabled={telemetryApiMode && !access.canIngestTelemetry} icon={<ThunderboltFilled />} onClick={() => void handleSimulation()}>模拟 VOC 连续超限</Button>}>
+    <PageContainer title={false} className={styles.page} extra={[telemetryApiMode && <Tag key="realtime" color={telemetryRealtimeStatus === 'connected' ? 'success' : 'warning'}>实时通道：{telemetryRealtimeStatus === 'connected' ? '已连接' : '重连中'}</Tag>, <Button key="simulate" danger disabled={telemetryApiMode && !access.canIngestTelemetry} icon={<ThunderboltFilled />} onClick={() => void handleSimulation()}>模拟 VOC 连续超限</Button>]}>
       <section className={styles.hero}>
         <div><span>VOLATILE ORGANIC COMPOUNDS</span><h1>VOC 排放监测</h1><p>排口、厂界与治理设施统一监测，异常关联生产负荷进行研判。</p></div>
         <div className={styles.metrics}>

@@ -23,6 +23,8 @@ import type {
   RiskControlRecord,
   MesTag,
   TelemetryIngestInput,
+  TelemetryPoint,
+  TelemetryRealtimeStatus,
   VocPoint,
   WorkPermit,
   WorkPermitApplyInput,
@@ -96,6 +98,7 @@ import {
   getCommunicationDispatches,
 } from '@/services/qhse/communications';
 import {
+  connectTelemetryStream,
   getTelemetryPoints,
   ingestTelemetrySample as ingestTelemetrySampleByApi,
   toGdsPoint,
@@ -217,6 +220,7 @@ export default function useQhseModel() {
   const [vocPointRecords, setVocPointRecords] = useState<VocPoint[]>([]);
   const [mesTagRecords, setMesTagRecords] = useState<MesTag[]>([]);
   const [telemetryLoading, setTelemetryLoading] = useState(false);
+  const [telemetryRealtimeStatus, setTelemetryRealtimeStatus] = useState<TelemetryRealtimeStatus>('disabled');
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
@@ -326,14 +330,26 @@ export default function useQhseModel() {
     } finally { setTelemetryLoading(false); }
   }, [dashboard, loadDashboard]);
 
+  const applyTelemetryPoint = useCallback((point: TelemetryPoint) => {
+    if (point.source === 'GDS') setGdsPointRecords((items) => items.map((item) => item.id === point.id ? toGdsPoint(point) : item));
+    if (point.source === 'VOC') setVocPointRecords((items) => items.map((item) => item.id === point.id ? toVocPoint(point) : item));
+    if (point.source === 'MES') setMesTagRecords((items) => items.map((item) => item.id === point.id ? toMesTag(point) : item));
+  }, []);
+
   const ingestTelemetrySample = useCallback(async (input: TelemetryIngestInput) => {
     if (!hazardApiMode) return undefined;
     const result = await ingestTelemetrySampleByApi(input);
-    if (input.source === 'GDS') setGdsPointRecords((items) => items.map((item) => item.id === input.pointId ? toGdsPoint(result.point) : item));
-    if (input.source === 'VOC') setVocPointRecords((items) => items.map((item) => item.id === input.pointId ? toVocPoint(result.point) : item));
-    if (input.source === 'MES') setMesTagRecords((items) => items.map((item) => item.id === input.pointId ? toMesTag(result.point) : item));
+    applyTelemetryPoint(result.point);
     return result;
-  }, []);
+  }, [applyTelemetryPoint]);
+
+  useEffect(() => {
+    if (!hazardApiMode) return undefined;
+    return connectTelemetryStream({
+      onSample: (event) => { if (!event.outOfOrder) applyTelemetryPoint(event.point); },
+      onStatus: setTelemetryRealtimeStatus,
+    });
+  }, [applyTelemetryPoint]);
 
   useEffect(() => {
     const storage = getBrowserStorage();
@@ -1099,6 +1115,7 @@ export default function useQhseModel() {
     mesTags: hazardApiMode ? mesTagRecords : (dashboard?.mesTags ?? []),
     telemetryLoading: hazardApiMode ? telemetryLoading : loading,
     telemetryApiMode: hazardApiMode,
+    telemetryRealtimeStatus: hazardApiMode ? telemetryRealtimeStatus : 'disabled',
     loadTelemetry,
     ingestTelemetrySample,
     simulateGdsAlarm,
