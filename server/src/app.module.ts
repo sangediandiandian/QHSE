@@ -24,6 +24,7 @@ import { ReportingModule } from './modules/reporting/reporting.module';
 import { PlatformConfigModule } from './modules/platform-config/platform-config.module';
 import { DiagnosticsModule } from './modules/diagnostics/diagnostics.module';
 import { RuntimeMetricsMiddleware } from './modules/diagnostics/runtime-metrics.middleware';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { RuntimeMetricsMiddleware } from './modules/diagnostics/runtime-metrics.
     ReportingModule,
     PlatformConfigModule,
     DiagnosticsModule,
+    DashboardModule,
   ],
 })
 export class AppModule implements NestModule {

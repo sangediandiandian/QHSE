@@ -50,6 +50,8 @@
 .systemStatus { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
 .systemStatus > span { margin-right: 8px; color: #80b7c8; font-size: 11px; }
 .systemStatus > span i, .live i { display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); }
+.systemStatus > span.degraded i { background: var(--red); box-shadow: 0 0 8px var(--red); }
+.systemStatus > span.stale i { background: var(--orange); box-shadow: 0 0 8px var(--orange); }
 .systemStatus :global(.ant-btn) { min-width: 32px; min-height: 32px; padding: 0; color: #70bed7; }
 .systemStatus :global(.ant-btn:hover) { background: rgb(43 216 255 / 10%) !important; color: #fff !important; }
 

@@ -18,7 +18,7 @@ import {
 } from '@ant-design/icons';
 import { history, useModel } from '@umijs/max';
 import { Button, Empty, Skeleton, Tooltip } from 'antd';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styles from './index.less';
 
 const riskText: Record<RiskLevel, string> = {
@@ -135,10 +135,36 @@ export default function BigScreen() {
   const { dashboard, loading, loadDashboard } = useModel('qhse');
   const [now, setNow] = useState(new Date());
   const [fullscreen, setFullscreen] = useState(Boolean(document.fullscreenElement));
+  const [lastRefreshAt, setLastRefreshAt] = useState<number>();
+  const [refreshFailed, setRefreshFailed] = useState(false);
+  const refreshingRef = useRef(false);
+
+  const refreshDashboard = useCallback(async () => {
+    if (refreshingRef.current) return;
+    refreshingRef.current = true;
+    try {
+      await loadDashboard();
+      setLastRefreshAt(Date.now());
+      setRefreshFailed(false);
+    } catch {
+      setRefreshFailed(true);
+    } finally {
+      refreshingRef.current = false;
+    }
+  }, [loadDashboard]);
 
   useEffect(() => {
-    void loadDashboard();
-  }, [loadDashboard]);
+    void refreshDashboard();
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void refreshDashboard();
+    };
+    const timer = window.setInterval(refresh, 30_000);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [refreshDashboard]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 1000);
@@ -167,10 +193,13 @@ export default function BigScreen() {
   }, [dashboard]);
 
   if (!dashboard && loading) return <div className={styles.state}><Skeleton active paragraph={{ rows: 16 }} /></div>;
-  if (!dashboard || !statistics) return <div className={styles.state}><Empty description="大屏数据暂不可用"><Button onClick={() => void loadDashboard()}>重新加载</Button></Empty></div>;
+  if (!dashboard || !statistics) return <div className={styles.state}><Empty description="大屏数据暂不可用"><Button onClick={() => void refreshDashboard()}>重新加载</Button></Empty></div>;
 
   const dateText = new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' }).format(now);
   const timeText = now.toLocaleTimeString('zh-CN', { hour12: false });
+  const stale = Boolean(lastRefreshAt && now.getTime() - lastRefreshAt > 90_000);
+  const systemStatus = refreshFailed ? '数据刷新异常' : stale ? '数据已陈旧' : '系统运行正常';
+  const systemStatusClass = refreshFailed ? styles.degraded : stale ? styles.stale : '';
   const communicationRate = dashboard.communicationTasks.length
     ? Math.round((statistics.communicationConfirmed / dashboard.communicationTasks.length) * 100)
     : 0;
@@ -192,9 +221,9 @@ export default function BigScreen() {
           <i />
         </div>
         <div className={styles.systemStatus}>
-          <span><i />系统运行正常</span>
+          <span className={systemStatusClass}><i />{systemStatus}</span>
           <Tooltip title="返回管理端"><Button type="text" icon={<ArrowLeftOutlined />} onClick={() => history.push('/dashboard')} /></Tooltip>
-          <Tooltip title="刷新数据"><Button type="text" icon={<ReloadOutlined />} onClick={() => void loadDashboard()} /></Tooltip>
+          <Tooltip title="刷新数据"><Button type="text" loading={loading} icon={<ReloadOutlined />} onClick={() => void refreshDashboard()} /></Tooltip>
           <Tooltip title={fullscreen ? '退出全屏' : '进入全屏'}><Button type="text" icon={fullscreen ? <CompressOutlined /> : <FullscreenOutlined />} onClick={() => void toggleFullscreen()} /></Tooltip>
         </div>
       </header>
@@ -280,8 +309,8 @@ export default function BigScreen() {
           </ScreenPanel>
           <ScreenPanel title="运行保障" code="OPERATION ASSURANCE" className={styles.assurancePanel}>
             <div className={styles.assurance}>
-              <div><span><i className={styles.good} />接口健康度</span><strong>99.8%</strong></div>
-              <div><span><i className={styles.good} />数据更新状态</span><strong>实时</strong></div>
+              <div><span><i className={refreshFailed ? styles.warn : styles.good} />接口健康度</span><strong>{refreshFailed ? '异常' : '正常'}</strong></div>
+              <div><span><i className={stale ? styles.warn : styles.good} />数据更新状态</span><strong>{stale ? '已陈旧' : '正常'}</strong></div>
               <div><span><i className={styles.warn} />高风险作业</span><strong>{dashboard.metrics.highRiskPermits} 项</strong></div>
               <div><span><i className={styles.good} />应急资源可用</span><strong>{dashboard.emergencyResources.length - dashboard.emergencyResources.filter((item) => item.inspectionStatus === '需要维护').length} / {dashboard.emergencyResources.length}</strong></div>
             </div>

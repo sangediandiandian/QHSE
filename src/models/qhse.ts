@@ -226,7 +226,7 @@ export default function useQhseModel() {
     setLoading(true);
     try {
       const storage = getBrowserStorage();
-      const persisted = storage ? loadPersistedDashboard(storage) : undefined;
+      const persisted = !hazardApiMode && storage ? loadPersistedDashboard(storage) : undefined;
       if (persisted) {
         setDashboard(persisted);
         return;

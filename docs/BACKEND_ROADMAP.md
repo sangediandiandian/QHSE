@@ -42,6 +42,7 @@
 - `GET /api/health/live`：不依赖外部系统的容器存活探针。
 - `GET /api/health/ready`：主动检查数据库、缓存、会话和任务队列的容器就绪探针。
 - `POST /api/v1/auth/login`、`GET /api/v1/auth/me`、`POST /api/v1/auth/logout`：会话认证。
+- `GET /api/qhse/dashboard`：按账号数据范围聚合风险、遥测、预警、应急资源与通信数据，供驾驶舱和展示大屏使用。
 - `GET /api/v1/iam/organizations|roles|users`：组织、角色与用户授权查询。
 - `GET /api/v1/audit-logs`：操作、登录与安全拒绝审计查询。
 - `GET /api/v1/risks`：风险列表，支持 `areaId`、`level`、`keyword`。
