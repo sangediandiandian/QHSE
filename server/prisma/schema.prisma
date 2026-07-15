@@ -440,6 +440,34 @@ model EmergencyPlanTemplate {
   @@map("emergency_plan_templates")
 }
 
+model EmergencyResourceInventory {
+  id                String   @id @default(uuid())
+  code              String   @unique
+  name              String
+  type              String
+  totalQuantity     Int
+  availableQuantity Int
+  unit              String
+  location          String
+  eta               String
+  status            String
+  owner             String
+  contact           String
+  lastInspection    String
+  nextInspection    String
+  inspectionStatus  String
+  batches           Json
+  dispatches        Json
+  inspectionRecords Json
+  version           Int      @default(1)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([type, status])
+  @@index([inspectionStatus, nextInspection])
+  @@map("emergency_resource_inventory")
+}
+
 model RiskAssessment {
   id          String    @id @default(uuid())
   riskUnitId  String

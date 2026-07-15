@@ -27,7 +27,7 @@ import {
   WarningFilled,
 } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
-import { useModel } from '@umijs/max';
+import { useAccess, useModel } from '@umijs/max';
 import {
   Button,
   Empty,
@@ -69,10 +69,12 @@ function getCurrentDate() {
 }
 
 export default function EmergencyResources() {
+  const access = useAccess();
   const {
     dashboard,
-    loading,
-    loadDashboard,
+    emergencyResources: resourceRecords,
+    emergencyResourceLoading,
+    loadEmergencyResources,
     addEmergencyResource,
     addEmergencyResourceBatch,
     dispatchEmergencyResource,
@@ -93,20 +95,20 @@ export default function EmergencyResources() {
   const [dispatchForm] = Form.useForm<DispatchFormValues>();
   const [inspectionForm] = Form.useForm<InspectionFormValues>();
 
-  useEffect(() => { if (!dashboard) void loadDashboard(); }, [dashboard, loadDashboard]);
+  useEffect(() => { void loadEmergencyResources(); }, [loadEmergencyResources]);
 
-  const resources = useMemo(() => (dashboard?.emergencyResources ?? []).filter((resource) => {
+  const resources = useMemo(() => resourceRecords.filter((resource) => {
     const keyword = query.trim().toLowerCase();
     return (type === '全部资源' || resource.type === type)
       && (status === '全部状态' || resource.status === status)
       && (!keyword || `${resource.name}${resource.code}${resource.location}${resource.owner}`.toLowerCase().includes(keyword));
-  }), [dashboard, query, status, type]);
+  }), [query, resourceRecords, status, type]);
   const today = useMemo(getCurrentDate, []);
 
-  if (!dashboard && loading) return <PageContainer><Skeleton active paragraph={{ rows: 14 }} /></PageContainer>;
-  if (!dashboard) return <PageContainer><Empty description="应急资源数据暂不可用" /></PageContainer>;
+  if (emergencyResourceLoading && !resourceRecords.length) return <PageContainer><Skeleton active paragraph={{ rows: 14 }} /></PageContainer>;
+  if (!resourceRecords.length) return <PageContainer><Empty description="应急资源数据暂不可用" /></PageContainer>;
 
-  const allResources = dashboard.emergencyResources;
+  const allResources = resourceRecords;
   const dispatchResource = allResources.find((item) => item.id === dispatchResourceId);
   const batchResource = allResources.find((item) => item.id === batchResourceId);
   const inspectionResource = allResources.find((item) => item.id === inspectionResourceId);
@@ -123,8 +125,8 @@ export default function EmergencyResources() {
   const openDispatch = (resource: EmergencyResource) => {
     setDispatchResourceId(resource.id);
     dispatchForm.setFieldsValue({
-      eventName: dashboard.alarms.find((item) => item.id === dashboard.emergencyPlan.eventId)?.title ?? dashboard.emergencyPlan.name,
-      destination: dashboard.emergencyPlan.assemblyPoint,
+      eventName: dashboard?.alarms.find((item) => item.id === dashboard.emergencyPlan.eventId)?.title ?? dashboard?.emergencyPlan.name ?? '当前应急事件',
+      destination: dashboard?.emergencyPlan.assemblyPoint ?? '现场指挥点',
       quantity: 1,
       operator: '陈涛 / 生产调度',
     });
@@ -152,7 +154,7 @@ export default function EmergencyResources() {
       resourceForm.setFields([{ name: 'code', errors: ['资源编号已存在'] }]);
       return;
     }
-    addEmergencyResource({ ...values, code: values.code.trim() });
+    await addEmergencyResource({ ...values, code: values.code.trim() });
     setCreateOpen(false);
     resourceForm.resetFields();
     message.success('资源已登记入库，请按期完成首次检查');
@@ -161,7 +163,7 @@ export default function EmergencyResources() {
   const submitDispatch = async () => {
     if (!dispatchResource) return;
     const values = await dispatchForm.validateFields();
-    dispatchEmergencyResource(dispatchResource.id, values);
+    await dispatchEmergencyResource(dispatchResource.id, values);
     setDispatchResourceId(undefined);
     dispatchForm.resetFields();
     message.success(`${dispatchResource.name}已调拨，占用 ${values.quantity} ${dispatchResource.unit}`);
@@ -174,7 +176,7 @@ export default function EmergencyResources() {
       batchForm.setFields([{ name: 'batchNo', errors: ['批号已存在'] }]);
       return;
     }
-    addEmergencyResourceBatch(batchResource.id, { ...values, batchNo: values.batchNo.trim() });
+    await addEmergencyResourceBatch(batchResource.id, { ...values, batchNo: values.batchNo.trim() });
     batchForm.resetFields();
     message.success(`${batchResource.name}已新增批次并更新库存`);
   };
@@ -182,14 +184,14 @@ export default function EmergencyResources() {
   const submitInspection = async () => {
     if (!inspectionResource) return;
     const values = await inspectionForm.validateFields();
-    inspectEmergencyResource(inspectionResource.id, values);
+    await inspectEmergencyResource(inspectionResource.id, values);
     setInspectionResourceId(undefined);
     inspectionForm.resetFields();
     message.success(`${inspectionResource.name}巡检记录已更新`);
   };
 
   return (
-    <PageContainer title={false} className={styles.page} extra={<Button type="primary" icon={<CarFilled />} onClick={() => { resourceForm.resetFields(); setCreateOpen(true); }}>新增资源</Button>}>
+    <PageContainer title={false} className={styles.page} extra={<Button type="primary" icon={<CarFilled />} disabled={!access.canManageResource} onClick={() => { resourceForm.resetFields(); setCreateOpen(true); }}>新增资源</Button>}>
       <header className={styles.heading}>
         <div><span>EMERGENCY RESOURCE CONTROL</span><h1>应急资源管理</h1><p>统一维护批次、有效期、库存、检查状态、调拨占用、到位确认和归还记录。</p></div>
         <div className={styles.readiness}><i /><span>综合战备率<strong>{readyRate}%</strong><small>{ready} / {allResources.length} 项可立即调拨</small></span></div>
@@ -241,11 +243,11 @@ export default function EmergencyResources() {
                   <div><Tag color={inspectionColor[resource.inspectionStatus]}>{resource.inspectionStatus}</Tag><small>上次 {resource.lastInspection}</small></div>
                   <Space size={4} wrap>
                     <Button size="small" icon={<HistoryOutlined />} onClick={() => setHistoryResourceId(resource.id)}>记录</Button>
-                    <Button size="small" icon={<InboxOutlined />} onClick={() => openBatch(resource)}>批次</Button>
-                    <Button size="small" onClick={() => openInspection(resource)}>巡检</Button>
-                    {!activeDispatch && <Button size="small" type="primary" disabled={!dispatchableQuantity || resource.inspectionStatus === '需要维护'} onClick={() => openDispatch(resource)}>调拨</Button>}
-                    {activeDispatch?.status === '调度中' && <Popconfirm title="确认资源已到达事件点？" okText="确认到位" cancelText="取消" onConfirm={() => { confirmEmergencyResourceArrival(resource.id, activeDispatch.id); message.success(`${resource.name}已确认到位`); }}><Button size="small" type="primary">确认到位</Button></Popconfirm>}
-                    {activeDispatch?.status === '已到位' && <Popconfirm title="确认资源已经归还并恢复库存？" okText="确认归还" cancelText="取消" onConfirm={() => { returnEmergencyResource(resource.id, activeDispatch.id); message.success(`${resource.name}已归还入库`); }}><Button size="small" type="primary">归还</Button></Popconfirm>}
+                    <Button size="small" icon={<InboxOutlined />} disabled={!access.canManageResource} onClick={() => openBatch(resource)}>批次</Button>
+                    <Button size="small" disabled={!access.canInspectResource} onClick={() => openInspection(resource)}>巡检</Button>
+                    {!activeDispatch && <Button size="small" type="primary" disabled={!access.canDispatchResource || !dispatchableQuantity || resource.inspectionStatus === '需要维护'} onClick={() => openDispatch(resource)}>调拨</Button>}
+                    {activeDispatch?.status === '调度中' && <Popconfirm title="确认资源已到达事件点？" okText="确认到位" cancelText="取消" onConfirm={() => confirmEmergencyResourceArrival(resource.id, activeDispatch.id).then(() => message.success(`${resource.name}已确认到位`))}><Button size="small" type="primary" disabled={!access.canDispatchResource}>确认到位</Button></Popconfirm>}
+                    {activeDispatch?.status === '已到位' && <Popconfirm title="确认资源已经归还并恢复库存？" okText="确认归还" cancelText="取消" onConfirm={() => returnEmergencyResource(resource.id, activeDispatch.id).then(() => message.success(`${resource.name}已归还入库`))}><Button size="small" type="primary" disabled={!access.canDispatchResource}>归还</Button></Popconfirm>}
                   </Space>
                 </footer>
               </article>

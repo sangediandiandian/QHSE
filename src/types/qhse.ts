@@ -179,6 +179,9 @@ export interface EmergencyResource {
   batches?: EmergencyResourceBatch[];
   dispatches: EmergencyResourceDispatch[];
   inspectionRecords: EmergencyResourceInspection[];
+  version?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type EmergencyResourceDispatchStatus = '调度中' | '已到位' | '已归还';

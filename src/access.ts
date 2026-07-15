@@ -37,6 +37,10 @@ export default function access(initialState: { currentUser?: API.CurrentUser } |
     canSubmitPlan: Boolean(currentUser && (isLegacyAdmin || granted.has('plan:submit'))),
     canApprovePlan: Boolean(currentUser && (isLegacyAdmin || granted.has('plan:approve'))),
     canManageDrill: Boolean(currentUser && (isLegacyAdmin || granted.has('plan:drill'))),
+    canViewResource: Boolean(currentUser && (isLegacyAdmin || granted.has('resource:read'))),
+    canManageResource: Boolean(currentUser && (isLegacyAdmin || granted.has('resource:manage'))),
+    canDispatchResource: Boolean(currentUser && (isLegacyAdmin || granted.has('resource:dispatch'))),
+    canInspectResource: Boolean(currentUser && (isLegacyAdmin || granted.has('resource:inspect'))),
     canReadAudit: Boolean(currentUser && (isLegacyAdmin || granted.has('audit:read'))),
     hasPermission: (permission: string) => Boolean(currentUser && (
       isLegacyAdmin || granted.has(permission)

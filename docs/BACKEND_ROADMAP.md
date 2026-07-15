@@ -29,12 +29,12 @@
 | 4C | 预警规则实时执行 | 采样窗口、表达式计算、去重抑制和告警事件生成 | 已完成 |
 | 5A | 应急事件生命周期 | 告警转事件、响应调整、证据、关闭审批和审计闭环 | 已完成 |
 | 5B1 | 应急预案与演练 | 预案发布、版本回滚、到期和演练复盘服务端闭环 | 已完成 |
-| 5B2 | 应急资源 | 库存、批次、调拨、归还、盘点和维修服务端闭环 | 待开发 |
+| 5B2 | 应急资源 | 库存、批次、FEFO 调拨、归还和巡检维护服务端闭环 | 已完成 |
 | 5C | 融合通信 | 多渠道发送、回执、重试、升级和审计 | 待开发 |
 | 6 | GDS/VOC/MES、WebSocket/MQTT、对象存储 | 真实数据稳定接入，附件与证据可固化 | 待开发 |
 | 7 | 报表、缓存、消息队列、部署、安全与性能 | 完成生产容量、安全和恢复验证 | 待开发 |
 
-应急资源原型仍缺仓库/库位、库存流水、扫码盘点、维修工单和跨库调拨。该模块依赖数据库事务和审计，因此安排在后端基础能力稳定后建设。
+应急资源基础闭环已经后端化；仓库/库位、完整库存流水、扫码盘点、维修工单和跨库调拨作为后续生产化增强项建设。
 
 ## 当前 API
 
@@ -72,6 +72,11 @@
 - `POST /api/v1/emergency-plans`、`PUT /api/v1/emergency-plans/:id/draft`：创建或维护独立预案草稿。
 - `POST /api/v1/emergency-plans/:id/submit|approve|rollback`：双人会签发布或将历史版本恢复为草稿。
 - `POST /api/v1/emergency-plans/:id/drills...`：创建、启动和归档演练复盘。
+- `GET /api/v1/emergency-resources`、`GET /api/v1/emergency-resources/:id`：查询应急资源、批次、调拨和巡检记录。
+- `POST /api/v1/emergency-resources`、`POST /api/v1/emergency-resources/:id/batches`：资源入库和批次补充。
+- `POST /api/v1/emergency-resources/:id/dispatches`：按有效期 FEFO 分配可用批次并占用库存。
+- `POST /api/v1/emergency-resources/:id/dispatches/:dispatchId/arrival|return`：确认到位或归还并恢复批次库存。
+- `POST /api/v1/emergency-resources/:id/inspections`：登记巡检结果和下次检查日期。
 
 除健康检查、登录和 Swagger 外，接口默认需要 Bearer Token。演示账号包括 `admin`、`leader`、`qhse`、`dispatcher`、`unit_manager`、`operator`、`environment` 和 `commander`，本地演示密码统一为 `ant.design`。当前会话默认保存在进程内存中，仅用于开发；正式环境需切换统一身份认证或 Redis 会话并独立配置密码。
 
@@ -90,6 +95,8 @@
 应急事件已形成独立领域切片。告警转事件、研判启动、响应升级/降级、终止监控、证据归档和关闭均由服务端状态机控制；关闭申请创建 4 小时 QHSE 审批流程，申请人与审批人必须异人，审批意见和电子签名随事件归档。事件写操作执行区域数据范围、权限、审计和乐观锁。
 
 应急预案草稿与当前生效版本隔离，QHSE 与生产负责人按通用审批流异人会签，末节点通过后生成不可变版本；历史回滚只生成草稿。演练计划、启动和复盘评分使用同一预案修订号控制并发，前端 API 模式已直接接入该领域切片。
+
+应急资源已形成独立领域切片。调拨按有效批次 FEFO 分配并排除过期库存，维护中资源禁止调拨；到位和归还由服务端状态机控制，归还同步恢复批次及汇总库存。巡检人、调拨操作人取认证主体，写操作执行权限、审计和乐观锁，前端 API 模式不再依赖驾驶舱缓存。
 
 ## 本地启动
 

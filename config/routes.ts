@@ -126,6 +126,7 @@ export default [
     icon: 'car',
     path: '/resources',
     component: './EmergencyResources',
+    access: 'canViewResource',
   },
   {
     name: '事件闭环',

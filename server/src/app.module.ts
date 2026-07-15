@@ -12,6 +12,7 @@ import { WarningRuleModule } from './modules/warning-rules/warning-rule.module';
 import { WarningExecutionModule } from './modules/warning-execution/warning-execution.module';
 import { EmergencyEventModule } from './modules/emergency-events/emergency-event.module';
 import { EmergencyPlanModule } from './modules/emergency-plans/emergency-plan.module';
+import { EmergencyResourceModule } from './modules/emergency-resources/emergency-resource.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { EmergencyPlanModule } from './modules/emergency-plans/emergency-plan.mo
     WarningExecutionModule,
     EmergencyEventModule,
     EmergencyPlanModule,
+    EmergencyResourceModule,
   ],
   controllers: [HealthController],
 })

@@ -8,6 +8,7 @@ import type {
   EmergencyEventEvidence,
   EmergencyPlanDraftInput,
   EmergencyPlanTemplate,
+  EmergencyResource,
   EmergencyResourceBatchInput,
   EmergencyResourceDispatchInput,
   EmergencyResourceInput,
@@ -75,6 +76,15 @@ import {
   submitEmergencyPlan as submitEmergencyPlanByApi,
   updateEmergencyPlan,
 } from '@/services/qhse/emergencyPlans';
+import {
+  addEmergencyResourceBatch as addEmergencyResourceBatchByApi,
+  confirmEmergencyResourceArrival as confirmEmergencyResourceArrivalByApi,
+  createEmergencyResource,
+  dispatchEmergencyResource as dispatchEmergencyResourceByApi,
+  getEmergencyResources,
+  inspectEmergencyResource as inspectEmergencyResourceByApi,
+  returnEmergencyResource as returnEmergencyResourceByApi,
+} from '@/services/qhse/emergencyResources';
 import {
   withCommunicationConfirmation,
   withCommunicationEscalation,
@@ -182,6 +192,8 @@ export default function useQhseModel() {
   const [emergencyEventLoading, setEmergencyEventLoading] = useState(false);
   const [emergencyPlanRecords, setEmergencyPlanRecords] = useState<EmergencyPlanTemplate[]>([]);
   const [emergencyPlanLoading, setEmergencyPlanLoading] = useState(false);
+  const [emergencyResourceRecords, setEmergencyResourceRecords] = useState<EmergencyResource[]>([]);
+  const [emergencyResourceLoading, setEmergencyResourceLoading] = useState(false);
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
@@ -264,6 +276,12 @@ export default function useQhseModel() {
     if (!hazardApiMode) { if (!dashboard) await loadDashboard(); return; }
     setEmergencyPlanLoading(true);
     try { setEmergencyPlanRecords(await getEmergencyPlans()); } finally { setEmergencyPlanLoading(false); }
+  }, [dashboard, loadDashboard]);
+
+  const loadEmergencyResources = useCallback(async () => {
+    if (!hazardApiMode) { if (!dashboard) await loadDashboard(); return; }
+    setEmergencyResourceLoading(true);
+    try { setEmergencyResourceRecords(await getEmergencyResources()); } finally { setEmergencyResourceLoading(false); }
   }, [dashboard, loadDashboard]);
 
   useEffect(() => {
@@ -369,26 +387,29 @@ export default function useQhseModel() {
     });
   }, []);
 
-  const addEmergencyResource = useCallback((input: EmergencyResourceInput) => {
+  const addEmergencyResource = useCallback(async (input: EmergencyResourceInput) => {
+    if (hazardApiMode) { const created = await createEmergencyResource(input); setEmergencyResourceRecords((items) => [...items, created]); return created; }
     setDashboard((current) => current ? {
       ...current,
       emergencyResources: withAddedEmergencyResource(current.emergencyResources, input, `resource-${Date.now()}`),
     } : current);
   }, []);
 
-  const addEmergencyResourceBatch = useCallback((resourceId: string, input: EmergencyResourceBatchInput) => {
+  const addEmergencyResourceBatch = useCallback(async (resourceId: string, input: EmergencyResourceBatchInput) => {
+    if (hazardApiMode) { const resource = emergencyResourceRecords.find((item) => item.id === resourceId); if (!resource) throw new Error('应急资源不存在'); const updated = await addEmergencyResourceBatchByApi(resourceId, input, resource.version ?? 1); setEmergencyResourceRecords((items) => items.map((item) => item.id === resourceId ? updated : item)); return updated; }
     setDashboard((current) => current ? {
       ...current,
       emergencyResources: current.emergencyResources.map((resource) => resource.id === resourceId
         ? withAddedEmergencyResourceBatch(resource, input, `batch-${Date.now()}`)
         : resource),
     } : current);
-  }, []);
+  }, [emergencyResourceRecords]);
 
   const dispatchEmergencyResource = useCallback((
     resourceId: string,
     input: Omit<EmergencyResourceDispatchInput, 'id' | 'dispatchedAt'>,
   ) => {
+    if (hazardApiMode) { const resource = emergencyResourceRecords.find((item) => item.id === resourceId); if (!resource) throw new Error('应急资源不存在'); return dispatchEmergencyResourceByApi(resourceId, input, resource.version ?? 1).then((updated) => { setEmergencyResourceRecords((items) => items.map((item) => item.id === resourceId ? updated : item)); return updated; }); }
     setDashboard((current) => current ? {
       ...current,
       emergencyResources: current.emergencyResources.map((resource) => resource.id === resourceId
@@ -399,30 +420,33 @@ export default function useQhseModel() {
         })
         : resource),
     } : current);
-  }, []);
+  }, [emergencyResourceRecords]);
 
-  const confirmEmergencyResourceArrival = useCallback((resourceId: string, dispatchId: string) => {
+  const confirmEmergencyResourceArrival = useCallback(async (resourceId: string, dispatchId: string) => {
+    if (hazardApiMode) { const resource = emergencyResourceRecords.find((item) => item.id === resourceId); if (!resource) throw new Error('应急资源不存在'); const updated = await confirmEmergencyResourceArrivalByApi(resourceId, dispatchId, resource.version ?? 1); setEmergencyResourceRecords((items) => items.map((item) => item.id === resourceId ? updated : item)); return updated; }
     setDashboard((current) => current ? {
       ...current,
       emergencyResources: current.emergencyResources.map((resource) => resource.id === resourceId
         ? withConfirmedResourceArrival(resource, dispatchId, getCurrentTimestamp())
         : resource),
     } : current);
-  }, []);
+  }, [emergencyResourceRecords]);
 
-  const returnEmergencyResource = useCallback((resourceId: string, dispatchId: string) => {
+  const returnEmergencyResource = useCallback(async (resourceId: string, dispatchId: string) => {
+    if (hazardApiMode) { const resource = emergencyResourceRecords.find((item) => item.id === resourceId); if (!resource) throw new Error('应急资源不存在'); const updated = await returnEmergencyResourceByApi(resourceId, dispatchId, resource.version ?? 1); setEmergencyResourceRecords((items) => items.map((item) => item.id === resourceId ? updated : item)); return updated; }
     setDashboard((current) => current ? {
       ...current,
       emergencyResources: current.emergencyResources.map((resource) => resource.id === resourceId
         ? withReturnedEmergencyResource(resource, dispatchId, getCurrentTimestamp())
         : resource),
     } : current);
-  }, []);
+  }, [emergencyResourceRecords]);
 
   const inspectEmergencyResource = useCallback((
     resourceId: string,
     input: Omit<EmergencyResourceInspectionInput, 'id' | 'inspectedAt'>,
   ) => {
+    if (hazardApiMode) { const resource = emergencyResourceRecords.find((item) => item.id === resourceId); if (!resource) throw new Error('应急资源不存在'); return inspectEmergencyResourceByApi(resourceId, input, resource.version ?? 1).then((updated) => { setEmergencyResourceRecords((items) => items.map((item) => item.id === resourceId ? updated : item)); return updated; }); }
     setDashboard((current) => current ? {
       ...current,
       emergencyResources: current.emergencyResources.map((resource) => resource.id === resourceId
@@ -433,7 +457,7 @@ export default function useQhseModel() {
         })
         : resource),
     } : current);
-  }, []);
+  }, [emergencyResourceRecords]);
 
   const saveEmergencyPlan = useCallback(async (planId: string | undefined, input: EmergencyPlanDraftInput) => {
     if (hazardApiMode) {
@@ -996,6 +1020,10 @@ export default function useQhseModel() {
     emergencyPlanLoading: hazardApiMode ? emergencyPlanLoading : loading,
     emergencyPlanApiMode: hazardApiMode,
     loadEmergencyPlans,
+    emergencyResources: hazardApiMode ? emergencyResourceRecords : (dashboard?.emergencyResources ?? []),
+    emergencyResourceLoading: hazardApiMode ? emergencyResourceLoading : loading,
+    emergencyResourceApiMode: hazardApiMode,
+    loadEmergencyResources,
     simulateGdsAlarm,
     confirmAlarm,
     startEmergency,

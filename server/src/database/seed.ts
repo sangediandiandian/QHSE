@@ -13,6 +13,7 @@ import { workPermitSeed } from '../modules/work-permits/work-permit.seed';
 import { warningRuleSeed } from '../modules/warning-rules/warning-rule.seed';
 import { emergencyEventSeed } from '../modules/emergency-events/emergency-event.seed';
 import { emergencyPlanSeed } from '../modules/emergency-plans/emergency-plan.seed';
+import { emergencyResourceSeed } from '../modules/emergency-resources/emergency-resource.seed';
 
 const prisma = new PrismaClient();
 
@@ -390,6 +391,11 @@ async function main() {
   for (const plan of emergencyPlanSeed) {
     const config = { name: plan.name, category: plan.category, eventType: plan.eventType, applicableArea: plan.applicableArea, medium: plan.medium, responseLevel: plan.responseLevel, triggerRule: plan.triggerRule, notificationTargets: plan.notificationTargets, steps: plan.steps, resources: plan.resources, effectiveDate: plan.effectiveDate, expiryDate: plan.expiryDate, ownerDepartment: plan.ownerDepartment };
     await prisma.emergencyPlanTemplate.upsert({ where: { id: plan.id }, update: { code: plan.code, config, version: plan.version, status: plan.status, publishStatus: plan.publishStatus, versions: plan.versions as unknown as Prisma.InputJsonValue, drills: plan.drills as unknown as Prisma.InputJsonValue, revision: plan.revision }, create: { id: plan.id, code: plan.code, config, version: plan.version, status: plan.status, publishStatus: plan.publishStatus, draft: Prisma.JsonNull, versions: plan.versions as unknown as Prisma.InputJsonValue, reviewSteps: Prisma.JsonNull, drills: plan.drills as unknown as Prisma.InputJsonValue, revision: plan.revision } });
+  }
+
+  for (const resource of emergencyResourceSeed) {
+    const data = { code: resource.code, name: resource.name, type: resource.type, totalQuantity: resource.totalQuantity, availableQuantity: resource.availableQuantity, unit: resource.unit, location: resource.location, eta: resource.eta, status: resource.status, owner: resource.owner, contact: resource.contact, lastInspection: resource.lastInspection, nextInspection: resource.nextInspection, inspectionStatus: resource.inspectionStatus, batches: resource.batches as unknown as Prisma.InputJsonValue, dispatches: resource.dispatches as unknown as Prisma.InputJsonValue, inspectionRecords: resource.inspectionRecords as unknown as Prisma.InputJsonValue, version: resource.version };
+    await prisma.emergencyResourceInventory.upsert({ where: { id: resource.id }, update: data, create: { id: resource.id, ...data, createdAt: new Date(resource.createdAt), updatedAt: new Date(resource.updatedAt) } });
   }
 }
 
