@@ -153,6 +153,13 @@ export default [
     access: 'canViewReport',
   },
   {
+    name: '平台配置',
+    icon: 'setting',
+    path: '/settings',
+    component: './PlatformConfig',
+    access: 'canViewConfig',
+  },
+  {
     path: '/warnings/:id',
     component: './WarningDetail',
     hideInMenu: true,

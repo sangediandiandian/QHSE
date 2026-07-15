@@ -16,6 +16,10 @@ import { emergencyPlanSeed } from '../modules/emergency-plans/emergency-plan.see
 import { emergencyResourceSeed } from '../modules/emergency-resources/emergency-resource.seed';
 import { communicationSeed } from '../modules/communications/communication.seed';
 import { telemetryPointSeed } from '../modules/telemetry/telemetry.seed';
+import {
+  dictionarySeed,
+  integrationConfigSeed,
+} from '../modules/platform-config/platform-config.seed';
 
 const prisma = new PrismaClient();
 
@@ -408,6 +412,53 @@ async function main() {
   for (const point of telemetryPointSeed) {
     const data = { code: point.code, source: point.source, name: point.name, areaId: point.areaId, areaName: point.areaName, equipmentName: point.equipmentName, metricKey: point.metricKey, unit: point.unit, configuration: point.configuration as Prisma.InputJsonValue, currentMetrics: point.currentMetrics as Prisma.InputJsonValue, status: point.status, onlineStatus: point.onlineStatus, lastSampleAt: point.lastSampleAt ? new Date(point.lastSampleAt) : null, version: point.version };
     await prisma.telemetryPoint.upsert({ where: { id: point.id }, update: data, create: { id: point.id, ...data, createdAt: new Date(point.createdAt), updatedAt: new Date(point.updatedAt) } });
+  }
+
+  for (const dictionary of dictionarySeed) {
+    const data = {
+      code: dictionary.code,
+      name: dictionary.name,
+      description: dictionary.description,
+      items: dictionary.items as unknown as Prisma.InputJsonValue,
+      status: dictionary.status,
+      version: dictionary.version,
+      updatedAt: new Date(dictionary.updatedAt),
+    };
+    await prisma.platformDictionary.upsert({
+      where: { id: dictionary.id },
+      update: data,
+      create: {
+        id: dictionary.id,
+        ...data,
+        createdAt: new Date(dictionary.createdAt),
+      },
+    });
+  }
+
+  for (const integration of integrationConfigSeed) {
+    const data = {
+      code: integration.code,
+      name: integration.name,
+      type: integration.type,
+      protocol: integration.protocol,
+      endpoint: integration.endpoint,
+      enabled: integration.enabled,
+      timeoutMs: integration.timeoutMs,
+      owner: integration.owner,
+      healthStatus: integration.healthStatus,
+      lastCheckedAt: integration.lastCheckedAt ? new Date(integration.lastCheckedAt) : null,
+      version: integration.version,
+      updatedAt: new Date(integration.updatedAt),
+    };
+    await prisma.integrationConfig.upsert({
+      where: { id: integration.id },
+      update: data,
+      create: {
+        id: integration.id,
+        ...data,
+        createdAt: new Date(integration.createdAt),
+      },
+    });
   }
 }
 

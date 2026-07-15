@@ -559,6 +559,43 @@ export interface ReportSummary {
   areas: ReportAreaRow[];
 }
 
+export interface DictionaryItem {
+  value: string;
+  label: string;
+  sort: number;
+  enabled: boolean;
+  color?: string;
+}
+
+export interface PlatformDictionary {
+  id: string;
+  code: string;
+  name: string;
+  description?: string;
+  items: DictionaryItem[];
+  status: 'enabled' | 'disabled';
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IntegrationConfig {
+  id: string;
+  code: string;
+  name: string;
+  type: 'telemetry' | 'communication' | 'identity' | 'storage';
+  protocol: 'HTTP' | 'HTTPS' | 'MQTT' | 'MQTTS';
+  endpoint: string;
+  enabled: boolean;
+  timeoutMs: number;
+  owner: string;
+  healthStatus: 'unchecked' | 'connected' | 'degraded' | 'disconnected';
+  lastCheckedAt?: string;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface EmergencyEventApprovalTask {
   id: string;
   workflowId?: string;

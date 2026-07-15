@@ -40,6 +40,8 @@ export const permissions = [
   'attachment:upload',
   'report:read',
   'report:export',
+  'config:read',
+  'config:manage',
   'iam:read',
   'iam:manage',
   'audit:read',

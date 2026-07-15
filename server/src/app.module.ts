@@ -17,6 +17,7 @@ import { CommunicationModule } from './modules/communications/communication.modu
 import { TelemetryModule } from './modules/telemetry/telemetry.module';
 import { AttachmentModule } from './modules/attachments/attachment.module';
 import { ReportingModule } from './modules/reporting/reporting.module';
+import { PlatformConfigModule } from './modules/platform-config/platform-config.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { ReportingModule } from './modules/reporting/reporting.module';
     TelemetryModule,
     AttachmentModule,
     ReportingModule,
+    PlatformConfigModule,
   ],
   controllers: [HealthController],
 })
