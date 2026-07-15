@@ -26,6 +26,8 @@
     "record": "cross-env NODE_ENV=development REACT_APP_ENV=test max record --scene=login",
     "serve": "umi-serve",
     "server:build": "tsc -p server/tsconfig.json",
+    "server:backup": "npm run server:build && node server/dist/tools/database-backup.js create",
+    "server:backup:verify": "npm run server:build && node server/dist/tools/database-backup.js verify",
     "server:capacity": "npm run server:build && node server/dist/tools/capacity-check.js",
     "server:dev": "ts-node --project server/tsconfig.json server/src/main.ts",
     "server:start": "node server/dist/main.js",

@@ -32,7 +32,7 @@
 | 5B2 | 应急资源 | 库存、批次、FEFO 调拨、归还和巡检维护服务端闭环 | 已完成 |
 | 5C | 融合通信 | 多渠道发送、回执、重试、升级和审计 | 已完成 |
 | 6 | GDS/VOC/MES、WebSocket/MQTT、对象存储 | 真实数据稳定接入，附件与证据可固化 | 已完成 |
-| 7 | 报表、缓存、消息队列、部署、安全与性能 | 完成生产容量、安全和恢复验证 | 进行中：平台能力、健康探针、追踪和容量工具已完成，待生产容量与灾备验证 |
+| 7 | 报表、缓存、消息队列、部署、安全与性能 | 完成生产容量、安全和恢复验证 | 进行中：平台能力、追踪、容量和备份校验工具已完成，待生产压测与恢复演练 |
 
 应急资源基础闭环已经后端化；仓库/库位、完整库存流水、扫码盘点、维修工单和跨库调拨作为后续生产化增强项建设。
 
@@ -241,3 +241,21 @@ npm run server:capacity
 ```
 
 单请求超时使用 `QHSE_CAPACITY_TIMEOUT_MS` 调整。测试受保护接口时可由临时运行环境提供 `QHSE_CAPACITY_BEARER_TOKEN`，工具不会输出 Token；目标 URL 禁止内嵌凭据，报告会移除查询参数。开发机结果只能作为回归基线，生产容量结论必须在目标容器规格、真实 PostgreSQL/Redis/Collector 和代表性业务数据下重新执行。
+
+PostgreSQL 自包含备份使用本机或运维容器内的 `pg_dump` 创建 custom archive，随后调用 `pg_restore --list` 校验归档结构并生成 SHA-256 清单：
+
+```bash
+QHSE_REPOSITORY=prisma \
+DATABASE_URL=postgresql://user:password@db.example.com:5432/qhse \
+QHSE_BACKUP_DIR=/secure-backups/qhse \
+npm run server:backup
+```
+
+数据库连接会被拆分为 libpq 子进程环境变量，密码不会进入命令行参数、标准输出或清单。备份文件和清单使用 0600 权限；工具不自动删除旧备份，保留策略由外部备份平台执行。离线复核已生成归档：
+
+```bash
+QHSE_BACKUP_FILE=/secure-backups/qhse/qhse-20260715T083000000Z-1234abcd.dump \
+npm run server:backup:verify
+```
+
+复核同时检查清单格式、文件名、长度、SHA-256 和 PostgreSQL 归档目录。该命令不连接目标数据库，也不等同于恢复演练；正式上线前仍必须在隔离数据库执行恢复、业务一致性检查和 RPO/RTO 计时。创建过程失败时可能保留没有清单的未完成归档，运维平台应将“有效清单存在且复核通过”作为可恢复备份的判据。
