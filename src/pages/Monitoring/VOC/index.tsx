@@ -11,7 +11,7 @@ import {
   ToolFilled,
 } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
-import { history, useModel } from '@umijs/max';
+import { history, useAccess, useModel } from '@umijs/max';
 import { Button, Empty, Progress, Skeleton, Tag, message } from 'antd';
 import { useEffect } from 'react';
 import styles from './index.less';
@@ -59,17 +59,25 @@ function FacilityCard({ facility }: { facility: VocFacility }) {
 }
 
 export default function VocMonitoring() {
-  const { dashboard, loading, loadDashboard, simulateVocAlarm } = useModel('qhse');
-  useEffect(() => { if (!dashboard) void loadDashboard(); }, [dashboard, loadDashboard]);
+  const access = useAccess();
+  const { dashboard, vocPoints, telemetryLoading, telemetryApiMode, loadTelemetry, ingestTelemetrySample, simulateVocAlarm } = useModel('qhse');
+  useEffect(() => { void loadTelemetry(); }, [loadTelemetry]);
 
-  if (!dashboard && loading) return <PageContainer><Skeleton active paragraph={{ rows: 14 }} /></PageContainer>;
-  if (!dashboard) return <PageContainer><Empty description="VOC 数据暂不可用" /></PageContainer>;
+  if (telemetryLoading && !vocPoints.length) return <PageContainer><Skeleton active paragraph={{ rows: 14 }} /></PageContainer>;
+  if (!vocPoints.length) return <PageContainer><Empty description="VOC 数据暂不可用" /></PageContainer>;
 
-  const exceeded = dashboard.vocPoints.filter((point) => point.status === 'exceeded').length;
-  const warning = dashboard.vocPoints.filter((point) => point.status === 'warning').length;
-  const online = dashboard.vocPoints.filter((point) => point.status !== 'offline').length;
-  const handleSimulation = () => {
-    if (!isWarningScenarioEnabled(dashboard, 'voc-overlimit')) {
+  const exceeded = vocPoints.filter((point) => point.status === 'exceeded').length;
+  const warning = vocPoints.filter((point) => point.status === 'warning').length;
+  const online = vocPoints.filter((point) => point.status !== 'offline').length;
+  const complianceRate = Math.round(((vocPoints.length - exceeded) / vocPoints.length) * 100);
+  const facilities: VocFacility[] = dashboard?.vocFacilities ?? vocPoints.filter((point) => point.pointType === '有组织排口').map((point) => ({ id: `facility-${point.id}`, code: point.facilityId ?? point.code, name: `${point.name}治理设施`, processType: point.facilityId?.includes('RCO') ? 'RCO' : 'RTO', areaName: point.areaName, inletValue: 240, outletValue: point.currentValue, efficiency: Math.max(0, Math.round((1 - point.currentValue / 240) * 100)), temperature: 780, fanStatus: '运行', valveStatus: '开启', status: point.status === 'exceeded' ? 'degraded' : 'normal' }));
+  const handleSimulation = async () => {
+    if (telemetryApiMode) {
+      await ingestTelemetrySample({ sampleId: `ui-voc-${Date.now()}`, pointId: 'voc-001', source: 'VOC', occurredAt: new Date().toISOString(), metrics: { concentration: 66, flow: 12000 }, quality: 'good' });
+      message.warning('VOC 超限样本已写入服务端并执行预警规则');
+      return;
+    }
+    if (!dashboard || !isWarningScenarioEnabled(dashboard, 'voc-overlimit')) {
       message.info('VOC 连续超限规则已停用，请先在预警规则页面启用');
       return;
     }
@@ -77,27 +85,27 @@ export default function VocMonitoring() {
     message.warning('RTO 一号排口已连续超限，环保预警与设施核查任务已生成');
   };
   const openPointEvent = (point: VocPoint) => {
-    const event = dashboard.alarms.find((item) => item.source === 'VOC' && item.areaId === point.areaId);
+    const event = dashboard?.alarms.find((item) => item.source === 'VOC' && item.areaId === point.areaId);
     if (event) history.push(`/warnings/${event.id}`);
   };
 
   return (
-    <PageContainer title={false} className={styles.page} extra={<Button danger icon={<ThunderboltFilled />} onClick={handleSimulation}>模拟 VOC 连续超限</Button>}>
+    <PageContainer title={false} className={styles.page} extra={<Button danger disabled={telemetryApiMode && !access.canIngestTelemetry} icon={<ThunderboltFilled />} onClick={() => void handleSimulation()}>模拟 VOC 连续超限</Button>}>
       <section className={styles.hero}>
         <div><span>VOLATILE ORGANIC COMPOUNDS</span><h1>VOC 排放监测</h1><p>排口、厂界与治理设施统一监测，异常关联生产负荷进行研判。</p></div>
         <div className={styles.metrics}>
-          <div><CloudOutlined /><strong>{online}/8</strong><span>在线监测点</span></div>
-          <div><CheckCircleFilled /><strong>{dashboard.metrics.vocComplianceRate}<em>%</em></strong><span>当前达标率</span></div>
+          <div><CloudOutlined /><strong>{online}/{vocPoints.length}</strong><span>在线监测点</span></div>
+          <div><CheckCircleFilled /><strong>{complianceRate}<em>%</em></strong><span>当前达标率</span></div>
           <div className={styles.metricWarning}><AlertFilled /><strong>{warning}</strong><span>接近限值</span></div>
           <div className={styles.metricDanger}><ExperimentFilled /><strong>{exceeded}</strong><span>持续超限</span></div>
         </div>
       </section>
 
       <section className={styles.sectionHead}><div><span>TREATMENT TRAIN</span><h2>治理设施运行链路</h2></div><small>入口、炉膛、出口及生产负荷同步采集</small></section>
-      <section className={styles.facilityGrid}>{dashboard.vocFacilities.map((facility) => <FacilityCard key={facility.id} facility={facility} />)}</section>
+      <section className={styles.facilityGrid}>{facilities.map((facility) => <FacilityCard key={facility.id} facility={facility} />)}</section>
 
       <section className={styles.sectionHead}><div><span>EMISSION POINTS</span><h2>排口与厂界监测点</h2></div><small>虚线表示排放限值</small></section>
-      <section className={styles.pointGrid}>{dashboard.vocPoints.map((point) => <PointCard key={point.id} point={point} onOpen={() => openPointEvent(point)} />)}</section>
+      <section className={styles.pointGrid}>{vocPoints.map((point) => <PointCard key={point.id} point={point} onOpen={() => openPointEvent(point)} />)}</section>
     </PageContainer>
   );
 }

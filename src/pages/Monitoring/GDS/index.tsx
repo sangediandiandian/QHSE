@@ -9,7 +9,7 @@ import {
   ToolFilled,
 } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
-import { history, useModel } from '@umijs/max';
+import { history, useAccess, useModel } from '@umijs/max';
 import { Button, Empty, Segmented, Select, Skeleton, Tag, message } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
 import styles from './index.less';
@@ -50,31 +50,37 @@ function DetectorCard({ point, onOpen }: { point: GdsPoint; onOpen: () => void }
 }
 
 export default function GdsMonitoring() {
-  const { dashboard, loading, loadDashboard, simulateGdsAlarm } = useModel('qhse');
+  const access = useAccess();
+  const { dashboard, gdsPoints, telemetryLoading, telemetryApiMode, loadTelemetry, ingestTelemetrySample, simulateGdsAlarm } = useModel('qhse');
   const [areaId, setAreaId] = useState('all');
   const [state, setState] = useState('全部');
 
-  useEffect(() => { if (!dashboard) void loadDashboard(); }, [dashboard, loadDashboard]);
+  useEffect(() => { void loadTelemetry(); }, [loadTelemetry]);
 
   const points = useMemo(() => {
-    const list = dashboard?.gdsPoints ?? [];
-    return list.filter((point) => {
+    return gdsPoints.filter((point) => {
       const areaMatch = areaId === 'all' || point.areaId === areaId;
       const stateMatch = state === '全部' ||
         (state === '报警' && ['level1', 'level2'].includes(point.alarmStatus)) ||
         (state === '异常' && (point.onlineStatus !== 'online' || point.alarmStatus === 'trend'));
       return areaMatch && stateMatch;
     });
-  }, [areaId, dashboard, state]);
+  }, [areaId, gdsPoints, state]);
 
-  if (!dashboard && loading) return <PageContainer><Skeleton active paragraph={{ rows: 14 }} /></PageContainer>;
-  if (!dashboard) return <PageContainer><Empty description="GDS 数据暂不可用" /></PageContainer>;
+  if (telemetryLoading && !gdsPoints.length) return <PageContainer><Skeleton active paragraph={{ rows: 14 }} /></PageContainer>;
+  if (!gdsPoints.length) return <PageContainer><Empty description="GDS 数据暂不可用" /></PageContainer>;
 
-  const alarms = dashboard.gdsPoints.filter((point) => ['level1', 'level2'].includes(point.alarmStatus)).length;
-  const offline = dashboard.gdsPoints.filter((point) => point.onlineStatus === 'offline').length;
-  const faults = dashboard.gdsPoints.filter((point) => point.onlineStatus === 'fault').length;
-  const handleSimulation = () => {
-    if (!isWarningScenarioEnabled(dashboard, 'gds-level2')) {
+  const alarms = gdsPoints.filter((point) => ['level1', 'level2'].includes(point.alarmStatus)).length;
+  const offline = gdsPoints.filter((point) => point.onlineStatus === 'offline').length;
+  const faults = gdsPoints.filter((point) => point.onlineStatus === 'fault').length;
+  const areas = Array.from(new Map(gdsPoints.map((point) => [point.areaId, point.areaName])).entries());
+  const handleSimulation = async () => {
+    if (telemetryApiMode) {
+      await ingestTelemetrySample({ sampleId: `ui-gds-${Date.now()}`, pointId: 'gds-101', source: 'GDS', occurredAt: new Date().toISOString(), metrics: { gasConcentration: 42 }, quality: 'good' });
+      message.warning('GDS-101 样本已写入服务端并执行预警规则');
+      return;
+    }
+    if (!dashboard || !isWarningScenarioEnabled(dashboard, 'gds-level2')) {
       message.info('GDS 二级报警规则已停用，请先在预警规则页面启用');
       return;
     }
@@ -83,11 +89,11 @@ export default function GdsMonitoring() {
   };
 
   return (
-    <PageContainer title={false} className={styles.page} extra={<Button danger icon={<ThunderboltFilled />} onClick={handleSimulation}>模拟 GDS 二级报警</Button>}>
+    <PageContainer title={false} className={styles.page} extra={<Button danger disabled={telemetryApiMode && !access.canIngestTelemetry} icon={<ThunderboltFilled />} onClick={() => void handleSimulation()}>模拟 GDS 二级报警</Button>}>
       <section className={styles.heading}>
-        <div><span>GAS DETECTION SYSTEM</span><h1>GDS 气体监测</h1><p>30 个固定式探测器正在监测可燃气体、有毒气体与氧含量。</p></div>
+        <div><span>GAS DETECTION SYSTEM</span><h1>GDS 气体监测</h1><p>{gdsPoints.length} 个固定式探测器正在监测可燃气体、有毒气体与氧含量。</p></div>
         <div className={styles.summary}>
-          <div><ApiOutlined /><strong>{dashboard.gdsPoints.length - offline - faults}</strong><span>在线测点</span></div>
+          <div><ApiOutlined /><strong>{gdsPoints.length - offline - faults}</strong><span>在线测点</span></div>
           <div className={styles.warning}><AlertFilled /><strong>{alarms}</strong><span>活动报警</span></div>
           <div><DisconnectOutlined /><strong>{offline}</strong><span>离线</span></div>
           <div><ToolFilled /><strong>{faults}</strong><span>故障</span></div>
@@ -95,15 +101,15 @@ export default function GdsMonitoring() {
       </section>
 
       <section className={styles.controlBar}>
-        <div><label htmlFor="area-filter">装置区域</label><Select id="area-filter" value={areaId} onChange={setAreaId} options={[{ value: 'all', label: '全部装置' }, ...dashboard.areas.map((area) => ({ value: area.id, label: area.name }))]} /></div>
+        <div><label htmlFor="area-filter">装置区域</label><Select id="area-filter" value={areaId} onChange={setAreaId} options={[{ value: 'all', label: '全部装置' }, ...areas.map(([value, label]) => ({ value, label }))]} /></div>
         <Segmented value={state} onChange={(value) => setState(String(value))} options={['全部', '报警', '异常']} />
-        <span className={styles.resultCount}>显示 {points.length} / {dashboard.gdsPoints.length} 个测点</span>
+        <span className={styles.resultCount}>显示 {points.length} / {gdsPoints.length} 个测点</span>
       </section>
 
       <section className={styles.matrix} aria-label="GDS 探测器矩阵">
         {points.map((point) => (
           <DetectorCard key={point.id} point={point} onOpen={() => {
-            const event = dashboard.alarms.find((alarm) => alarm.source === 'GDS' && alarm.areaId === point.areaId);
+            const event = dashboard?.alarms.find((alarm) => alarm.source === 'GDS' && alarm.areaId === point.areaId);
             if (event) history.push(`/warnings/${event.id}`);
           }} />
         ))}

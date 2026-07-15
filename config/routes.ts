@@ -75,16 +75,19 @@ export default [
       {
         path: '/monitoring/gds',
         name: 'GDS 监测',
+        access: 'canViewTelemetry',
         component: './Monitoring/GDS',
       },
       {
         path: '/monitoring/voc',
         name: 'VOC 监测',
+        access: 'canViewTelemetry',
         component: './Monitoring/VOC',
       },
       {
         path: '/monitoring/mes',
         name: 'MES 关联',
+        access: 'canViewTelemetry',
         component: './Monitoring/MES',
       },
     ],

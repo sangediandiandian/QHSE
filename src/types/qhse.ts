@@ -129,6 +129,34 @@ export interface MesUnit {
   status: 'normal' | 'warning' | 'alarm';
 }
 
+export type TelemetrySource = 'GDS' | 'VOC' | 'MES';
+export interface TelemetryPoint {
+  id: string;
+  code: string;
+  source: TelemetrySource;
+  name: string;
+  areaId: string;
+  areaName: string;
+  equipmentName: string;
+  metricKey: string;
+  unit: string;
+  configuration: Record<string, string | number | boolean>;
+  currentMetrics: Record<string, string | number | boolean>;
+  status: string;
+  onlineStatus: DeviceOnlineStatus;
+  lastSampleAt?: string;
+  version: number;
+}
+
+export interface TelemetryIngestInput {
+  sampleId: string;
+  pointId: string;
+  source: TelemetrySource;
+  occurredAt: string;
+  metrics: Record<string, string | number | boolean>;
+  quality: 'good' | 'uncertain' | 'bad';
+}
+
 export type CommunicationChannel = 'App消息' | '电话语音' | '短信' | 'IP广播';
 
 export interface CommunicationTask {

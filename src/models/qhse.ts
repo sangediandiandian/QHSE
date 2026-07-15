@@ -14,12 +14,16 @@ import type {
   EmergencyResourceDispatchInput,
   EmergencyResourceInput,
   EmergencyResourceInspectionInput,
+  GdsPoint,
   Hazard,
   HazardEvidenceInput,
   HazardReportInput,
   RiskUnit,
   RiskAssessmentInput,
   RiskControlRecord,
+  MesTag,
+  TelemetryIngestInput,
+  VocPoint,
   WorkPermit,
   WorkPermitApplyInput,
   WorkPermitSiteConfirmation,
@@ -91,6 +95,13 @@ import {
   escalateCommunication as escalateCommunicationByApi,
   getCommunicationDispatches,
 } from '@/services/qhse/communications';
+import {
+  getTelemetryPoints,
+  ingestTelemetrySample as ingestTelemetrySampleByApi,
+  toGdsPoint,
+  toMesTag,
+  toVocPoint,
+} from '@/services/qhse/telemetry';
 import {
   withCommunicationConfirmation,
   withCommunicationEscalation,
@@ -202,6 +213,10 @@ export default function useQhseModel() {
   const [emergencyResourceLoading, setEmergencyResourceLoading] = useState(false);
   const [communicationRecords, setCommunicationRecords] = useState<CommunicationDispatch[]>([]);
   const [communicationLoading, setCommunicationLoading] = useState(false);
+  const [gdsPointRecords, setGdsPointRecords] = useState<GdsPoint[]>([]);
+  const [vocPointRecords, setVocPointRecords] = useState<VocPoint[]>([]);
+  const [mesTagRecords, setMesTagRecords] = useState<MesTag[]>([]);
+  const [telemetryLoading, setTelemetryLoading] = useState(false);
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
@@ -297,6 +312,28 @@ export default function useQhseModel() {
     setCommunicationLoading(true);
     try { setCommunicationRecords(await getCommunicationDispatches()); } finally { setCommunicationLoading(false); }
   }, [dashboard, loadDashboard]);
+
+  const loadTelemetry = useCallback(async () => {
+    if (!hazardApiMode) { if (!dashboard) await loadDashboard(); return; }
+    setTelemetryLoading(true);
+    try {
+      const [gds, voc, mes] = await Promise.all([
+        getTelemetryPoints('GDS'), getTelemetryPoints('VOC'), getTelemetryPoints('MES'),
+      ]);
+      setGdsPointRecords(gds.map(toGdsPoint));
+      setVocPointRecords(voc.map(toVocPoint));
+      setMesTagRecords(mes.map(toMesTag));
+    } finally { setTelemetryLoading(false); }
+  }, [dashboard, loadDashboard]);
+
+  const ingestTelemetrySample = useCallback(async (input: TelemetryIngestInput) => {
+    if (!hazardApiMode) return undefined;
+    const result = await ingestTelemetrySampleByApi(input);
+    if (input.source === 'GDS') setGdsPointRecords((items) => items.map((item) => item.id === input.pointId ? toGdsPoint(result.point) : item));
+    if (input.source === 'VOC') setVocPointRecords((items) => items.map((item) => item.id === input.pointId ? toVocPoint(result.point) : item));
+    if (input.source === 'MES') setMesTagRecords((items) => items.map((item) => item.id === input.pointId ? toMesTag(result.point) : item));
+    return result;
+  }, []);
 
   useEffect(() => {
     const storage = getBrowserStorage();
@@ -1057,6 +1094,13 @@ export default function useQhseModel() {
     communicationLoading: hazardApiMode ? communicationLoading : loading,
     communicationApiMode: hazardApiMode,
     loadCommunications,
+    gdsPoints: hazardApiMode ? gdsPointRecords : (dashboard?.gdsPoints ?? []),
+    vocPoints: hazardApiMode ? vocPointRecords : (dashboard?.vocPoints ?? []),
+    mesTags: hazardApiMode ? mesTagRecords : (dashboard?.mesTags ?? []),
+    telemetryLoading: hazardApiMode ? telemetryLoading : loading,
+    telemetryApiMode: hazardApiMode,
+    loadTelemetry,
+    ingestTelemetrySample,
     simulateGdsAlarm,
     confirmAlarm,
     startEmergency,

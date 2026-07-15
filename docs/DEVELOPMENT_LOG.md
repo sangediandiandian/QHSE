@@ -196,3 +196,20 @@
 - Prisma schema validate、后端 TypeScript 和差异检查：通过。
 - Jest：遥测服务和预警执行服务共 9 项测试通过。
 - 运行时联调：操作员仅查询所属区域 2 个点位、跨区域查询 404、写入 403；调度写入 GDS 二级样本后点位升至 `level2` 并评估 3 条规则，重复写入保持版本 2 且历史仅 1 条。
+
+## 2026-07-15 · Stage 6A2 监测页面 API 接入
+
+计划提交：`connect monitoring pages to telemetry api`
+
+完成内容：
+
+- 新增前端遥测通用类型、API 服务及 GDS/VOC/MES 视图模型映射。
+- 模型新增三个监测数据切片、统一加载状态和样本写入后的局部刷新。
+- GDS、VOC、MES 页面脱离共享 dashboard 数据，在 API 模式直接读取服务端点位并保留 Mock 演示模式。
+- 三个模拟入口在 API 模式写入真实标准样本并执行服务端预警规则，按 `telemetry:ingest` 控制按钮权限。
+- 显式向 Umi 浏览器包注入 `REACT_APP_QHSE_DATA_MODE`，修复此前 API 模式环境变量未生效的问题。
+
+验证记录：
+
+- 前端 TypeScript、阶段文件 ESLint、7 项遥测前后端测试和 API 模式生产构建：通过。
+- 浏览器联调：GDS 18→42 `%LEL` 并进入二级报警；VOC 56→66 `mg/m³` 并显示超限/效率下降；MES 0.82→1.35 MPa 并显示参数异常、GDS 二级证据和联合规则已触发；无运行时 `TypeError`。
