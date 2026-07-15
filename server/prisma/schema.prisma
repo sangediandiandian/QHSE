@@ -486,6 +486,45 @@ model CommunicationDispatch {
   @@map("communication_dispatches")
 }
 
+model TelemetryPoint {
+  id             String            @id
+  code           String            @unique
+  source         String
+  name           String
+  areaId         String
+  areaName       String
+  equipmentName  String
+  metricKey      String
+  unit           String
+  configuration  Json
+  currentMetrics Json
+  status         String
+  onlineStatus   String
+  lastSampleAt   DateTime?
+  version        Int               @default(1)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  samples        TelemetrySample[]
+
+  @@index([source, areaId, status])
+  @@map("telemetry_points")
+}
+
+model TelemetrySample {
+  id         String         @id
+  pointId    String
+  source     String
+  occurredAt DateTime
+  metrics    Json
+  quality    String
+  createdAt  DateTime       @default(now())
+  point      TelemetryPoint @relation(fields: [pointId], references: [id], onDelete: Restrict)
+
+  @@index([pointId, occurredAt])
+  @@index([source, occurredAt])
+  @@map("telemetry_samples")
+}
+
 model RiskAssessment {
   id          String    @id @default(uuid())
   riskUnitId  String

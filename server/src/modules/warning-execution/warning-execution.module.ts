@@ -33,5 +33,6 @@ import { WarningExecutionService } from './warning-execution.service';
       ) => new WarningExecutionService(repository, rules, permits),
     },
   ],
+  exports: [WarningExecutionService],
 })
 export class WarningExecutionModule {}

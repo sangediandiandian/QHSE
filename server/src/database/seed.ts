@@ -15,6 +15,7 @@ import { emergencyEventSeed } from '../modules/emergency-events/emergency-event.
 import { emergencyPlanSeed } from '../modules/emergency-plans/emergency-plan.seed';
 import { emergencyResourceSeed } from '../modules/emergency-resources/emergency-resource.seed';
 import { communicationSeed } from '../modules/communications/communication.seed';
+import { telemetryPointSeed } from '../modules/telemetry/telemetry.seed';
 
 const prisma = new PrismaClient();
 
@@ -402,6 +403,11 @@ async function main() {
   for (const communication of communicationSeed) {
     const data = { eventCode: communication.eventCode, eventTitle: communication.eventTitle, areaName: communication.areaName, eventLevel: communication.eventLevel, status: communication.status, escalationLevel: communication.escalationLevel, tasks: communication.tasks as unknown as Prisma.InputJsonValue, version: communication.version };
     await prisma.communicationDispatch.upsert({ where: { eventId: communication.eventId }, update: data, create: { id: communication.id, eventId: communication.eventId, ...data, createdAt: new Date(communication.createdAt), updatedAt: new Date(communication.updatedAt) } });
+  }
+
+  for (const point of telemetryPointSeed) {
+    const data = { code: point.code, source: point.source, name: point.name, areaId: point.areaId, areaName: point.areaName, equipmentName: point.equipmentName, metricKey: point.metricKey, unit: point.unit, configuration: point.configuration as Prisma.InputJsonValue, currentMetrics: point.currentMetrics as Prisma.InputJsonValue, status: point.status, onlineStatus: point.onlineStatus, lastSampleAt: point.lastSampleAt ? new Date(point.lastSampleAt) : null, version: point.version };
+    await prisma.telemetryPoint.upsert({ where: { id: point.id }, update: data, create: { id: point.id, ...data, createdAt: new Date(point.createdAt), updatedAt: new Date(point.updatedAt) } });
   }
 }
 
