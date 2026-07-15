@@ -18,8 +18,8 @@ export class LegacyAuthController {
   @HttpCode(200)
   @Public()
   @AuditAction({ action: 'auth.login', resourceType: 'session', includeUsername: true })
-  login(@Body() input: LoginDto) {
-    const result = this.authService.login(input.username, input.password);
+  login(@Body() input: LoginDto, @CurrentRequest() request: RequestWithId) {
+    const result = this.authService.login(input.username, input.password, request.ip || 'unknown');
     return {
       status: 'ok',
       type: input.type || 'account',

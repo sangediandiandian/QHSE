@@ -1,5 +1,6 @@
 import { MiddlewareConsumer, Module, type NestModule } from '@nestjs/common';
 import { RequestContextMiddleware } from './common/request-context.middleware';
+import { SecurityHeadersMiddleware } from './common/security-headers.middleware';
 import { DatabaseModule } from './database/database.module';
 import { HealthController } from './health/health.controller';
 import { AuditModule } from './modules/audit/audit.module';
@@ -46,6 +47,8 @@ import { RuntimeMetricsMiddleware } from './modules/diagnostics/runtime-metrics.
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(RequestContextMiddleware, RuntimeMetricsMiddleware).forRoutes('{*path}');
+    consumer
+      .apply(RequestContextMiddleware, SecurityHeadersMiddleware, RuntimeMetricsMiddleware)
+      .forRoutes('{*path}');
   }
 }

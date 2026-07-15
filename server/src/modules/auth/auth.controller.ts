@@ -19,8 +19,8 @@ export class AuthController {
   @Public()
   @AuditAction({ action: 'auth.login', resourceType: 'session', includeUsername: true })
   @ApiOperation({ summary: '用户名密码登录' })
-  login(@Body() input: LoginDto) {
-    return this.authService.login(input.username, input.password);
+  login(@Body() input: LoginDto, @CurrentRequest() request: RequestWithId) {
+    return this.authService.login(input.username, input.password, request.ip || 'unknown');
   }
 
   @Get('me')

@@ -41,4 +41,14 @@ describe('AuthService', () => {
     service.logout(result.accessToken);
     expect(() => service.authenticate(result.accessToken)).toThrow(UnauthorizedException);
   });
+
+  test('同一账号最多保留五个活动会话', () => {
+    const service = new AuthService(new IamService());
+    const tokens = Array.from(
+      { length: 6 },
+      () => service.login('leader', 'ant.design').accessToken,
+    );
+    expect(() => service.authenticate(tokens[0])).toThrow(UnauthorizedException);
+    expect(service.authenticate(tokens[5]).userId).toBe('user-leader');
+  });
 });

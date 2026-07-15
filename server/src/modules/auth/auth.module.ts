@@ -6,12 +6,14 @@ import { AuthController } from './auth.controller';
 import { AuthGuard } from './auth.guard';
 import { AuthService } from './auth.service';
 import { LegacyAuthController } from './legacy-auth.controller';
+import { LoginAttemptLimiterService } from './login-attempt-limiter.service';
 
 @Module({
   imports: [IamModule, AuditModule],
   controllers: [AuthController, LegacyAuthController],
   providers: [
     AuthService,
+    LoginAttemptLimiterService,
     { provide: APP_GUARD, useClass: AuthGuard },
   ],
   exports: [AuthService],
