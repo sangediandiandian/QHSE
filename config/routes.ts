@@ -46,6 +46,7 @@ export default [
       {
         path: '/management/risks',
         name: '风险分级',
+        access: 'canViewRisk',
         component: './RiskManagement',
       },
       {

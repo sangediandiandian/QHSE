@@ -6,6 +6,7 @@ import type {
   EmergencyEventAction,
   EmergencyEventEvidence,
   EmergencyPlanDraftInput,
+  EmergencyResourceBatchInput,
   EmergencyResourceDispatchInput,
   EmergencyResourceInput,
   EmergencyResourceInspectionInput,
@@ -55,6 +56,7 @@ import {
   transitionEmergencyEvent,
 } from '@/utils/emergencyEventWorkflow';
 import {
+  addEmergencyResourceBatch as withAddedEmergencyResourceBatch,
   addEmergencyResource as withAddedEmergencyResource,
   confirmEmergencyResourceArrival as withConfirmedResourceArrival,
   dispatchEmergencyResource as withDispatchedEmergencyResource,
@@ -233,6 +235,15 @@ export default function useQhseModel() {
     setDashboard((current) => current ? {
       ...current,
       emergencyResources: withAddedEmergencyResource(current.emergencyResources, input, `resource-${Date.now()}`),
+    } : current);
+  }, []);
+
+  const addEmergencyResourceBatch = useCallback((resourceId: string, input: EmergencyResourceBatchInput) => {
+    setDashboard((current) => current ? {
+      ...current,
+      emergencyResources: current.emergencyResources.map((resource) => resource.id === resourceId
+        ? withAddedEmergencyResourceBatch(resource, input, `batch-${Date.now()}`)
+        : resource),
     } : current);
   }, []);
 
@@ -642,6 +653,7 @@ export default function useQhseModel() {
     confirmCommunication,
     advanceEmergencyTask,
     addEmergencyResource,
+    addEmergencyResourceBatch,
     dispatchEmergencyResource,
     confirmEmergencyResourceArrival,
     returnEmergencyResource,

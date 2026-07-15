@@ -15,6 +15,10 @@ declare namespace API {
     unreadCount?: number;
     country?: string;
     access?: string;
+    roles?: string[];
+    permissions?: string[];
+    dataScope?: 'all' | 'assigned_areas';
+    areaIds?: string[];
     geographic?: {
       province?: { label?: string; key?: string };
       city?: { label?: string; key?: string };
@@ -27,6 +31,7 @@ declare namespace API {
     status?: string;
     type?: string;
     currentAuthority?: string;
+    accessToken?: string;
   };
 
   type PageParams = {

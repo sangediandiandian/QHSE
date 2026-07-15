@@ -22,7 +22,9 @@ class Worker {
     this.onmessage(msg);
   }
 }
-window.Worker = Worker;
+if (typeof window !== 'undefined') {
+  window.Worker = Worker;
+}
 
 /* eslint-disable global-require */
 if (typeof window !== 'undefined') {
@@ -51,14 +53,16 @@ if (typeof window !== 'undefined') {
   }
 }
 const errorLog = console.error;
-Object.defineProperty(global.window.console, 'error', {
-  writable: true,
-  configurable: true,
-  value: (...rest) => {
-    const logStr = rest.join('');
-    if (logStr.includes('Warning: An update to %s inside a test was not wrapped in act(...)')) {
-      return;
-    }
-    errorLog(...rest);
-  },
-});
+if (typeof window !== 'undefined') {
+  Object.defineProperty(global.window.console, 'error', {
+    writable: true,
+    configurable: true,
+    value: (...rest) => {
+      const logStr = rest.join('');
+      if (logStr.includes('Warning: An update to %s inside a test was not wrapped in act(...)')) {
+        return;
+      }
+      errorLog(...rest);
+    },
+  });
+}

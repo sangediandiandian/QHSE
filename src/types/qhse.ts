@@ -176,11 +176,28 @@ export interface EmergencyResource {
   lastInspection: string;
   nextInspection: string;
   inspectionStatus: '检查合格' | '即将到期' | '需要维护';
+  batches?: EmergencyResourceBatch[];
   dispatches: EmergencyResourceDispatch[];
   inspectionRecords: EmergencyResourceInspection[];
 }
 
 export type EmergencyResourceDispatchStatus = '调度中' | '已到位' | '已归还';
+export type EmergencyResourceBatchStatus = '正常' | '即将到期' | '已过期';
+
+export interface EmergencyResourceBatch {
+  id: string;
+  batchNo: string;
+  quantity: number;
+  availableQuantity: number;
+  receivedAt: string;
+  expiryDate: string;
+}
+
+export interface EmergencyResourceBatchAllocation {
+  batchId: string;
+  batchNo: string;
+  quantity: number;
+}
 
 export interface EmergencyResourceDispatch {
   id: string;
@@ -193,6 +210,7 @@ export interface EmergencyResourceDispatch {
   arrivedAt?: string;
   returnedAt?: string;
   status: EmergencyResourceDispatchStatus;
+  batchAllocations?: EmergencyResourceBatchAllocation[];
 }
 
 export interface EmergencyResourceInspection {
@@ -215,6 +233,16 @@ export interface EmergencyResourceInput {
   owner: string;
   contact: string;
   nextInspection: string;
+  batchNo: string;
+  receivedAt: string;
+  expiryDate: string;
+}
+
+export interface EmergencyResourceBatchInput {
+  batchNo: string;
+  quantity: number;
+  receivedAt: string;
+  expiryDate: string;
 }
 
 export interface EmergencyResourceDispatchInput {

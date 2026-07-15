@@ -84,11 +84,13 @@
 .maintenance strong { margin: 2px 0; color: #a13c32; font-size: 12px; }
 .maintenance small { color: #9a8580; line-height: 1.5; }
 .formGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; }
-.historyPanel { display: grid; gap: 18px; }
-.historyPanel h3 { margin: 0 0 10px; color: #294a56; font-size: 14px; }
-.historyPanel article { display: grid; grid-template-columns: auto 1fr; align-items: start; gap: 9px; padding: 10px 0; border-top: 1px solid #e8edef; }
-.historyPanel article strong { color: #365661; font-size: 12px; }
-.historyPanel article p { margin: 3px 0; color: #71868e; font-size: 11px; }
-.historyPanel article small { color: #91a0a5; font-size: 10px; }
+.historyPanel, .batchPanel { display: grid; gap: 18px; }
+.historyPanel h3, .batchPanel h3 { margin: 0 0 10px; color: #294a56; font-size: 14px; }
+.historyPanel article, .batchPanel article { display: grid; grid-template-columns: auto 1fr; align-items: start; gap: 9px; padding: 10px 0; border-top: 1px solid #e8edef; }
+.historyPanel article strong, .batchPanel article strong { color: #365661; font-size: 12px; }
+.historyPanel article p, .batchPanel article p { margin: 3px 0; color: #71868e; font-size: 11px; }
+.historyPanel article small, .batchPanel article small { color: #91a0a5; font-size: 10px; }
+.batchPanel > section { max-height: 250px; overflow: auto; }
+.batchPanel > form { padding-top: 14px; border-top: 1px solid #dfe8eb; }
 @media (max-width: 1450px) { .resourceLayout { grid-template-columns: 150px minmax(0, 1fr); } .dispatchBoard { grid-column: 1 / -1; } }
 @media (max-width: 760px) { .page :global(.ant-page-header), .page :global(.ant-pro-page-container-children-container) { padding-inline: 12px; } .heading p, .readiness { display: none; } .metrics, .resourceGrid { grid-template-columns: repeat(2, 1fr); } .formGrid, .toolbar { grid-template-columns: 1fr; } .resourceLayout { grid-template-columns: 1fr; } .typeRail { display: grid; grid-template-columns: repeat(2, 1fr); } .typeRail > span, .hotline { grid-column: 1 / -1; } .dispatchBoard { grid-column: auto; } .resourceCard > footer { align-items: flex-start; flex-direction: column; } }

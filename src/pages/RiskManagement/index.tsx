@@ -2,7 +2,7 @@ import type { RiskAssessmentInput, RiskControlRecord, RiskLevel, RiskUnit } from
 import { getLecRiskLevel } from '@/utils/riskWorkflow';
 import { AlertFilled, ApartmentOutlined, DatabaseOutlined, LinkOutlined, PlusOutlined, SafetyCertificateFilled } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
-import { useModel } from '@umijs/max';
+import { useAccess, useModel } from '@umijs/max';
 import { Button, Empty, Form, Input, InputNumber, Modal, Progress, Segmented, Select, Skeleton, Space, Tag, Tree, message } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
 import styles from './index.less';
@@ -15,6 +15,7 @@ function RiskItem({ unit, active, onClick }: { unit: RiskUnit; active: boolean; 
 }
 
 export default function RiskManagement() {
+  const access = useAccess();
   const { dashboard, loading, loadDashboard, assessRiskUnit, saveRiskControls } = useModel('qhse');
   const [level, setLevel] = useState('全部');
   const [query, setQuery] = useState('');
@@ -81,7 +82,7 @@ export default function RiskManagement() {
         </section>
 
         {selected && <section className={styles.detail}>
-          <header><div><code>{selected.code}</code><h2>{selected.name}</h2><p>{selected.parentName} · {selected.areaName}</p></div><Space wrap><Button onClick={() => { assessmentForm.setFieldsValue({ likelihood: 3, exposure: 3, consequence: 7, assessor: selected.owner, basis: '现场设备、介质与实时风险因子综合评估' }); setAssessmentOpen(true); }}>风险评估</Button><Button type="primary" onClick={() => { controlsForm.setFieldsValue({ controls: selected.controlRecords?.length ? selected.controlRecords.map(({ content, owner, status }) => ({ content, owner, status })) : selected.controls.map((content) => ({ content, owner: selected.owner, status: '有效' as const })) }); setControlsOpen(true); }}>维护措施</Button><Tag color={levelColor[selected.currentLevel]}>{levelText[selected.currentLevel]}</Tag></Space></header>
+          <header><div><code>{selected.code}</code><h2>{selected.name}</h2><p>{selected.parentName} · {selected.areaName}</p></div><Space wrap><Button disabled={!access.canAssessRisk} onClick={() => { assessmentForm.setFieldsValue({ likelihood: 3, exposure: 3, consequence: 7, assessor: selected.owner, basis: '现场设备、介质与实时风险因子综合评估' }); setAssessmentOpen(true); }}>风险评估</Button><Button disabled={!access.canUpdateRiskControls} type="primary" onClick={() => { controlsForm.setFieldsValue({ controls: selected.controlRecords?.length ? selected.controlRecords.map(({ content, owner, status }) => ({ content, owner, status })) : selected.controls.map((content) => ({ content, owner: selected.owner, status: '有效' as const })) }); setControlsOpen(true); }}>维护措施</Button><Tag color={levelColor[selected.currentLevel]}>{levelText[selected.currentLevel]}</Tag></Space></header>
           <div className={styles.levelCompare}>
             <div><span>固有风险</span><strong>{levelText[selected.staticLevel]}</strong><Progress percent={{ low: 25, medium: 50, high: 75, critical: 100 }[selected.staticLevel]} showInfo={false} strokeColor="#78909a" /></div>
             <b>→</b>

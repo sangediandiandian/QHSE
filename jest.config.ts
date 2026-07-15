@@ -17,5 +17,6 @@ export default async () => {
       ...config.globals,
       localStorage: null,
     },
+    testMatch: ['**/*.(test|spec).(t|j)s(x)?'],
   };
 };

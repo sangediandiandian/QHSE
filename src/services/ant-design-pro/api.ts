@@ -14,15 +14,19 @@ export async function currentUser(options?: { [key: string]: any }) {
 
 /** 退出登录接口 POST /api/login/outLogin */
 export async function outLogin(options?: { [key: string]: any }) {
-  return request<Record<string, any>>('/api/login/outLogin', {
-    method: 'POST',
-    ...(options || {}),
-  });
+  try {
+    return await request<Record<string, any>>('/api/login/outLogin', {
+      method: 'POST',
+      ...(options || {}),
+    });
+  } finally {
+    localStorage.removeItem('qhse_access_token');
+  }
 }
 
 /** 登录接口 POST /api/login/account */
 export async function login(body: API.LoginParams, options?: { [key: string]: any }) {
-  return request<API.LoginResult>('/api/login/account', {
+  const response = await request<API.LoginResult & { data?: API.LoginResult }>('/api/login/account', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -30,6 +34,9 @@ export async function login(body: API.LoginParams, options?: { [key: string]: an
     data: body,
     ...(options || {}),
   });
+  const result = response.data?.status ? response.data : response;
+  if (result.accessToken) localStorage.setItem('qhse_access_token', result.accessToken);
+  return result;
 }
 
 /** 此处后端没有提供注释 GET /api/notices */

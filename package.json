@@ -3,7 +3,7 @@
   "version": "6.0.0",
   "private": true,
   "description": "An out-of-box UI solution for enterprise applications",
-  "repository": "git@github.com:ant-design/ant-design-pro.git",
+  "repository": "git@github.com:sangediandiandian/QHSE.git",
   "scripts": {
     "analyze": "cross-env ANALYZE=1 max build",
     "build": "max build",
@@ -25,6 +25,12 @@
     "preview": "npm run build && max preview --port 8000",
     "record": "cross-env NODE_ENV=development REACT_APP_ENV=test max record --scene=login",
     "serve": "umi-serve",
+    "server:build": "tsc -p server/tsconfig.json",
+    "server:dev": "ts-node --project server/tsconfig.json server/src/main.ts",
+    "server:start": "node server/dist/main.js",
+    "prisma:generate": "prisma generate --schema server/prisma/schema.prisma",
+    "prisma:migrate": "prisma migrate dev --schema server/prisma/schema.prisma",
+    "prisma:seed": "ts-node --project server/tsconfig.json server/src/database/seed.ts",
     "start": "cross-env UMI_ENV=dev max dev",
     "start:dev": "cross-env REACT_APP_ENV=dev MOCK=none UMI_ENV=dev max dev",
     "start:no-mock": "cross-env MOCK=none UMI_ENV=dev max dev",
@@ -39,15 +45,24 @@
     "defaults"
   ],
   "dependencies": {
+    "@nestjs/common": "^11.1.0",
+    "@nestjs/core": "^11.1.0",
+    "@nestjs/platform-express": "^11.1.0",
+    "@nestjs/swagger": "^11.2.0",
+    "@prisma/client": "^6.19.0",
     "@ant-design/icons": "^4.8.3",
     "@ant-design/pro-components": "^2.7.19",
     "antd": "^5.21.2",
     "antd-style": "^3.7.0",
     "classnames": "^2.5.1",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.2",
     "dayjs": "^1.11.13",
     "querystring": "^0.2.1",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2"
   },
   "devDependencies": {
     "@ant-design/pro-cli": "^3.3.0",
@@ -75,13 +90,14 @@
     "lint-staged": "^15.2.10",
     "mockjs": "^1.1.0",
     "prettier": "^3.3.3",
+    "prisma": "^6.19.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.6.3",
     "umi-presets-pro": "^2.0.3",
     "umi-serve": "^1.9.11"
   },
   "engines": {
-    "node": ">=12.0.0"
+    "node": ">=20.0.0"
   },
   "create-umi": {
     "ignoreScript": [
