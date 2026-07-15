@@ -440,3 +440,23 @@
 - Jest：有效父上下文传播、非法/全零上下文重建、访问日志字段与异常响应脱敏共 7 项测试通过；全量后端相关测试通过。
 - 运行时联调：有效父 `traceId` 在响应头、响应体和 JSON 日志保持一致且服务端 `spanId` 已更新；非法全零头生成新上下文，404 异常响应仍可按 `traceId` 关联。
 - 已知基线：全仓后端 ESLint 存在 124 个历史错误；前端登录页存在 1 个既有快照差异，本阶段未修改对应文件或快照。
+
+## 2026-07-15 · Stage 7K OpenTelemetry 追踪导出
+
+计划提交：`build opentelemetry trace export`
+
+完成内容：
+
+- 引入 OpenTelemetry API、Node Trace SDK、HTTP 语义约定和 OTLP/HTTP Exporter 的最小官方依赖集。
+- 入站 HTTP 请求创建真实 `SERVER` span，远程父上下文参与采样并传播 `tracestate`，SDK 负责生成当前服务端 span ID。
+- span 在响应 `finish` 或连接 `close` 时只结束一次，结束前以控制器路由模板更新名称，记录方法、路由和状态码，5xx 标记错误。
+- 未配置 Collector 时保留上下文和 span 生命周期但不发起网络请求；配置标准 OTLP 端点后使用批处理导出，并在应用关闭时刷新。
+- OTLP 端点只接受不内嵌凭据的 HTTP(S) URL；诊断接口和前端只展示导出模式、span 数量和最近结束时间，不暴露端点或 Header。
+- 可观测性后端未加入 readiness 依赖，Collector 故障不会阻断 QHSE 核心业务接流。
+
+验证记录：
+
+- 前后端 TypeScript、后端生产编译和阶段文件 ESLint：通过。
+- Jest：28 个后端测试套件、110 项测试全部通过，包括远程父上下文、`tracestate`、路由模板、5xx 状态、不安全端点拒绝和诊断汇总。
+- 运行时联调：未配置端点时 API 正常启动且诊断显示 `exporter=disabled`；配置本地 Collector 后向 `/v1/traces` 发出 `application/json` 批量请求，载荷 1261 bytes 且包含 `qhse-api` 资源标识。
+- 依赖审计沿用当前仓库基线 127 项告警（14 low、48 moderate、59 high、6 critical），未执行可能引入破坏性升级的自动修复。

@@ -670,6 +670,12 @@ export interface SystemDiagnostics {
     lastErrorAt?: string;
     lastSuccessAt?: string;
   };
+  tracing: {
+    exporter: 'disabled' | 'otlp-http';
+    spansStarted: number;
+    spansEnded: number;
+    lastSpanEndedAt?: string;
+  };
   generatedAt: string;
 }
 

@@ -32,7 +32,7 @@
 | 5B2 | 应急资源 | 库存、批次、FEFO 调拨、归还和巡检维护服务端闭环 | 已完成 |
 | 5C | 融合通信 | 多渠道发送、回执、重试、升级和审计 | 已完成 |
 | 6 | GDS/VOC/MES、WebSocket/MQTT、对象存储 | 真实数据稳定接入，附件与证据可固化 | 已完成 |
-| 7 | 报表、缓存、消息队列、部署、安全与性能 | 完成生产容量、安全和恢复验证 | 进行中：平台能力、容器健康探针和追踪上下文已完成，待追踪导出、容量与灾备验证 |
+| 7 | 报表、缓存、消息队列、部署、安全与性能 | 完成生产容量、安全和恢复验证 | 进行中：平台能力、健康探针和 OTLP 追踪已完成，待容量与灾备验证 |
 
 应急资源基础闭环已经后端化；仓库/库位、完整库存流水、扫码盘点、维修工单和跨库调拨作为后续生产化增强项建设。
 
@@ -140,7 +140,9 @@
 
 容器健康检查拆分为存活和就绪两个端点。存活探针只证明 Node 进程可响应；就绪探针并行主动检查当前启用的 PostgreSQL、缓存、会话和任务队列，每项返回后端类型、状态和耗时。任一生产依赖失败或超过默认 1500 ms 时返回 `503/SERVICE_NOT_READY`，但存活探针继续返回 200，便于编排平台停止接流而不是盲目重启进程。
 
-HTTP 请求上下文遵循 W3C Trace Context 基线。有效上游 `traceparent` 会继承 `traceId` 和采样标记，同时为当前 API 请求创建新的服务端 `spanId`；非法、全零或不支持版本的头会被替换。标准成功/异常响应携带 `traceId`，响应头返回当前服务端 `traceparent`，访问日志记录 `traceId`、`spanId` 和可选父 span，便于在日志平台关联跨服务调用。当前只完成上下文生成与传播，完整 span 生命周期和 OpenTelemetry Collector 导出仍属后续生产化工作。
+HTTP 请求上下文遵循 W3C Trace Context。有效上游 `traceparent` 会继承 `traceId`、父 span、`tracestate` 和采样标记，同时为当前 API 请求创建新的服务端 span；非法、全零或不支持版本的头会被替换。span 在响应完成或连接关闭时结束，路由模板和状态码使用 OpenTelemetry HTTP 语义属性，5xx 标记错误。标准成功/异常响应携带 `traceId`，响应头返回当前服务端 `traceparent`，访问日志记录 trace/span 关联字段。
+
+未配置 Collector 时仍创建并传播真实 span，但不执行网络导出，保证本地零外部依赖启动。配置标准 OTLP/HTTP 端点后使用批处理器导出到 Collector，应用关闭时刷新队列；导出端点不进入诊断响应，就绪探针也不依赖可观测性后端，避免监控系统故障阻断业务接流。诊断页只显示导出模式、已开始/结束 span 数和最近结束时间。
 
 ## 本地启动
 
@@ -216,3 +218,13 @@ QHSE_SESSION_REDIS_URL=rediss://session.example.com:6379 npm run server:dev
 未设置 `QHSE_SESSION_STORE=redis` 时使用进程内会话。当前 Redis Lua 会话上限逻辑面向单实例或 Sentinel 部署；Redis Cluster 哈希槽方案需在生产拓扑确定后单独验证。
 
 就绪探针单依赖超时默认 1500 ms，可通过 `QHSE_READINESS_TIMEOUT_MS` 在 100–10000 ms 范围调整。容器编排应将 `/api/health/live` 配置为 livenessProbe，将 `/api/health/ready` 配置为 readinessProbe。
+
+生产链路追踪使用 OpenTelemetry 标准环境变量启用 OTLP/HTTP 导出：
+
+```bash
+OTEL_SERVICE_NAME=qhse-api \
+OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://otel-collector:4318/v1/traces \
+npm run server:start
+```
+
+采样、批量延迟、导出超时和认证 Header 使用 OpenTelemetry SDK 标准环境变量管理。端点只允许不内嵌账号密码的 HTTP(S) URL；认证信息应通过 `OTEL_EXPORTER_OTLP_HEADERS` 由部署平台注入，不写入仓库。

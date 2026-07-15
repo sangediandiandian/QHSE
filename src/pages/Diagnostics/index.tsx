@@ -92,6 +92,7 @@ export default function DiagnosticsPage() {
             <small>
               {data.service.nodeVersion} · 已运行 {Math.floor(data.service.uptimeSeconds / 60)} 分钟
               {' · '}日志 {data.service.accessLogging}
+              {' · '}追踪 {data.tracing.exporter}
             </small>
           </span>
         </article>

@@ -9,6 +9,7 @@ import { CacheService } from '../../infrastructure/cache/cache.service';
 import { ReportingModule } from '../reporting/reporting.module';
 import { ReportExportQueueService } from '../reporting/report-export-queue.service';
 import { SessionStoreService } from '../../infrastructure/session/session-store.service';
+import { TracingService } from '../../infrastructure/tracing/tracing.service';
 
 @Global()
 @Module({
@@ -25,6 +26,7 @@ import { SessionStoreService } from '../../infrastructure/session/session-store.
         CacheService,
         ReportExportQueueService,
         SessionStoreService,
+        TracingService,
       ],
       useFactory: (
         metrics: RuntimeMetricsService,
@@ -32,7 +34,8 @@ import { SessionStoreService } from '../../infrastructure/session/session-store.
         cache: CacheService,
         queue: ReportExportQueueService,
         sessions: SessionStoreService,
-      ) => new DiagnosticsService(metrics, config, cache, queue, sessions),
+        tracing: TracingService,
+      ) => new DiagnosticsService(metrics, config, cache, queue, sessions, tracing),
     },
   ],
   exports: [RuntimeMetricsService, RuntimeMetricsMiddleware],
