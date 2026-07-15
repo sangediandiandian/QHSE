@@ -1,6 +1,7 @@
 import { Controller, Get, Query, Res, StreamableFile } from '@nestjs/common';
 import { ApiBearerAuth, ApiProduces, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
+import { CacheService } from '../../infrastructure/cache/cache.service';
 import { AuditAction } from '../audit/audit.decorator';
 import { CurrentPrincipal } from '../auth/current-principal.decorator';
 import { RequirePermissions } from '../auth/permissions.decorator';
@@ -15,12 +16,21 @@ const areas = (principal: AuthPrincipal) =>
 @ApiBearerAuth()
 @Controller('v1/reports')
 export class ReportingController {
-  constructor(private readonly service: ReportingService) {}
+  constructor(
+    private readonly service: ReportingService,
+    private readonly cache: CacheService,
+  ) {}
 
   @Get('summary')
   @RequirePermissions('report:read')
   summary(@Query() query: ReportQueryDto, @CurrentPrincipal() principal: AuthPrincipal) {
-    return this.service.summary(query, areas(principal));
+    const allowedAreaIds = areas(principal);
+    const key = Buffer.from(
+      JSON.stringify({ query, areas: allowedAreaIds?.slice().sort() || '*' }),
+    ).toString('base64url');
+    return this.cache.getOrLoad('report-summary', key, 30_000, () =>
+      this.service.summary(query, allowedAreaIds),
+    );
   }
 
   @Get('summary/export')

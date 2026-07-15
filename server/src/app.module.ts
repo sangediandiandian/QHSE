@@ -1,6 +1,7 @@
 import { MiddlewareConsumer, Module, type NestModule } from '@nestjs/common';
 import { RequestContextMiddleware } from './common/request-context.middleware';
 import { SecurityHeadersMiddleware } from './common/security-headers.middleware';
+import { CacheModule } from './infrastructure/cache/cache.module';
 import { DatabaseModule } from './database/database.module';
 import { HealthController } from './health/health.controller';
 import { AuditModule } from './modules/audit/audit.module';
@@ -24,6 +25,7 @@ import { RuntimeMetricsMiddleware } from './modules/diagnostics/runtime-metrics.
 
 @Module({
   imports: [
+    CacheModule,
     DatabaseModule,
     AuthModule,
     AuditModule,

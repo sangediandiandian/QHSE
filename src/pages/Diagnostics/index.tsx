@@ -101,7 +101,9 @@ export default function DiagnosticsPage() {
             <strong>
               {data.service.repository} / {data.service.objectStorage}
             </strong>
-            <small>运行时适配器模式</small>
+            <small>
+              缓存 {data.cache.backend} · {data.cache.status === 'ready' ? '正常' : '降级'}
+            </small>
           </span>
         </article>
         <article>
@@ -176,6 +178,10 @@ export default function DiagnosticsPage() {
             </div>
           </dl>
           <p>当前指标为单实例进程内统计；跨实例汇总需在生产阶段接入 Prometheus/OpenTelemetry。</p>
+          <p>
+            缓存命中 {data.cache.hits} / 未命中 {data.cache.misses} / 写入 {data.cache.writes} /
+            失败 {data.cache.failures}
+          </p>
         </div>
       </section>
       <section className={styles.tablePanel}>

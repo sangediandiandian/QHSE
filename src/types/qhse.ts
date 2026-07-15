@@ -633,6 +633,17 @@ export interface SystemDiagnostics {
       lastSeenAt: string;
     }>;
   };
+  cache: {
+    backend: 'memory' | 'redis';
+    status: 'ready' | 'degraded';
+    hits: number;
+    misses: number;
+    writes: number;
+    failures: number;
+    inFlight: number;
+    lastErrorAt?: string;
+    lastSuccessAt?: string;
+  };
   generatedAt: string;
 }
 

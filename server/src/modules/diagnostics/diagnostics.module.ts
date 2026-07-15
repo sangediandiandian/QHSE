@@ -5,6 +5,7 @@ import { DiagnosticsController } from './diagnostics.controller';
 import { DiagnosticsService } from './diagnostics.service';
 import { RuntimeMetricsMiddleware } from './runtime-metrics.middleware';
 import { RuntimeMetricsService } from './runtime-metrics.service';
+import { CacheService } from '../../infrastructure/cache/cache.service';
 
 @Global()
 @Module({
@@ -15,9 +16,12 @@ import { RuntimeMetricsService } from './runtime-metrics.service';
     RuntimeMetricsMiddleware,
     {
       provide: DiagnosticsService,
-      inject: [RuntimeMetricsService, PlatformConfigService],
-      useFactory: (metrics: RuntimeMetricsService, config: PlatformConfigService) =>
-        new DiagnosticsService(metrics, config),
+      inject: [RuntimeMetricsService, PlatformConfigService, CacheService],
+      useFactory: (
+        metrics: RuntimeMetricsService,
+        config: PlatformConfigService,
+        cache: CacheService,
+      ) => new DiagnosticsService(metrics, config, cache),
     },
   ],
   exports: [RuntimeMetricsService, RuntimeMetricsMiddleware],

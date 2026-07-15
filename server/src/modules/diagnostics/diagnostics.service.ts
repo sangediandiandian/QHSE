@@ -1,10 +1,12 @@
 import type { PlatformConfigService } from '../platform-config/platform-config.service';
+import { CacheService } from '../../infrastructure/cache/cache.service';
 import { RuntimeMetricsService } from './runtime-metrics.service';
 
 export class DiagnosticsService {
   constructor(
     private readonly metrics: RuntimeMetricsService,
     private readonly platformConfig: PlatformConfigService,
+    private readonly cache: CacheService,
   ) {}
 
   async snapshot() {
@@ -42,6 +44,7 @@ export class DiagnosticsService {
         })),
       },
       requests: this.metrics.snapshot(),
+      cache: this.cache.snapshot(),
       generatedAt: new Date().toISOString(),
     };
   }
