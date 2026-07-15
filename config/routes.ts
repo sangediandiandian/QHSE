@@ -146,6 +146,13 @@ export default [
     component: './EventReviews',
   },
   {
+    name: '统计报表',
+    icon: 'barChart',
+    path: '/reports',
+    component: './Reports',
+    access: 'canViewReport',
+  },
+  {
     path: '/warnings/:id',
     component: './WarningDetail',
     hideInMenu: true,

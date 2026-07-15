@@ -38,6 +38,8 @@ export const permissions = [
   'telemetry:ingest',
   'attachment:read',
   'attachment:upload',
+  'report:read',
+  'report:export',
   'iam:read',
   'iam:manage',
   'audit:read',

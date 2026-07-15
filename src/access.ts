@@ -66,6 +66,8 @@ export default function access(initialState: { currentUser?: API.CurrentUser } |
     canUploadAttachment: Boolean(
       currentUser && (isLegacyAdmin || granted.has('attachment:upload')),
     ),
+    canViewReport: Boolean(currentUser && (isLegacyAdmin || granted.has('report:read'))),
+    canExportReport: Boolean(currentUser && (isLegacyAdmin || granted.has('report:export'))),
     canReadAudit: Boolean(currentUser && (isLegacyAdmin || granted.has('audit:read'))),
     hasPermission: (permission: string) =>
       Boolean(currentUser && (isLegacyAdmin || granted.has(permission))),

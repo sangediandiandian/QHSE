@@ -1,0 +1,238 @@
+.page {
+  min-height: 100vh;
+  background: #f3f6fa;
+}
+
+.heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin: -24px -24px 20px;
+  padding: 28px 30px 24px;
+  color: #fff;
+  background: linear-gradient(122deg, #071d35, #0b4a63 68%, #087f79);
+}
+
+.heading span {
+  color: #55e1d5;
+  font-size: 12px;
+  letter-spacing: 2px;
+}
+.heading h1 {
+  margin: 5px 0;
+  color: #fff;
+  font-size: 28px;
+}
+.heading p {
+  max-width: 720px;
+  margin: 0;
+  color: #c6d9e8;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.metrics article {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 112px;
+  padding: 18px;
+  background: #fff;
+  border: 1px solid #e2e9f0;
+  border-radius: 8px;
+  box-shadow: 0 5px 18px rgba(8, 34, 58, 0.05);
+}
+
+.metrics article > i {
+  color: #087f79;
+  font-size: 25px;
+}
+.metrics article > span {
+  flex: 1;
+  color: #5f7080;
+  font-size: 13px;
+}
+.metrics strong {
+  display: block;
+  margin: 2px 0;
+  color: #10283e;
+  font-size: 27px;
+}
+.metrics small {
+  color: #8a99a6;
+}
+
+.analysis {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.trendPanel,
+.formula,
+.tablePanel {
+  padding: 20px;
+  background: #fff;
+  border: 1px solid #e2e9f0;
+  border-radius: 8px;
+}
+
+.trendPanel > header,
+.tablePanel > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.trendPanel > header div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #087f79;
+  font-size: 20px;
+}
+.trendPanel > header span {
+  color: #142d42;
+  font-size: 16px;
+  font-weight: 600;
+}
+.trendPanel > header small {
+  display: block;
+  color: #8494a1;
+  font-size: 12px;
+  font-weight: 400;
+}
+.trendPanel > header em {
+  color: #8a99a6;
+  font-size: 12px;
+  font-style: normal;
+}
+
+.trend {
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  height: 190px;
+  padding-top: 10px;
+  border-bottom: 1px solid #dce5ec;
+}
+
+.trend > div {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  min-width: 8px;
+}
+.trend > div > span {
+  display: flex;
+  flex: 1;
+  align-items: flex-end;
+  gap: 1px;
+  width: 100%;
+}
+.trend > div > span i {
+  flex: 1;
+  min-height: 2px;
+  background: #168aad;
+  border-radius: 2px 2px 0 0;
+}
+.trend > div > span i:nth-child(2) {
+  background: #e46b4b;
+}
+.trend > div > span i:nth-child(3) {
+  background: #7a5dc7;
+}
+.trend > div > small {
+  margin-top: 6px;
+  color: #91a0ac;
+  font-size: 9px;
+  transform: rotate(-45deg);
+}
+.trendPanel > footer {
+  display: flex;
+  gap: 18px;
+  margin-top: 18px;
+  color: #637585;
+  font-size: 12px;
+}
+.trendPanel > footer span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.trendPanel > footer i {
+  width: 9px;
+  height: 9px;
+  background: #168aad;
+  border-radius: 2px;
+}
+.trendPanel > footer span:nth-child(2) i {
+  background: #e46b4b;
+}
+.trendPanel > footer span:nth-child(3) i {
+  background: #7a5dc7;
+}
+
+.formula {
+  color: #667988;
+  background: linear-gradient(160deg, #fff, #edf8f6);
+}
+.formula > :global(.anticon) {
+  color: #e46b4b;
+  font-size: 30px;
+}
+.formula h3 {
+  margin: 14px 0 4px;
+  color: #173248;
+}
+.formula p {
+  margin: 0 0 18px;
+  font-size: 12px;
+}
+.formula code {
+  display: block;
+  padding: 14px;
+  color: #155e65;
+  white-space: normal;
+  background: rgba(8, 127, 121, 0.09);
+  border-radius: 6px;
+  line-height: 1.8;
+}
+
+.tablePanel > header h2 {
+  margin: 0;
+  color: #183249;
+  font-size: 18px;
+}
+.tablePanel > header span {
+  color: #81919e;
+}
+
+@media (max-width: 1100px) {
+  .metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .analysis {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .metrics {
+    grid-template-columns: 1fr;
+  }
+}

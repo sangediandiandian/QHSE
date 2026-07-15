@@ -16,6 +16,7 @@ import { EmergencyResourceModule } from './modules/emergency-resources/emergency
 import { CommunicationModule } from './modules/communications/communication.module';
 import { TelemetryModule } from './modules/telemetry/telemetry.module';
 import { AttachmentModule } from './modules/attachments/attachment.module';
+import { ReportingModule } from './modules/reporting/reporting.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { AttachmentModule } from './modules/attachments/attachment.module';
     CommunicationModule,
     TelemetryModule,
     AttachmentModule,
+    ReportingModule,
   ],
   controllers: [HealthController],
 })

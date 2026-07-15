@@ -31,5 +31,6 @@ import { AttachmentService } from '../attachments/attachment.service';
       ) => new HazardService(repository, riskService, {}, attachmentService),
     },
   ],
+  exports: [HazardService],
 })
 export class HazardModule {}
