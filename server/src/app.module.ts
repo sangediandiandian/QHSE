@@ -7,9 +7,10 @@ import { AuthModule } from './modules/auth/auth.module';
 import { RiskModule } from './modules/risks/risk.module';
 import { HazardModule } from './modules/hazards/hazard.module';
 import { WorkPermitModule } from './modules/work-permits/work-permit.module';
+import { WorkflowModule } from './modules/workflows/workflow.module';
 
 @Module({
-  imports: [DatabaseModule, AuthModule, AuditModule, RiskModule, HazardModule, WorkPermitModule],
+  imports: [DatabaseModule, AuthModule, AuditModule, RiskModule, HazardModule, WorkPermitModule, WorkflowModule],
   controllers: [HealthController],
 })
 export class AppModule implements NestModule {

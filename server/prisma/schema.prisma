@@ -265,6 +265,42 @@ model WorkPermitSiteConfirmation {
   @@map("work_permit_site_confirmations")
 }
 
+model WorkflowInstance {
+  id            String         @id @default(uuid())
+  businessType  String
+  businessId    String
+  title         String
+  status        String
+  createdById   String
+  createdByName String
+  version       Int            @default(1)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  steps         WorkflowStep[]
+
+  @@index([businessType, businessId, status])
+  @@index([createdById, status])
+  @@map("workflow_instances")
+}
+
+model WorkflowStep {
+  id               String           @id @default(uuid())
+  workflowId       String
+  sequence         Int
+  name             String
+  allowedRoleCodes String[]
+  status           String
+  actorId          String?
+  actorName        String?
+  opinion          String?
+  actedAt          DateTime?
+  workflow         WorkflowInstance @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@unique([workflowId, sequence])
+  @@index([workflowId, status])
+  @@map("workflow_steps")
+}
+
 model RiskAssessment {
   id          String    @id @default(uuid())
   riskUnitId  String
