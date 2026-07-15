@@ -6,22 +6,30 @@ import { DiagnosticsService } from './diagnostics.service';
 import { RuntimeMetricsMiddleware } from './runtime-metrics.middleware';
 import { RuntimeMetricsService } from './runtime-metrics.service';
 import { CacheService } from '../../infrastructure/cache/cache.service';
+import { ReportingModule } from '../reporting/reporting.module';
+import { ReportExportQueueService } from '../reporting/report-export-queue.service';
 
 @Global()
 @Module({
-  imports: [PlatformConfigModule],
+  imports: [PlatformConfigModule, ReportingModule],
   controllers: [DiagnosticsController],
   providers: [
     RuntimeMetricsService,
     RuntimeMetricsMiddleware,
     {
       provide: DiagnosticsService,
-      inject: [RuntimeMetricsService, PlatformConfigService, CacheService],
+      inject: [
+        RuntimeMetricsService,
+        PlatformConfigService,
+        CacheService,
+        ReportExportQueueService,
+      ],
       useFactory: (
         metrics: RuntimeMetricsService,
         config: PlatformConfigService,
         cache: CacheService,
-      ) => new DiagnosticsService(metrics, config, cache),
+        queue: ReportExportQueueService,
+      ) => new DiagnosticsService(metrics, config, cache, queue),
     },
   ],
   exports: [RuntimeMetricsService, RuntimeMetricsMiddleware],

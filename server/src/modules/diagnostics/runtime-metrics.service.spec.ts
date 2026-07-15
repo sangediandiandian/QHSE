@@ -4,6 +4,7 @@ import type { PlatformConfigService } from '../platform-config/platform-config.s
 import { DiagnosticsService } from './diagnostics.service';
 import { RuntimeMetricsService } from './runtime-metrics.service';
 import type { CacheService } from '../../infrastructure/cache/cache.service';
+import type { ReportExportQueueService } from '../reporting/report-export-queue.service';
 
 describe('RuntimeMetricsService', () => {
   test('按方法和路由模板聚合请求量、错误率与耗时', () => {
@@ -56,11 +57,15 @@ describe('DiagnosticsService', () => {
     const cache = {
       snapshot: () => ({ backend: 'memory', status: 'ready', hits: 1, misses: 1 }),
     } as unknown as CacheService;
-    const value = await new DiagnosticsService(metrics, config, cache).snapshot();
+    const queue = {
+      snapshot: () => ({ backend: 'memory', retainedJobs: 2 }),
+    } as unknown as ReportExportQueueService;
+    const value = await new DiagnosticsService(metrics, config, cache, queue).snapshot();
     expect(value.integrations).toMatchObject({ total: 1, enabled: 1, unhealthy: 1 });
     expect(value.integrations.items[0]).not.toHaveProperty('endpoint');
     expect(value.requests.totalRequests).toBe(1);
     expect(value.service.name).toBe('qhse-api');
     expect(value.cache).toMatchObject({ backend: 'memory', hits: 1 });
+    expect(value.queue).toMatchObject({ backend: 'memory', retainedJobs: 2 });
   });
 });

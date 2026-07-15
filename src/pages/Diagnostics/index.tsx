@@ -103,6 +103,7 @@ export default function DiagnosticsPage() {
             </strong>
             <small>
               缓存 {data.cache.backend} · {data.cache.status === 'ready' ? '正常' : '降级'}
+              {' · '}队列 {data.queue.backend}
             </small>
           </span>
         </article>

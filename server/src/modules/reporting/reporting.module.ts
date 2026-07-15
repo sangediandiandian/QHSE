@@ -9,6 +9,7 @@ import { WorkPermitModule } from '../work-permits/work-permit.module';
 import { WorkPermitService } from '../work-permits/work-permit.service';
 import { ReportingController } from './reporting.controller';
 import { ReportingService } from './reporting.service';
+import { ReportExportQueueService } from './report-export-queue.service';
 
 @Module({
   imports: [HazardModule, WorkPermitModule, WarningExecutionModule, EmergencyEventModule],
@@ -24,6 +25,8 @@ import { ReportingService } from './reporting.service';
         emergencies: EmergencyEventService,
       ) => new ReportingService(hazards, permits, warnings, emergencies),
     },
+    ReportExportQueueService,
   ],
+  exports: [ReportExportQueueService],
 })
 export class ReportingModule {}

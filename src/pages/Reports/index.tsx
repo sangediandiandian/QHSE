@@ -1,5 +1,10 @@
-import type { ReportAreaRow, ReportMetric, ReportSummary } from '@/types/qhse';
-import { exportReport, getReportSummary } from '@/services/qhse/reports';
+import type { ReportAreaRow, ReportExportJob, ReportMetric, ReportSummary } from '@/types/qhse';
+import {
+  createReportExport,
+  downloadReportExport,
+  getReportExport,
+  getReportSummary,
+} from '@/services/qhse/reports';
 import {
   AlertFilled,
   CheckCircleFilled,
@@ -61,6 +66,7 @@ export default function Reports() {
   const [report, setReport] = useState<ReportSummary>();
   const [areaOptions, setAreaOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [loading, setLoading] = useState(true);
+  const [exportJob, setExportJob] = useState<ReportExportJob>();
 
   const query = useMemo(
     () => ({
@@ -86,6 +92,29 @@ export default function Reports() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!exportJob || !['queued', 'processing'].includes(exportJob.status)) return undefined;
+    const timer = window.setInterval(() => {
+      void getReportExport(exportJob.id)
+        .then((job) => {
+          setExportJob(job);
+          if (job.status === 'completed') {
+            window.clearInterval(timer);
+            void downloadReportExport(job).then(() => message.success('后台报表已生成并下载'));
+          } else if (job.status === 'failed') {
+            window.clearInterval(timer);
+            message.error('后台报表生成失败，请重试');
+          }
+        })
+        .catch(() => {
+          window.clearInterval(timer);
+          setExportJob(undefined);
+          message.error('无法查询后台导出任务，请重试');
+        });
+    }, 800);
+    return () => window.clearInterval(timer);
+  }, [exportJob]);
 
   const trend = report?.trend.slice(-30) ?? [];
   const trendMax = Math.max(
@@ -147,9 +176,17 @@ export default function Reports() {
             type="primary"
             icon={<DownloadOutlined />}
             disabled={!access.canExportReport}
-            onClick={() => void exportReport(query).then(() => message.success('报表已导出'))}
+            loading={Boolean(exportJob && ['queued', 'processing'].includes(exportJob.status))}
+            onClick={() => {
+              void createReportExport(query).then((job) => {
+                setExportJob(job);
+                message.info('导出任务已进入后台队列');
+              });
+            }}
           >
-            导出 CSV
+            {exportJob && ['queued', 'processing'].includes(exportJob.status)
+              ? '后台生成中'
+              : '导出 CSV'}
           </Button>
         </Space>
       </header>

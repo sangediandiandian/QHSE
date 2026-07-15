@@ -32,7 +32,7 @@
 | 5B2 | 应急资源 | 库存、批次、FEFO 调拨、归还和巡检维护服务端闭环 | 已完成 |
 | 5C | 融合通信 | 多渠道发送、回执、重试、升级和审计 | 已完成 |
 | 6 | GDS/VOC/MES、WebSocket/MQTT、对象存储 | 真实数据稳定接入，附件与证据可固化 | 已完成 |
-| 7 | 报表、缓存、消息队列、部署、安全与性能 | 完成生产容量、安全和恢复验证 | 进行中：报表、基础配置、诊断、安全基线和缓存已完成，待消息队列及生产化验证 |
+| 7 | 报表、缓存、消息队列、部署、安全与性能 | 完成生产容量、安全和恢复验证 | 进行中：报表、配置、诊断、安全、缓存和异步队列已完成，待生产化验证 |
 
 应急资源基础闭环已经后端化；仓库/库位、完整库存流水、扫码盘点、维修工单和跨库调拨作为后续生产化增强项建设。
 
@@ -88,6 +88,8 @@
 - `GET /api/v1/attachments/:id`、`GET /api/v1/attachments/:id/content`：按区域权限查询元数据或下载原始内容。
 - `GET /api/v1/reports/summary`：按日期和区域聚合隐患、预警、作业许可、应急事件 KPI 与趋势。
 - `GET /api/v1/reports/summary/export`：按相同口径导出带 UTF-8 BOM 的区域明细 CSV。
+- `POST /api/v1/reports/exports`：创建受数据权限约束的后台报表导出任务。
+- `GET /api/v1/reports/exports/:id`、`GET /api/v1/reports/exports/:id/content`：按创建人查询任务或下载已完成文件。
 - `GET|POST /api/v1/platform-config/dictionaries`、`PUT /api/v1/platform-config/dictionaries/:id`：查询、创建和版本化维护业务字典。
 - `GET|POST /api/v1/platform-config/integrations`、`PUT /api/v1/platform-config/integrations/:id`：维护不含凭据的外部系统登记。
 - `GET /api/v1/system/diagnostics`：查询服务进程、存储模式、内存、集成状态和低基数请求指标。
@@ -127,6 +129,8 @@
 运行诊断使用进程内轻量指标聚合请求次数、错误率和延迟，动态资源路径按控制器路由模板归并，避免资源 ID 导致指标基数失控。诊断接口需要 `monitor:read` 权限，只返回服务模式、内存、集成健康元数据和请求统计，不返回集成地址或凭据；前端诊断页每 15 秒自动刷新。该能力用于单实例开发和首轮运维排障，生产多实例指标仍需接入集中式监控系统。
 
 缓存基础设施默认使用进程内适配器保证开箱即启，生产可切换 Redis。统计报表摘要按查询参数和授权区域分别缓存 30 秒，CSV 导出仍实时计算；同一键并发未命中只执行一次聚合，防止缓存击穿。Redis 故障时缓存进入 30 秒降级窗口并直接回源，不阻断报表查询；命中、未命中、写入和失败计数可在运行诊断页查看。
+
+异步报表导出默认使用进程内队列，生产可切换 BullMQ/Redis。任务固化创建人、查询条件和授权区域快照，只有创建人能够查询和下载；Worker 并发数为 2，失败按指数退避最多重试 3 次，结果保留 24 小时且限制数量。Redis 生产者禁用离线命令排队，队列不可用时快速返回稳定 503，避免 HTTP 请求无限等待。
 
 ## 本地启动
 
@@ -180,3 +184,12 @@ QHSE_REDIS_URL=redis://cache.example.com:6379 npm run server:dev
 ```
 
 Redis 密码应包含在部署平台注入的连接地址中，不写入仓库。未设置 `QHSE_CACHE=redis` 时默认使用单实例内存缓存。
+
+生产异步任务队列复用 Redis 或使用独立实例：
+
+```bash
+QHSE_QUEUE=redis \
+QHSE_QUEUE_REDIS_URL=rediss://queue.example.com:6379 npm run server:dev
+```
+
+未设置 `QHSE_QUEUE=redis` 时使用进程内任务队列；该模式仅用于本地开发，服务重启后未下载任务不会保留。

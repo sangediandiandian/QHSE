@@ -559,6 +559,15 @@ export interface ReportSummary {
   areas: ReportAreaRow[];
 }
 
+export interface ReportExportJob {
+  id: string;
+  status: 'queued' | 'processing' | 'completed' | 'failed';
+  createdAt: string;
+  completedAt?: string;
+  filename?: string;
+  backend: 'memory' | 'redis';
+}
+
 export interface DictionaryItem {
   value: string;
   label: string;
@@ -643,6 +652,10 @@ export interface SystemDiagnostics {
     inFlight: number;
     lastErrorAt?: string;
     lastSuccessAt?: string;
+  };
+  queue: {
+    backend: 'memory' | 'redis';
+    retainedJobs?: number;
   };
   generatedAt: string;
 }
