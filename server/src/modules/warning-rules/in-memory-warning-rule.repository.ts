@@ -64,4 +64,12 @@ export class InMemoryWarningRuleRepository implements WarningRuleRepository {
     this.records.set(id, clone(next));
     return clone(next);
   }
+
+  async recordTrigger(id: string, triggeredAt: string) {
+    const item = this.records.get(id);
+    if (!item) throw new WarningRuleNotFoundError();
+    const next = { ...item, triggerCount: item.triggerCount + 1, lastTriggeredAt: triggeredAt };
+    this.records.set(id, clone(next));
+    return clone(next);
+  }
 }

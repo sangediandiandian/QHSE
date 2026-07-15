@@ -27,6 +27,7 @@ export default function access(initialState: { currentUser?: API.CurrentUser } |
     canSubmitWarningRule: Boolean(currentUser && (isLegacyAdmin || granted.has('warning:submit'))),
     canApproveWarningRule: Boolean(currentUser && (isLegacyAdmin || granted.has('warning:approve'))),
     canToggleWarningRule: Boolean(currentUser && (isLegacyAdmin || granted.has('warning:toggle'))),
+    canEvaluateWarningRule: Boolean(currentUser && (isLegacyAdmin || granted.has('warning:evaluate'))),
     canReadAudit: Boolean(currentUser && (isLegacyAdmin || granted.has('audit:read'))),
     hasPermission: (permission: string) => Boolean(currentUser && (
       isLegacyAdmin || granted.has(permission)

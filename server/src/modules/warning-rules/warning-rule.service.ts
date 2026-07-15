@@ -198,6 +198,14 @@ export class WarningRuleService {
     );
   }
 
+  async recordTrigger(id: string, triggeredAt: string) {
+    try {
+      return await this.repository.recordTrigger(id, triggeredAt);
+    } catch (error) {
+      this.mapError(error);
+    }
+  }
+
   private async findConflicts(ruleId: string, candidate: WarningRuleConfig) {
     const signature = configSignature(candidate);
     return (await this.repository.findAll({ enabled: true })).filter(

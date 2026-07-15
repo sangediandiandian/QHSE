@@ -700,6 +700,36 @@ export interface WarningRuleApprovalStep {
 
 export type WarningRuleDraftInput = WarningRuleConfig & { code: string };
 
+export interface WarningSignal {
+  id: string;
+  code: string;
+  ruleId: string;
+  ruleCode: string;
+  subjectId: string;
+  areaId?: string;
+  source: string;
+  level: RiskLevel;
+  title: string;
+  detail: string;
+  occurredAt: string;
+  status: 'active' | 'closed';
+}
+
+export interface WarningSampleInput {
+  source: 'GDS' | 'VOC' | 'MES' | '联合预警';
+  subjectId: string;
+  areaId?: string;
+  occurredAt: string;
+  metrics: Record<string, string | number | boolean>;
+}
+
+export interface WarningEvaluationResult {
+  evaluatedRuleCount: number;
+  triggeredSignals: WarningSignal[];
+  suppressedRuleIds: string[];
+  linkedPermitIds: string[];
+}
+
 export interface TrendPoint {
   label: string;
   gds: number;

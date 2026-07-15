@@ -28,5 +28,6 @@ import { WarningRuleService } from './warning-rule.service';
       ) => new WarningRuleService(repository, workflow),
     },
   ],
+  exports: [WarningRuleService],
 })
 export class WarningRuleModule {}

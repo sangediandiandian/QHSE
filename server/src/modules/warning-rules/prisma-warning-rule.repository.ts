@@ -115,6 +115,22 @@ export class PrismaWarningRuleRepository implements WarningRuleRepository {
     return mapRecord(record);
   }
 
+  async recordTrigger(id: string, triggeredAt: string) {
+    try {
+      return mapRecord(
+        await this.prisma.warningRule.update({
+          where: { id },
+          data: { triggerCount: { increment: 1 }, lastTriggeredAt: new Date(triggeredAt) },
+          include,
+        }),
+      );
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025')
+        throw new WarningRuleNotFoundError();
+      throw error;
+    }
+  }
+
   private async throwConflict(
     transaction: Prisma.TransactionClient,
     id: string,

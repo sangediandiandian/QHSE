@@ -23,5 +23,6 @@ import { WorkPermitService } from './work-permit.service';
         new WorkPermitService(repository),
     },
   ],
+  exports: [WorkPermitService],
 })
 export class WorkPermitModule {}

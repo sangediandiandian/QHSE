@@ -1,4 +1,4 @@
-import type { WarningRule, WarningRuleDraftInput } from '@/types/qhse';
+import type { WarningEvaluationResult, WarningRule, WarningRuleDraftInput, WarningSampleInput, WarningSignal } from '@/types/qhse';
 import { request } from '@umijs/max';
 
 interface ApiResponse<T> { success: boolean; data: T; requestId: string; timestamp: string }
@@ -30,5 +30,15 @@ export const rollbackWarningRule = (id: string, version: number, expectedRevisio
 
 export async function toggleWarningRule(id: string, enabled: boolean, expectedRevision: number) {
   const response = await request<ApiResponse<WarningRule>>(`/api/v1/warning-rules/${id}/enabled`, { method: 'PUT', data: { enabled, expectedRevision } });
+  return response.data;
+}
+
+export async function evaluateWarningSample(input: WarningSampleInput) {
+  const response = await request<ApiResponse<WarningEvaluationResult>>('/api/v1/warning-execution/samples', { method: 'POST', data: input });
+  return response.data;
+}
+
+export async function getWarningSignals() {
+  const response = await request<ApiResponse<WarningSignal[]>>('/api/v1/warning-execution/signals', { method: 'GET', params: { limit: 100 } });
   return response.data;
 }

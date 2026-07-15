@@ -17,6 +17,7 @@ export const permissions = [
   'warning:submit',
   'warning:approve',
   'warning:toggle',
+  'warning:evaluate',
   'iam:read',
   'iam:manage',
   'audit:read',

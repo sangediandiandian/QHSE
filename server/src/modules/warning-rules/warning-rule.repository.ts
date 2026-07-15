@@ -18,4 +18,5 @@ export interface WarningRuleRepository {
   findByCode(code: string): Promise<WarningRule | undefined>;
   create(rule: WarningRule): Promise<WarningRule>;
   update(id: string, update: WarningRuleUpdate, expectedRevision: number): Promise<WarningRule>;
+  recordTrigger(id: string, triggeredAt: string): Promise<WarningRule>;
 }

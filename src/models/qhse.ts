@@ -22,6 +22,8 @@ import type {
   WarningEvidenceCategory,
   WarningRule,
   WarningRuleDraftInput,
+  WarningSampleInput,
+  WarningSignal,
 } from '@/types/qhse';
 import {
   addHazardEvidence as addHazardEvidenceByApi,
@@ -44,7 +46,9 @@ import {
 import {
   approveWarningRule as approveWarningRuleByApi,
   createWarningRuleDraft,
+  evaluateWarningSample as evaluateWarningSampleByApi,
   getWarningRules,
+  getWarningSignals,
   rollbackWarningRule as rollbackWarningRuleByApi,
   submitWarningRule as submitWarningRuleByApi,
   toggleWarningRule as toggleWarningRuleByApi,
@@ -151,6 +155,7 @@ export default function useQhseModel() {
   const [workPermitAreas, setWorkPermitAreas] = useState<Array<{ id: string; name: string }>>([]);
   const [workPermitLoading, setWorkPermitLoading] = useState(false);
   const [warningRuleRecords, setWarningRuleRecords] = useState<WarningRule[]>([]);
+  const [warningSignals, setWarningSignals] = useState<WarningSignal[]>([]);
   const [warningRuleLoading, setWarningRuleLoading] = useState(false);
 
   const loadDashboard = useCallback(async () => {
@@ -209,7 +214,9 @@ export default function useQhseModel() {
     }
     setWarningRuleLoading(true);
     try {
-      setWarningRuleRecords(await getWarningRules());
+      const [rules, signals] = await Promise.all([getWarningRules(), getWarningSignals()]);
+      setWarningRuleRecords(rules);
+      setWarningSignals(signals);
     } finally {
       setWarningRuleLoading(false);
     }
@@ -691,6 +698,26 @@ export default function useQhseModel() {
     } : current);
   }, [warningRuleRecords]);
 
+  const evaluateWarningSample = useCallback(async (input: WarningSampleInput) => {
+    if (!hazardApiMode) {
+      return {
+        evaluatedRuleCount: dashboard?.warningRules.length ?? 0,
+        triggeredSignals: [],
+        suppressedRuleIds: [],
+        linkedPermitIds: [],
+      };
+    }
+    const result = await evaluateWarningSampleByApi(input);
+    setWarningRuleRecords(await getWarningRules());
+    if (result.triggeredSignals.length) {
+      setWarningSignals((items) => [
+        ...result.triggeredSignals,
+        ...items.filter((item) => !result.triggeredSignals.some((signal) => signal.id === item.id)),
+      ]);
+    }
+    return result;
+  }, [dashboard]);
+
   const saveWarningRule = useCallback(async (ruleId: string | undefined, input: WarningRuleDraftInput) => {
     if (hazardApiMode) {
       const rule = warningRuleRecords.find((item) => item.id === ruleId);
@@ -870,6 +897,7 @@ export default function useQhseModel() {
     workPermitLoading: hazardApiMode ? workPermitLoading : loading,
     loadWorkPermits,
     warningRules: hazardApiMode ? warningRuleRecords : (dashboard?.warningRules ?? []),
+    warningSignals: hazardApiMode ? warningSignals : [],
     warningRuleLoading: hazardApiMode ? warningRuleLoading : loading,
     warningRuleApiMode: hazardApiMode,
     loadWarningRules,
@@ -915,6 +943,7 @@ export default function useQhseModel() {
     approveWorkPermit,
     confirmWorkPermitSite,
     toggleWarningRule,
+    evaluateWarningSample,
     saveWarningRule,
     submitWarningRule,
     approveWarningRule,

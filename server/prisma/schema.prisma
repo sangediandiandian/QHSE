@@ -357,6 +357,42 @@ model WarningRuleVersion {
   @@map("warning_rule_versions")
 }
 
+model WarningEvaluationState {
+  id              String   @id @default(uuid())
+  ruleId          String
+  subjectId       String
+  latestMetrics   Json
+  metricTimes     Json
+  conditionSince  DateTime?
+  lastEvaluatedAt DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([ruleId, subjectId])
+  @@index([lastEvaluatedAt])
+  @@map("warning_evaluation_states")
+}
+
+model WarningSignal {
+  id         String   @id @default(uuid())
+  code       String   @unique
+  ruleId     String
+  ruleCode   String
+  subjectId  String
+  areaId     String?
+  source     String
+  level      RiskLevel
+  title      String
+  detail     String
+  occurredAt DateTime
+  status     String   @default("active")
+  createdAt  DateTime @default(now())
+
+  @@index([ruleId, subjectId, occurredAt])
+  @@index([areaId, level, status])
+  @@map("warning_signals")
+}
+
 model RiskAssessment {
   id          String    @id @default(uuid())
   riskUnitId  String

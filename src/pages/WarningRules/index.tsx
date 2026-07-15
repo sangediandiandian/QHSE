@@ -11,6 +11,7 @@ import {
   ControlFilled,
   DatabaseFilled,
   EditOutlined,
+  ExperimentOutlined,
   HistoryOutlined,
   MinusCircleOutlined,
   NotificationFilled,
@@ -43,6 +44,16 @@ const levelText: Record<RiskLevel, string> = { low: '低风险', medium: '一般
 const levelColor: Record<RiskLevel, string> = { low: 'success', medium: 'warning', high: 'orange', critical: 'error' };
 const publishColor: Record<WarningRulePublishStatus, string> = { 草稿: 'gold', 待审批: 'purple', 已发布: 'success' };
 
+function buildTestMetrics(expression: NonNullable<WarningRuleDraftInput['expression']>) {
+  return Object.fromEntries(expression.map((item) => {
+    const threshold = Number(item.threshold);
+    if (Number.isNaN(threshold)) return [item.metric, item.threshold];
+    if (item.operator === '>') return [item.metric, threshold + 1];
+    if (item.operator === '<') return [item.metric, threshold - 1];
+    return [item.metric, threshold];
+  }));
+}
+
 function RuleItem({ rule, active, canToggle, onSelect, onToggle }: {
   rule: WarningRule;
   active: boolean;
@@ -65,8 +76,8 @@ function RuleItem({ rule, active, canToggle, onSelect, onToggle }: {
 export default function WarningRules() {
   const access = useAccess();
   const {
-    warningRules: ruleRecords, warningRuleLoading, warningRuleApiMode, loadWarningRules, toggleWarningRule, resetDashboard,
-    saveWarningRule, submitWarningRule, approveWarningRule, rollbackWarningRuleVersion,
+    warningRules: ruleRecords, warningSignals, warningRuleLoading, warningRuleApiMode, loadWarningRules, toggleWarningRule, resetDashboard,
+    saveWarningRule, submitWarningRule, approveWarningRule, rollbackWarningRuleVersion, evaluateWarningSample,
   } = useModel('qhse');
   const [source, setSource] = useState('全部');
   const [selectedId, setSelectedId] = useState('rule-001');
@@ -82,6 +93,7 @@ export default function WarningRules() {
   const selected = ruleRecords.find((rule) => rule.id === selectedId) ?? rules[0];
   const display = selected ? getWarningRuleDisplayConfig(selected) : undefined;
   const conflicts = selected && display ? findWarningRuleConflicts(ruleRecords, display, selected.id) : [];
+  const selectedSignals = selected ? warningSignals.filter((signal) => signal.ruleId === selected.id) : [];
 
   if (warningRuleLoading && !ruleRecords.length) return <PageContainer><Skeleton active paragraph={{ rows: 14 }} /></PageContainer>;
 
@@ -117,6 +129,27 @@ export default function WarningRules() {
       setMutating(false);
     }
   };
+  const handleEvaluate = async () => {
+    if (!selected || !display || display.source === '作业许可') return;
+    setMutating(true);
+    try {
+      const result = await evaluateWarningSample({
+        source: display.source,
+        subjectId: `TEST-${selected.code}`,
+        occurredAt: new Date().toISOString(),
+        metrics: buildTestMetrics(display.expression ?? []),
+      });
+      if (result.triggeredSignals.length) {
+        message.success(`测试样本触发 ${result.triggeredSignals.length} 条预警信号`);
+      } else if (result.suppressedRuleIds.includes(selected.id)) {
+        message.info('规则已命中，5 分钟抑制窗口内不重复创建信号');
+      } else {
+        message.info(display.duration === '即时触发' ? '样本已执行，当前规则未命中' : '样本已记录，持续时间满足后触发');
+      }
+    } finally {
+      setMutating(false);
+    }
+  };
 
   return (
     <PageContainer title={false} className={styles.page} extra={<Space><Button type="primary" icon={<PlusOutlined />} disabled={!access.canEditWarningRule} onClick={() => openEditor()}>新建规则</Button>{!warningRuleApiMode && <Popconfirm title="恢复 Mock 初始状态？" description="将清除浏览器中保存的风险评估、隐患证据、票证审批、规则会签、预案、事件审批和附件证据。" okText="确认重置" cancelText="取消" onConfirm={() => { void resetDashboard(); message.success('演示数据已恢复初始状态'); }}><Button icon={<ReloadOutlined />}>重置演示数据</Button></Popconfirm>}</Space>}>
@@ -138,11 +171,11 @@ export default function WarningRules() {
         <section className={styles.catalog}>{rules.map((rule) => <RuleItem key={rule.id} rule={rule} active={selected?.id === rule.id} canToggle={access.canToggleWarningRule} onSelect={() => setSelectedId(rule.id)} onToggle={() => { if (!access.canToggleWarningRule) return; void toggleWarningRule(rule.id).then(() => message.success(`${rule.name}已${rule.enabled ? '停用' : '启用'}`)); }} />)}{rules.length === 0 && <Empty description="没有符合条件的规则" />}</section>
         {selected && display && <section className={styles.detail}>
           <header><div><code>{selected.code} · {selected.version > 0 ? `V${selected.version}` : '未发布'}</code><h2>{display.name}</h2><p>{display.description}</p></div><div className={styles.detailActions}><Tag color={publishColor[selected.publishStatus]}>{selected.publishStatus}</Tag><Switch aria-label={`详情切换 ${selected.code}`} checked={selected.enabled} disabled={selected.version === 0 || !access.canToggleWarningRule || mutating} onChange={() => void toggleWarningRule(selected.id)} checkedChildren="已启用" unCheckedChildren="已停用" /></div></header>
-          <section className={styles.workflow}><div><span className={selected.publishStatus === '草稿' ? styles.workflowActive : ''}>1 草稿</span><i /><span className={selected.publishStatus === '待审批' ? styles.workflowActive : ''}>2 双人会签</span><i /><span className={selected.publishStatus === '已发布' ? styles.workflowActive : ''}>3 已发布</span></div><p>{selected.draft ? `当前展示未发布草稿；告警运行仍使用 ${selected.version > 0 ? `V${selected.version}` : '空配置'}。` : `V${selected.version} 已生效，编辑后将生成独立草稿。`}</p>{selected.approvalSteps && <div className={styles.approvalSteps}>{selected.approvalSteps.map((step) => <span key={step.role}><CheckCircleFilled className={step.status === '已通过' ? styles.approved : ''} /><strong>{step.role}</strong><small>{step.approver} · {step.approvedAt ?? step.status}</small></span>)}</div>}{conflicts.length > 0 && <div className={styles.conflict}><AlertFilled /> 发现 {conflicts.length} 条已发布规则与当前作用域及表达式重复：{conflicts.map((rule) => rule.code).join('、')}</div>}<Space wrap><Button icon={<EditOutlined />} disabled={!access.canEditWarningRule || selected.publishStatus === '待审批'} onClick={() => openEditor(selected)}>编辑规则</Button>{selected.publishStatus === '草稿' && <Button type="primary" loading={mutating} icon={<SendOutlined />} disabled={conflicts.length > 0 || !access.canSubmitWarningRule} onClick={async () => { setMutating(true); try { await submitWarningRule(selected.id); message.success('规则已提交双人会签'); } finally { setMutating(false); } }}>提交会签</Button>}{selected.publishStatus === '待审批' && <Button type="primary" loading={mutating} disabled={!access.canApproveWarningRule} icon={<CheckCircleFilled />} onClick={async () => { const next = selected.approvalSteps?.find((step) => step.status === '待审批'); setMutating(true); try { const updated = await approveWarningRule(selected.id); message.success(updated?.publishStatus === '已发布' ? `双人会签完成，规则已发布为 V${updated.version}` : `${next?.role ?? '当前节点'}已通过`); } finally { setMutating(false); } }}>{selected.approvalSteps?.find((step) => step.status === '待审批')?.role ?? '会签'}</Button>}<Button icon={<HistoryOutlined />} disabled={selected.versions.length === 0} onClick={() => setVersionsOpen(true)}>版本历史</Button></Space></section>
+          <section className={styles.workflow}><div><span className={selected.publishStatus === '草稿' ? styles.workflowActive : ''}>1 草稿</span><i /><span className={selected.publishStatus === '待审批' ? styles.workflowActive : ''}>2 双人会签</span><i /><span className={selected.publishStatus === '已发布' ? styles.workflowActive : ''}>3 已发布</span></div><p>{selected.draft ? `当前展示未发布草稿；告警运行仍使用 ${selected.version > 0 ? `V${selected.version}` : '空配置'}。` : `V${selected.version} 已生效，编辑后将生成独立草稿。`}</p>{selected.approvalSteps && <div className={styles.approvalSteps}>{selected.approvalSteps.map((step) => <span key={step.role}><CheckCircleFilled className={step.status === '已通过' ? styles.approved : ''} /><strong>{step.role}</strong><small>{step.approver} · {step.approvedAt ?? step.status}</small></span>)}</div>}{conflicts.length > 0 && <div className={styles.conflict}><AlertFilled /> 发现 {conflicts.length} 条已发布规则与当前作用域及表达式重复：{conflicts.map((rule) => rule.code).join('、')}</div>}<Space wrap><Button icon={<EditOutlined />} disabled={!access.canEditWarningRule || selected.publishStatus === '待审批'} onClick={() => openEditor(selected)}>编辑规则</Button>{selected.publishStatus === '草稿' && <Button type="primary" loading={mutating} icon={<SendOutlined />} disabled={conflicts.length > 0 || !access.canSubmitWarningRule} onClick={async () => { setMutating(true); try { await submitWarningRule(selected.id); message.success('规则已提交双人会签'); } finally { setMutating(false); } }}>提交会签</Button>}{selected.publishStatus === '待审批' && <Button type="primary" loading={mutating} disabled={!access.canApproveWarningRule} icon={<CheckCircleFilled />} onClick={async () => { const next = selected.approvalSteps?.find((step) => step.status === '待审批'); setMutating(true); try { const updated = await approveWarningRule(selected.id); message.success(updated?.publishStatus === '已发布' ? `双人会签完成，规则已发布为 V${updated.version}` : `${next?.role ?? '当前节点'}已通过`); } finally { setMutating(false); } }}>{selected.approvalSteps?.find((step) => step.status === '待审批')?.role ?? '会签'}</Button>}{warningRuleApiMode && display.source !== '作业许可' && <Button icon={<ExperimentOutlined />} loading={mutating} disabled={!access.canEvaluateWarningRule || !selected.enabled || selected.version === 0} onClick={() => void handleEvaluate()}>执行测试样本</Button>}<Button icon={<HistoryOutlined />} disabled={selected.versions.length === 0} onClick={() => setVersionsOpen(true)}>版本历史</Button></Space></section>
           <div className={styles.ruleExpression}><span>IF</span><div>{display.expression?.length ? display.expression.map((item, index) => <span key={`${item.metric}-${index}`}>{index > 0 && <i>{item.connector}</i>}<strong>{item.metric}</strong><em>{item.operator}</em><b>{item.threshold}</b></span>) : <strong>{display.condition}</strong>}</div><span>FOR</span><strong>{display.duration}</strong><span>THEN</span><strong>{levelText[display.level]}预警</strong></div>
           <dl><div><dt>数据来源</dt><dd>{display.source}</dd></div><div><dt>作用范围</dt><dd>{display.scope}</dd></div><div><dt>风险等级</dt><dd><Tag color={levelColor[display.level]}>{levelText[display.level]}</Tag></dd></div><div><dt>灰度范围</dt><dd><Tag color="blue">{display.rolloutPercentage ?? 100}%</Tag></dd></div><div><dt>运行状态</dt><dd><Tag color={selected.enabled ? 'success' : 'default'}>{selected.version === 0 ? '尚未发布' : selected.enabled ? '运行中' : '已停用'}</Tag></dd></div></dl>
           <section className={styles.targets}><h3>通知对象</h3><div>{display.notifyTargets.map((target, index) => <span key={target}><i>{index + 1}</i><strong>{target}</strong>{index < display.notifyTargets.length - 1 && <em>→</em>}</span>)}</div></section>
-          <section className={styles.history}><h3>运行记录</h3><div><span>累计触发</span><strong>{selected.triggerCount}<em>次</em></strong></div><div><span>最近触发</span><strong>{selected.lastTriggeredAt ?? '尚未触发'}</strong></div><p><CheckCircleFilled /> 只有审批发布后的版本才会影响对应模拟告警场景。</p></section>
+          <section className={styles.history}><h3>运行记录</h3><div><span>累计触发</span><strong>{selected.triggerCount}<em>次</em></strong></div><div><span>最近触发</span><strong>{selected.lastTriggeredAt ?? '尚未触发'}</strong></div><div><span>近期有效信号</span><strong>{selectedSignals.length}<em>条</em></strong></div><div><span>最新信号编号</span><strong>{selectedSignals[0]?.code ?? '暂无信号'}</strong></div><p><CheckCircleFilled /> 仅已发布且启用的版本参与实时样本计算；同一规则与对象 5 分钟内抑制重复信号。</p></section>
         </section>}
       </main>
       <Modal title={editingId ? '编辑规则草稿' : '新建预警规则'} open={editorOpen} confirmLoading={mutating} okText="保存草稿" cancelText="取消" width={720} onOk={() => void handleSave()} onCancel={() => setEditorOpen(false)}>
