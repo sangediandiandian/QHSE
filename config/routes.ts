@@ -131,6 +131,7 @@ export default [
     icon: 'partition',
     path: '/events',
     component: './EventLifecycle',
+    access: 'canViewEmergency',
   },
   {
     name: '事件复盘',

@@ -1,10 +1,17 @@
-import { Prisma, PrismaClient, type DataScope, type RiskLevel, type UserStatus } from '@prisma/client';
+import {
+  Prisma,
+  PrismaClient,
+  type DataScope,
+  type RiskLevel,
+  type UserStatus,
+} from '@prisma/client';
 import { hashPassword } from '../modules/auth/auth.service';
 import { areas, organizations, roles, users } from '../modules/iam/iam.seed';
 import { riskSeed } from '../modules/risks/risk.seed';
 import { hazardSeed } from '../modules/hazards/hazard.seed';
 import { workPermitSeed } from '../modules/work-permits/work-permit.seed';
 import { warningRuleSeed } from '../modules/warning-rules/warning-rule.seed';
+import { emergencyEventSeed } from '../modules/emergency-events/emergency-event.seed';
 
 const prisma = new PrismaClient();
 
@@ -343,6 +350,40 @@ async function main() {
         },
       });
     }
+  }
+
+  for (const event of emergencyEventSeed) {
+    const data = {
+      eventId: event.eventId,
+      code: event.code,
+      title: event.title,
+      areaId: event.areaId,
+      areaName: event.areaName,
+      source: event.source,
+      status: event.status,
+      responseLevel: event.responseLevel,
+      commander: event.commander,
+      ownerDepartment: event.ownerDepartment,
+      startedAt: new Date(event.startedAt),
+      summary: event.summary,
+      operations: event.operations as unknown as Prisma.InputJsonValue,
+      evidence: event.evidence as unknown as Prisma.InputJsonValue,
+      closureWorkflowId: event.closureWorkflowId,
+      version: event.version,
+      updatedAt: new Date(event.updatedAt),
+    };
+    await prisma.emergencyEvent.upsert({
+      where: { id: event.id },
+      update: data,
+      create: {
+        id: event.id,
+        ...data,
+        closureApproval: event.closureApproval
+          ? (event.closureApproval as unknown as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
+        createdAt: new Date(event.createdAt),
+      },
+    });
   }
 }
 

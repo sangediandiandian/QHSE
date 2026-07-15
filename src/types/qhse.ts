@@ -408,6 +408,8 @@ export interface EmergencyEvent {
   operations: EmergencyEventOperation[];
   evidence?: EmergencyEventEvidence[];
   closureApproval?: EmergencyEventApprovalTask;
+  version?: number;
+  createdAt?: string;
 }
 
 export interface EmergencyEventEvidence {
@@ -422,7 +424,10 @@ export interface EmergencyEventEvidence {
 
 export interface EmergencyEventApprovalTask {
   id: string;
+  workflowId?: string;
+  workflowVersion?: number;
   type: '事件关闭';
+  applicantId?: string;
   applicant: string;
   assignee: string;
   status: '待审批' | '已通过';

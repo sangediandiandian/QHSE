@@ -10,9 +10,21 @@ import { WorkPermitModule } from './modules/work-permits/work-permit.module';
 import { WorkflowModule } from './modules/workflows/workflow.module';
 import { WarningRuleModule } from './modules/warning-rules/warning-rule.module';
 import { WarningExecutionModule } from './modules/warning-execution/warning-execution.module';
+import { EmergencyEventModule } from './modules/emergency-events/emergency-event.module';
 
 @Module({
-  imports: [DatabaseModule, AuthModule, AuditModule, RiskModule, HazardModule, WorkPermitModule, WorkflowModule, WarningRuleModule, WarningExecutionModule],
+  imports: [
+    DatabaseModule,
+    AuthModule,
+    AuditModule,
+    RiskModule,
+    HazardModule,
+    WorkPermitModule,
+    WorkflowModule,
+    WarningRuleModule,
+    WarningExecutionModule,
+    EmergencyEventModule,
+  ],
   controllers: [HealthController],
 })
 export class AppModule implements NestModule {

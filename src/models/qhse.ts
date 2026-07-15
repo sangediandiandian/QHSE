@@ -3,6 +3,7 @@ import type {
   DashboardData,
   EmergencyDrillInput,
   EmergencyDrillRecordInput,
+  EmergencyEvent,
   EmergencyEventAction,
   EmergencyEventEvidence,
   EmergencyPlanDraftInput,
@@ -54,6 +55,14 @@ import {
   toggleWarningRule as toggleWarningRuleByApi,
   updateWarningRuleDraft,
 } from '@/services/qhse/warningRules';
+import {
+  addEmergencyEvidence as addEmergencyEvidenceByApi,
+  approveEmergencyClosure as approveEmergencyClosureByApi,
+  getEmergencyEvents,
+  remindEmergencyClosure as remindEmergencyClosureByApi,
+  requestEmergencyClosure,
+  transitionEmergencyEvent as transitionEmergencyEventByApi,
+} from '@/services/qhse/emergencyEvents';
 import {
   withCommunicationConfirmation,
   withCommunicationEscalation,
@@ -157,6 +166,8 @@ export default function useQhseModel() {
   const [warningRuleRecords, setWarningRuleRecords] = useState<WarningRule[]>([]);
   const [warningSignals, setWarningSignals] = useState<WarningSignal[]>([]);
   const [warningRuleLoading, setWarningRuleLoading] = useState(false);
+  const [emergencyEventRecords, setEmergencyEventRecords] = useState<EmergencyEvent[]>([]);
+  const [emergencyEventLoading, setEmergencyEventLoading] = useState(false);
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
@@ -219,6 +230,19 @@ export default function useQhseModel() {
       setWarningSignals(signals);
     } finally {
       setWarningRuleLoading(false);
+    }
+  }, [dashboard, loadDashboard]);
+
+  const loadEmergencyEvents = useCallback(async () => {
+    if (!hazardApiMode) {
+      if (!dashboard) await loadDashboard();
+      return;
+    }
+    setEmergencyEventLoading(true);
+    try {
+      setEmergencyEventRecords(await getEmergencyEvents());
+    } finally {
+      setEmergencyEventLoading(false);
     }
   }, [dashboard, loadDashboard]);
 
@@ -487,7 +511,16 @@ export default function useQhseModel() {
     } : current);
   }, []);
 
-  const transitionEvent = useCallback((eventId: string, action: EmergencyEventAction) => {
+  const transitionEvent = useCallback(async (eventId: string, action: EmergencyEventAction) => {
+    if (hazardApiMode) {
+      const event = emergencyEventRecords.find((item) => item.id === eventId);
+      if (!event) throw new Error('应急事件不存在');
+      const updated = action === '申请关闭'
+        ? await requestEmergencyClosure(eventId, event.version ?? 1)
+        : await transitionEmergencyEventByApi(eventId, action as Exclude<EmergencyEventAction, '申请关闭' | '审批关闭'>, event.version ?? 1);
+      setEmergencyEventRecords((items) => items.map((item) => item.id === eventId ? updated : item));
+      return updated;
+    }
     setDashboard((current) => {
       if (!current) return current;
       const operatedAt = new Date().toLocaleString('zh-CN', { hour12: false });
@@ -513,27 +546,48 @@ export default function useQhseModel() {
         } : current.emergencyPlan,
       };
     });
-  }, []);
+  }, [emergencyEventRecords]);
 
-  const addEmergencyEventEvidence = useCallback((eventId: string, evidence: Omit<EmergencyEventEvidence, 'id' | 'uploadedAt' | 'hash'>) => {
+  const addEmergencyEventEvidence = useCallback(async (eventId: string, evidence: Omit<EmergencyEventEvidence, 'id' | 'uploadedAt' | 'hash'>) => {
+    if (hazardApiMode) {
+      const event = emergencyEventRecords.find((item) => item.id === eventId);
+      if (!event) throw new Error('应急事件不存在');
+      const updated = await addEmergencyEvidenceByApi(eventId, evidence, event.version ?? 1);
+      setEmergencyEventRecords((items) => items.map((item) => item.id === eventId ? updated : item));
+      return updated;
+    }
     setDashboard((current) => current ? {
       ...current,
       emergencyEvents: current.emergencyEvents.map((event) => event.id === eventId
         ? withAddedEmergencyEventEvidence(event, evidence, `event-evidence-${Date.now()}`, getCurrentTimestamp(), `META-${Date.now().toString(16).toUpperCase()}`)
         : event),
     } : current);
-  }, []);
+  }, [emergencyEventRecords]);
 
-  const remindEmergencyClosureApproval = useCallback((eventId: string) => {
+  const remindEmergencyClosureApproval = useCallback(async (eventId: string) => {
+    if (hazardApiMode) {
+      const event = emergencyEventRecords.find((item) => item.id === eventId);
+      if (!event) throw new Error('应急事件不存在');
+      const updated = await remindEmergencyClosureByApi(eventId, event.version ?? 1);
+      setEmergencyEventRecords((items) => items.map((item) => item.id === eventId ? updated : item));
+      return updated;
+    }
     setDashboard((current) => current ? {
       ...current,
       emergencyEvents: current.emergencyEvents.map((event) => event.id === eventId
         ? withRemindedEmergencyClosureApproval(event, getCurrentTimestamp())
         : event),
     } : current);
-  }, []);
+  }, [emergencyEventRecords]);
 
-  const approveEmergencyEventClosure = useCallback((eventId: string, opinion: string) => {
+  const approveEmergencyEventClosure = useCallback(async (eventId: string, opinion: string) => {
+    if (hazardApiMode) {
+      const event = emergencyEventRecords.find((item) => item.id === eventId);
+      if (!event) throw new Error('应急事件不存在');
+      const updated = await approveEmergencyClosureByApi(eventId, opinion, event.version ?? 1, event.closureApproval?.workflowVersion);
+      setEmergencyEventRecords((items) => items.map((item) => item.id === eventId ? updated : item));
+      return updated;
+    }
     setDashboard((current) => {
       if (!current) return current;
       const event = current.emergencyEvents.find((item) => item.id === eventId);
@@ -545,7 +599,7 @@ export default function useQhseModel() {
         alarms: current.alarms.map((alarm) => alarm.id === approved.eventId ? { ...alarm, status: '监控中' } : alarm),
       };
     });
-  }, []);
+  }, [emergencyEventRecords]);
 
   const assessRiskUnit = useCallback((riskUnitId: string, input: RiskAssessmentInput) => {
     setDashboard((current) => current ? {
@@ -901,6 +955,10 @@ export default function useQhseModel() {
     warningRuleLoading: hazardApiMode ? warningRuleLoading : loading,
     warningRuleApiMode: hazardApiMode,
     loadWarningRules,
+    emergencyEvents: hazardApiMode ? emergencyEventRecords : (dashboard?.emergencyEvents ?? []),
+    emergencyEventLoading: hazardApiMode ? emergencyEventLoading : loading,
+    emergencyEventApiMode: hazardApiMode,
+    loadEmergencyEvents,
     simulateGdsAlarm,
     confirmAlarm,
     startEmergency,

@@ -5,7 +5,7 @@ import {
 } from './workflow.repository';
 import type { WorkflowInstance, WorkflowMutation } from './workflow.types';
 
-const clone = <T>(value: T): T => structuredClone(value);
+const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
 export class InMemoryWorkflowRepository implements WorkflowRepository {
   private readonly records = new Map<string, WorkflowInstance>();

@@ -28,6 +28,10 @@ export default function access(initialState: { currentUser?: API.CurrentUser } |
     canApproveWarningRule: Boolean(currentUser && (isLegacyAdmin || granted.has('warning:approve'))),
     canToggleWarningRule: Boolean(currentUser && (isLegacyAdmin || granted.has('warning:toggle'))),
     canEvaluateWarningRule: Boolean(currentUser && (isLegacyAdmin || granted.has('warning:evaluate'))),
+    canViewEmergency: Boolean(currentUser && (isLegacyAdmin || granted.has('emergency:read'))),
+    canManageEmergency: Boolean(currentUser && (isLegacyAdmin || granted.has('emergency:manage'))),
+    canAddEmergencyEvidence: Boolean(currentUser && (isLegacyAdmin || granted.has('emergency:evidence'))),
+    canApproveEmergencyClosure: Boolean(currentUser && (isLegacyAdmin || granted.has('emergency:approve'))),
     canReadAudit: Boolean(currentUser && (isLegacyAdmin || granted.has('audit:read'))),
     hasPermission: (permission: string) => Boolean(currentUser && (
       isLegacyAdmin || granted.has(permission)

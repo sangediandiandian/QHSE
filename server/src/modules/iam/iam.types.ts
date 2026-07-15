@@ -18,12 +18,16 @@ export const permissions = [
   'warning:approve',
   'warning:toggle',
   'warning:evaluate',
+  'emergency:read',
+  'emergency:manage',
+  'emergency:evidence',
+  'emergency:approve',
   'iam:read',
   'iam:manage',
   'audit:read',
 ] as const;
 
-export type Permission = typeof permissions[number];
+export type Permission = (typeof permissions)[number];
 export type DataScope = 'all' | 'assigned_areas';
 
 export interface Organization {

@@ -42,14 +42,14 @@ model Organization {
 }
 
 model Area {
-  id             String               @id
-  code           String               @unique
-  name           String
-  organizationId String
-  organization   Organization         @relation(fields: [organizationId], references: [id])
+  id              String               @id
+  code            String               @unique
+  name            String
+  organizationId  String
+  organization    Organization         @relation(fields: [organizationId], references: [id])
   userAssignments UserAreaAssignment[]
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @updatedAt
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
 
   @@index([organizationId])
   @@map("areas")
@@ -101,8 +101,8 @@ model UserRole {
 model UserAreaAssignment {
   userId String
   areaId String
-  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  area   Area @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  area   Area   @relation(fields: [areaId], references: [id], onDelete: Cascade)
 
   @@id([userId, areaId])
   @@index([areaId])
@@ -149,7 +149,7 @@ model Hazard {
   source            String
   category          String
   ownerDepartment   String
-  owner              String
+  owner             String
   discoveredAt      DateTime
   deadline          DateTime
   status            String
@@ -358,15 +358,15 @@ model WarningRuleVersion {
 }
 
 model WarningEvaluationState {
-  id              String   @id @default(uuid())
+  id              String    @id @default(uuid())
   ruleId          String
   subjectId       String
   latestMetrics   Json
   metricTimes     Json
   conditionSince  DateTime?
   lastEvaluatedAt DateTime
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@unique([ruleId, subjectId])
   @@index([lastEvaluatedAt])
@@ -374,8 +374,8 @@ model WarningEvaluationState {
 }
 
 model WarningSignal {
-  id         String   @id @default(uuid())
-  code       String   @unique
+  id         String    @id @default(uuid())
+  code       String    @unique
   ruleId     String
   ruleCode   String
   subjectId  String
@@ -385,12 +385,39 @@ model WarningSignal {
   title      String
   detail     String
   occurredAt DateTime
-  status     String   @default("active")
-  createdAt  DateTime @default(now())
+  status     String    @default("active")
+  createdAt  DateTime  @default(now())
 
   @@index([ruleId, subjectId, occurredAt])
   @@index([areaId, level, status])
   @@map("warning_signals")
+}
+
+model EmergencyEvent {
+  id                String   @id @default(uuid())
+  eventId           String   @unique
+  code              String   @unique
+  title             String
+  areaId            String
+  areaName          String
+  source            String
+  status            String
+  responseLevel     String
+  commander         String
+  ownerDepartment   String
+  startedAt         DateTime
+  summary           String
+  operations        Json
+  evidence          Json
+  closureApproval   Json?
+  closureWorkflowId String?
+  version           Int      @default(1)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([areaId, status, updatedAt])
+  @@index([source, startedAt])
+  @@map("emergency_events")
 }
 
 model RiskAssessment {
@@ -398,7 +425,7 @@ model RiskAssessment {
   riskUnitId  String
   assessorId  String
   method      String    @default("LEC")
-  likelihood Float
+  likelihood  Float
   exposure    Float
   consequence Float
   score       Float
