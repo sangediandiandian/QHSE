@@ -100,4 +100,67 @@ describe('WarningExecutionService', () => {
     });
     await expect(rules.get('rule-001')).resolves.toMatchObject({ triggerCount: 13, revision: 1 });
   });
+
+  test('预警信号按区域确认、开始处置并关闭', async () => {
+    const { execution } = createFixture();
+    const evaluated = await execution.evaluate({
+      source: 'GDS',
+      subjectId: 'GDS-101',
+      areaId: 'area-02',
+      occurredAt: '2026-07-15T08:00:00.000Z',
+      metrics: { 'GDS.currentValue': 55 },
+    });
+    const signal = evaluated.triggeredSignals[0];
+    const access = {
+      actorId: 'user-unit',
+      actorName: '李建国',
+      allowedAreaIds: ['area-02'],
+    };
+
+    await expect(execution.listSignals(100, ['area-04'])).resolves.toEqual([]);
+    await expect(execution.getSignal(signal.id, ['area-04'])).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'WARNING_SIGNAL_NOT_FOUND' }),
+    });
+
+    const acknowledged = await execution.acknowledge(signal.id, 1, access);
+    expect(acknowledged).toMatchObject({ status: 'acknowledged', version: 2 });
+    expect(acknowledged.operations).toEqual([
+      expect.objectContaining({ action: '确认', operatorId: 'user-unit' }),
+    ]);
+
+    await expect(execution.startHandling(signal.id, 1, access)).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'VERSION_CONFLICT' }),
+    });
+    const processing = await execution.startHandling(signal.id, 2, access);
+    expect(processing).toMatchObject({ status: 'processing', version: 3 });
+    const closed = await execution.close(signal.id, 3, '现场检测值恢复正常', access);
+    expect(closed).toMatchObject({ status: 'closed', version: 4 });
+    expect(closed.operations.at(-1)).toMatchObject({
+      action: '关闭',
+      detail: '现场检测值恢复正常',
+    });
+  });
+
+  test('活动信号不能跳过确认直接关闭', async () => {
+    const { execution } = createFixture();
+    const signal = (
+      await execution.evaluate({
+        source: 'GDS',
+        subjectId: 'GDS-101',
+        areaId: 'area-02',
+        occurredAt: '2026-07-15T08:00:00.000Z',
+        metrics: { 'GDS.currentValue': 55 },
+      })
+    ).triggeredSignals[0];
+
+    await expect(
+      execution.close(signal.id, 1, '错误关闭', {
+        actorId: 'user-unit',
+        actorName: '李建国',
+        allowedAreaIds: ['area-02'],
+      }),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'WARNING_SIGNAL_STATE_CONFLICT' }),
+    });
+  });
 });

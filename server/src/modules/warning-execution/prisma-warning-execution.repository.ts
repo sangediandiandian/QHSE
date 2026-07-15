@@ -1,8 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, type RiskLevel as PrismaRiskLevel } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
-import type { WarningExecutionRepository } from './warning-execution.repository';
-import type { MetricValue, WarningEvaluationState, WarningSignal } from './warning-execution.types';
+import {
+  type WarningExecutionRepository,
+  WarningSignalNotFoundError,
+  WarningSignalVersionConflictError,
+} from './warning-execution.repository';
+import type {
+  MetricValue,
+  WarningEvaluationState,
+  WarningSignal,
+  WarningSignalMutation,
+  WarningSignalOperation,
+} from './warning-execution.types';
 
 @Injectable()
 export class PrismaWarningExecutionRepository implements WarningExecutionRepository {
@@ -40,7 +50,7 @@ export class PrismaWarningExecutionRepository implements WarningExecutionReposit
 
   async findRecentActiveSignal(ruleId: string, subjectId: string, since: string) {
     const record = await this.prisma.warningSignal.findFirst({
-      where: { ruleId, subjectId, status: 'active', occurredAt: { gte: new Date(since) } },
+      where: { ruleId, subjectId, status: { not: 'closed' }, occurredAt: { gte: new Date(since) } },
       orderBy: { occurredAt: 'desc' },
     });
     return record ? mapSignal(record) : undefined;
@@ -55,15 +65,57 @@ export class PrismaWarningExecutionRepository implements WarningExecutionReposit
           level: signal.level as PrismaRiskLevel,
           occurredAt: new Date(signal.occurredAt),
           createdAt: new Date(signal.createdAt),
+          updatedAt: new Date(signal.updatedAt),
+          operations: signal.operations as unknown as Prisma.InputJsonValue,
+          version: signal.version,
         },
       }),
     );
   }
 
-  async listSignals(limit = 100) {
+  async listSignals(limit = 100, allowedAreaIds?: string[]) {
     return (
-      await this.prisma.warningSignal.findMany({ orderBy: { occurredAt: 'desc' }, take: limit })
+      await this.prisma.warningSignal.findMany({
+        where: allowedAreaIds ? { areaId: { in: allowedAreaIds } } : undefined,
+        orderBy: { occurredAt: 'desc' },
+        take: limit,
+      })
     ).map(mapSignal);
+  }
+
+  async findSignalById(id: string, allowedAreaIds?: string[]) {
+    const record = await this.prisma.warningSignal.findFirst({
+      where: { id, ...(allowedAreaIds ? { areaId: { in: allowedAreaIds } } : {}) },
+    });
+    return record ? mapSignal(record) : undefined;
+  }
+
+  async mutateSignal(
+    id: string,
+    mutation: WarningSignalMutation,
+    expectedVersion: number,
+    allowedAreaIds?: string[],
+  ) {
+    const current = await this.findSignalById(id, allowedAreaIds);
+    if (!current) throw new WarningSignalNotFoundError();
+    if (current.version !== expectedVersion)
+      throw new WarningSignalVersionConflictError(expectedVersion, current.version);
+    const updated = await this.prisma.warningSignal.updateMany({
+      where: {
+        id,
+        version: expectedVersion,
+        ...(allowedAreaIds ? { areaId: { in: allowedAreaIds } } : {}),
+      },
+      data: {
+        status: mutation.status,
+        operations: [...current.operations, mutation.operation] as unknown as Prisma.InputJsonValue,
+        version: { increment: 1 },
+        updatedAt: new Date(mutation.updatedAt),
+      },
+    });
+    if (!updated.count)
+      throw new WarningSignalVersionConflictError(expectedVersion, expectedVersion + 1);
+    return this.findSignalById(id, allowedAreaIds) as Promise<WarningSignal>;
   }
 }
 
@@ -104,7 +156,10 @@ function mapSignal(record: {
   detail: string;
   occurredAt: Date;
   status: string;
+  operations: Prisma.JsonValue;
+  version: number;
   createdAt: Date;
+  updatedAt: Date;
 }): WarningSignal {
   return {
     ...record,
@@ -112,6 +167,8 @@ function mapSignal(record: {
     level: record.level,
     occurredAt: record.occurredAt.toISOString(),
     status: record.status as WarningSignal['status'],
+    operations: record.operations as unknown as WarningSignalOperation[],
     createdAt: record.createdAt.toISOString(),
+    updatedAt: record.updatedAt.toISOString(),
   };
 }

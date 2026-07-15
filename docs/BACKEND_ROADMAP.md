@@ -67,6 +67,8 @@
 - `PUT /api/v1/warning-rules/:id/enabled`：显式设置已发布规则的启停状态。
 - `POST /api/v1/warning-execution/samples`：提交 GDS/VOC/MES/联合预警标准样本并执行生效规则。
 - `GET /api/v1/warning-execution/signals`：查询规则执行生成的有效预警信号。
+- `GET /api/v1/warning-execution/signals/:id`：按账号区域范围查询预警信号详情。
+- `POST /api/v1/warning-execution/signals/:id/acknowledge|handling|close`：确认、开始处置和填写结论关闭预警信号。
 - `GET /api/v1/emergency-events`、`GET /api/v1/emergency-events/:id`：按区域权限查询应急事件。
 - `POST /api/v1/emergency-events`：将预警或告警转为待研判应急事件，禁止同源重复转化。
 - `POST /api/v1/emergency-events/:id/actions|evidence`：执行响应状态迁移或归档可信证据。

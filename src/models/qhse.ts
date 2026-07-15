@@ -1,5 +1,6 @@
 import { getDashboard } from '@/services/qhse/dashboard';
 import type {
+  AlarmEvent,
   DashboardData,
   CommunicationDispatch,
   EmergencyDrillInput,
@@ -55,12 +56,15 @@ import {
 } from '@/services/qhse/workPermits';
 import {
   approveWarningRule as approveWarningRuleByApi,
+  acknowledgeWarningSignal,
+  closeWarningSignal,
   createWarningRuleDraft,
   evaluateWarningSample as evaluateWarningSampleByApi,
   getWarningRules,
   getWarningSignals,
   rollbackWarningRule as rollbackWarningRuleByApi,
   submitWarningRule as submitWarningRuleByApi,
+  startWarningSignalHandling,
   toggleWarningRule as toggleWarningRuleByApi,
   updateWarningRuleDraft,
 } from '@/services/qhse/warningRules';
@@ -194,6 +198,32 @@ function getCurrentTimestamp() {
     .map((value) => String(value).padStart(2, '0'))
     .join(':');
   return `${date} ${time}`;
+}
+
+function withSignalState(event: AlarmEvent, signal: WarningSignal): AlarmEvent {
+  const status = {
+    active: '待确认',
+    acknowledged: '已确认',
+    processing: '处置中',
+    closed: '监控中',
+  } as const;
+  const operationType = {
+    确认: '事件确认',
+    开始处置: '处置启动',
+    关闭: '预警关闭',
+  } as const;
+  return {
+    ...event,
+    status: status[signal.status],
+    version: signal.version,
+    operations: signal.operations.map((operation) => ({
+      id: operation.id,
+      type: operationType[operation.action],
+      operator: operation.operator,
+      operatedAt: operation.operatedAt,
+      detail: operation.detail,
+    })),
+  };
 }
 
 export default function useQhseModel() {
@@ -370,23 +400,61 @@ export default function useQhseModel() {
     });
   }, []);
 
-  const confirmAlarm = useCallback((eventId: string) => {
+  const confirmAlarm = useCallback(async (eventId: string) => {
+    if (hazardApiMode) {
+      const event = dashboard?.alarms.find((item) => item.id === eventId);
+      if (!event?.version) throw new Error('预警信号不存在或不支持确认');
+      const signal = await acknowledgeWarningSignal(eventId, event.version);
+      setDashboard((current) => current ? {
+        ...current,
+        alarms: current.alarms.map((alarm) => alarm.id === eventId ? withSignalState(alarm, signal) : alarm),
+      } : current);
+      return signal;
+    }
     setDashboard((current) => current ? {
       ...current,
       alarms: current.alarms.map((event) => event.id === eventId
         ? confirmWarningEvent(event, '张伟 / 装置负责人', getCurrentTimestamp())
         : event),
     } : current);
-  }, []);
+    return undefined;
+  }, [dashboard]);
 
-  const startEmergency = useCallback((eventId: string) => {
+  const startEmergency = useCallback(async (eventId: string) => {
+    if (hazardApiMode) {
+      const event = dashboard?.alarms.find((item) => item.id === eventId);
+      if (!event?.version) throw new Error('预警信号不存在或不支持处置');
+      const signal = await startWarningSignalHandling(eventId, event.version);
+      setDashboard((current) => current ? {
+        ...current,
+        alarms: current.alarms.map((alarm) => alarm.id === eventId ? withSignalState(alarm, signal) : alarm),
+      } : current);
+      return signal;
+    }
     setDashboard((current) => current ? {
       ...current,
       alarms: current.alarms.map((event) => event.id === eventId
         ? startWarningEmergency(event, '张伟 / 装置负责人', getCurrentTimestamp())
         : event),
     } : current);
-  }, []);
+    return undefined;
+  }, [dashboard]);
+
+  const closeAlarm = useCallback(async (eventId: string, reason: string) => {
+    if (!hazardApiMode) return undefined;
+    const event = dashboard?.alarms.find((item) => item.id === eventId);
+    if (!event?.version) throw new Error('预警信号不存在或不支持关闭');
+    const signal = await closeWarningSignal(eventId, event.version, reason);
+    setDashboard((current) => current ? {
+      ...current,
+      alarms: current.alarms.filter((alarm) => alarm.id !== eventId),
+      metrics: {
+        ...current.metrics,
+        activeAlarms: Math.max(0, current.metrics.activeAlarms - 1),
+      },
+    } : current);
+    return signal;
+  }, [dashboard]);
 
   const verifyAlarmEvidence = useCallback((eventId: string, category: WarningEvidenceCategory) => {
     setDashboard((current) => current ? {
@@ -1122,6 +1190,7 @@ export default function useQhseModel() {
     simulateGdsAlarm,
     confirmAlarm,
     startEmergency,
+    closeAlarm,
     verifyAlarmEvidence,
     simulateVocAlarm,
     simulateJointAlarm,

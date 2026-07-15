@@ -1,5 +1,13 @@
-import type { WarningExecutionRepository } from './warning-execution.repository';
-import type { WarningEvaluationState, WarningSignal } from './warning-execution.types';
+import {
+  type WarningExecutionRepository,
+  WarningSignalNotFoundError,
+  WarningSignalVersionConflictError,
+} from './warning-execution.repository';
+import type {
+  WarningEvaluationState,
+  WarningSignal,
+  WarningSignalMutation,
+} from './warning-execution.types';
 
 const clone = <T>(value: T): T => structuredClone(value);
 
@@ -22,7 +30,7 @@ export class InMemoryWarningExecutionRepository implements WarningExecutionRepos
       (signal) =>
         signal.ruleId === ruleId &&
         signal.subjectId === subjectId &&
-        signal.status === 'active' &&
+        signal.status !== 'closed' &&
         signal.occurredAt >= since,
     );
     return item ? clone(item) : undefined;
@@ -33,10 +41,40 @@ export class InMemoryWarningExecutionRepository implements WarningExecutionRepos
     return clone(signal);
   }
 
-  async listSignals(limit = 100) {
+  async listSignals(limit = 100, allowedAreaIds?: string[]) {
     return [...this.signals.values()]
+      .filter(
+        (signal) => !allowedAreaIds || (signal.areaId && allowedAreaIds.includes(signal.areaId)),
+      )
       .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt))
       .slice(0, limit)
       .map(clone);
+  }
+
+  async findSignalById(id: string, allowedAreaIds?: string[]) {
+    const signal = this.signals.get(id);
+    if (!signal || (allowedAreaIds && (!signal.areaId || !allowedAreaIds.includes(signal.areaId))))
+      return undefined;
+    return clone(signal);
+  }
+
+  async mutateSignal(
+    id: string,
+    mutation: WarningSignalMutation,
+    expectedVersion: number,
+    allowedAreaIds?: string[],
+  ) {
+    const signal = await this.findSignalById(id, allowedAreaIds);
+    if (!signal) throw new WarningSignalNotFoundError();
+    if (signal.version !== expectedVersion)
+      throw new WarningSignalVersionConflictError(expectedVersion, signal.version);
+    const next: WarningSignal = {
+      ...signal,
+      ...mutation,
+      operations: [...signal.operations, mutation.operation],
+      version: signal.version + 1,
+    };
+    this.signals.set(id, clone(next));
+    return clone(next);
   }
 }

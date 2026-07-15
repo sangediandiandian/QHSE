@@ -21,9 +21,9 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
-import { history, useModel, useParams } from '@umijs/max';
-import { Button, Empty, Progress, Skeleton, Tag, message } from 'antd';
-import { useEffect } from 'react';
+import { history, useAccess, useModel, useParams } from '@umijs/max';
+import { Button, Empty, Input, Modal, Progress, Skeleton, Tag, message } from 'antd';
+import { useEffect, useState } from 'react';
 import styles from './index.less';
 
 const levelText: Record<RiskLevel, string> = { low: '低风险', medium: '一般预警', high: '较大预警', critical: '重大预警' };
@@ -89,7 +89,11 @@ function EvidencePanel({ dashboard, event, onVerify }: { dashboard: DashboardDat
 
 export default function WarningDetail() {
   const { id } = useParams<{ id: string }>();
-  const { dashboard, loading, loadDashboard, confirmAlarm, startEmergency, verifyAlarmEvidence } = useModel('qhse');
+  const access = useAccess();
+  const { dashboard, loading, loadDashboard, confirmAlarm, startEmergency, closeAlarm, verifyAlarmEvidence, warningRuleApiMode } = useModel('qhse');
+  const [mutating, setMutating] = useState(false);
+  const [closeOpen, setCloseOpen] = useState(false);
+  const [closeReason, setCloseReason] = useState('');
 
   useEffect(() => { if (!dashboard) void loadDashboard(); }, [dashboard, loadDashboard]);
 
@@ -116,13 +120,34 @@ export default function WarningDetail() {
   const communications = dashboard.communicationTasks.filter((task) => task.eventId === event.id);
   const owner = communications[0]?.receiver ?? '张伟';
 
-  const handleConfirm = () => {
-    confirmAlarm(event.id);
-    message.success('事件已确认，确认记录已写入时间线');
+  const handleConfirm = async () => {
+    setMutating(true);
+    try {
+      await confirmAlarm(event.id);
+      message.success('事件已确认，确认记录已写入时间线');
+    } finally {
+      setMutating(false);
+    }
   };
-  const handleStart = () => {
-    startEmergency(event.id);
-    message.success('应急预案已启动，处置任务已生成');
+  const handleStart = async () => {
+    setMutating(true);
+    try {
+      await startEmergency(event.id);
+      message.success(warningRuleApiMode ? '预警处置已启动' : '应急预案已启动，处置任务已生成');
+    } finally {
+      setMutating(false);
+    }
+  };
+  const handleClose = async () => {
+    setMutating(true);
+    try {
+      await closeAlarm(event.id, closeReason.trim());
+      setCloseOpen(false);
+      message.success('预警已关闭并写入审计记录');
+      history.push('/warnings');
+    } finally {
+      setMutating(false);
+    }
   };
   const handleVerify = (category: WarningEvidenceCategory) => {
     verifyAlarmEvidence(event.id, category);
@@ -134,8 +159,9 @@ export default function WarningDetail() {
       title={false}
       className={styles.page}
       extra={[
-        <Button key="confirm" disabled={confirmed} icon={<CheckCircleFilled />} onClick={handleConfirm}>{confirmed ? '已确认' : '确认事件'}</Button>,
-        <Button key="start" type="primary" danger disabled={!confirmed || processing} icon={<PlayCircleFilled />} onClick={handleStart}>{processing ? '预案已启动' : '启动应急预案'}</Button>,
+        <Button key="confirm" loading={mutating} disabled={confirmed || !access.canHandleWarning} icon={<CheckCircleFilled />} onClick={() => void handleConfirm()}>{confirmed ? '已确认' : '确认事件'}</Button>,
+        <Button key="start" type="primary" danger loading={mutating} disabled={!confirmed || processing || !access.canHandleWarning} icon={<PlayCircleFilled />} onClick={() => void handleStart()}>{processing ? (warningRuleApiMode ? '处置中' : '预案已启动') : (warningRuleApiMode ? '开始处置' : '启动应急预案')}</Button>,
+        warningRuleApiMode && <Button key="close" disabled={!confirmed || !access.canCloseWarning} onClick={() => setCloseOpen(true)}>关闭预警</Button>,
       ]}
     >
       <section className={`${styles.eventHero} ${styles[event.level]}`}>
@@ -151,7 +177,7 @@ export default function WarningDetail() {
           <header><div><span>EVENT CHRONOLOGY</span><h2>事件处置时间线</h2></div><Tag color={processing ? 'processing' : 'warning'}>{event.status}</Tag></header>
           <div className={styles.timeline}>
             <div className={styles.done}><i /><time>{event.occurredAt}</time><div><strong>监测异常进入系统</strong><p>{event.source} 数据校验通过，设备、区域和规则映射完成。</p></div></div>
-            {(event.operations ?? []).map((operation) => <div key={operation.id} className={operation.type === '预案启动' ? styles.active : styles.done}><i /><time>{operation.operatedAt.split(' ')[1] ?? operation.operatedAt}</time><div><strong>{operation.type} · {operation.operator}</strong><p>{operation.detail}</p></div></div>)}
+            {(event.operations ?? []).map((operation) => <div key={operation.id} className={['预案启动', '处置启动'].includes(operation.type) ? styles.active : styles.done}><i /><time>{operation.operatedAt.split(' ')[1] ?? operation.operatedAt}</time><div><strong>{operation.type} · {operation.operator}</strong><p>{operation.detail}</p></div></div>)}
             {!confirmed && <div className={styles.active}><i /><time>等待中</time><div><strong>责任人确认事件</strong><p>等待责任人确认，超时后将自动升级通知。</p></div></div>}
             {confirmed && !processing && <div className={styles.pending}><i /><time>未开始</time><div><strong>启动预案并执行任务</strong><p>事件已确认，可启动《{planName}》。</p></div></div>}
             <div className={styles.pending}><i /><time>未开始</time><div><strong>解除风险并关闭事件</strong><p>所有关键任务完成且监测值恢复正常后可申请关闭。</p></div></div>
@@ -160,7 +186,7 @@ export default function WarningDetail() {
 
         <aside className={styles.sideColumn}>
           <article className={styles.planCard}>
-            <header><SafetyCertificateFilled /><span>推荐应急预案</span></header><strong>{planName}</strong><p>匹配介质、装置区域和报警等级，推荐度 96%。</p><Progress percent={96} showInfo={false} strokeColor="#1a7791" /><Button block disabled={!confirmed || processing} onClick={handleStart}>{processing ? '执行中' : '启动该预案'}</Button>
+            <header><SafetyCertificateFilled /><span>推荐应急预案</span></header><strong>{planName}</strong><p>匹配介质、装置区域和报警等级，推荐度 96%。</p><Progress percent={96} showInfo={false} strokeColor="#1a7791" /><Button block disabled={!confirmed || processing || !access.canHandleWarning} onClick={() => void handleStart()}>{processing ? '执行中' : warningRuleApiMode ? '开始处置' : '启动该预案'}</Button>
           </article>
           <article className={styles.communication}>
             <header><NotificationFilled /><span>融合通信</span><Tag bordered={false}>{communications.length ? `${communications.length} 人` : '待启动'}</Tag></header>
@@ -176,6 +202,10 @@ export default function WarningDetail() {
           <div key={task}><span className={processing && index === 0 ? styles.taskDone : styles.taskIndex}>{processing && index === 0 ? <CheckCircleFilled /> : String(index + 1).padStart(2, '0')}</span><strong>{task}</strong><span>{taskOwner}</span><time>{processing ? ['已完成', '剩余 04:12', '剩余 06:30', '剩余 08:00'][index] : '待生成'}</time></div>
         ))}
       </section>
+      <Modal title="关闭预警" open={closeOpen} confirmLoading={mutating} okButtonProps={{ disabled: !closeReason.trim() }} okText="确认关闭" cancelText="取消" onOk={() => void handleClose()} onCancel={() => { if (!mutating) setCloseOpen(false); }}>
+        <p>请确认现场风险已解除，并填写可审计的关闭原因。</p>
+        <Input.TextArea value={closeReason} maxLength={500} showCount rows={4} placeholder="填写监测恢复情况和处置结论" onChange={(input) => setCloseReason(input.target.value)} />
+      </Modal>
     </PageContainer>
   );
 }

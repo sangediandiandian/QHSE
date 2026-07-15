@@ -63,6 +63,10 @@ function createService() {
         detail: '50 %LEL',
         occurredAt: timestamp,
         status: 'active',
+        operations: [],
+        version: 1,
+        createdAt: timestamp,
+        updatedAt: timestamp,
       },
       {
         id: 'warning-2',
@@ -75,6 +79,10 @@ function createService() {
         detail: '40 mg/m³',
         occurredAt: timestamp,
         status: 'active',
+        operations: [],
+        version: 1,
+        createdAt: timestamp,
+        updatedAt: timestamp,
       },
     ]),
   };

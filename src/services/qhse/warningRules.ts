@@ -42,3 +42,12 @@ export async function getWarningSignals() {
   const response = await request<ApiResponse<WarningSignal[]>>('/api/v1/warning-execution/signals', { method: 'GET', params: { limit: 100 } });
   return response.data;
 }
+
+async function signalPost(id: string, action: string, data: Record<string, unknown>) {
+  const response = await request<ApiResponse<WarningSignal>>(`/api/v1/warning-execution/signals/${id}/${action}`, { method: 'POST', data });
+  return response.data;
+}
+
+export const acknowledgeWarningSignal = (id: string, expectedVersion: number) => signalPost(id, 'acknowledge', { expectedVersion });
+export const startWarningSignalHandling = (id: string, expectedVersion: number) => signalPost(id, 'handling', { expectedVersion });
+export const closeWarningSignal = (id: string, expectedVersion: number, reason: string) => signalPost(id, 'close', { expectedVersion, reason });

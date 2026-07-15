@@ -32,6 +32,12 @@ describe('AuthService', () => {
       dataScope: 'assigned_areas',
       areaIds: ['area-02'],
     });
+    expect(result.user.permissions).toEqual(
+      expect.arrayContaining(['warning:handle', 'warning:close']),
+    );
+    const operator = await new AuthService(new IamService()).login('operator', 'ant.design');
+    expect(operator.user.permissions).toContain('warning:handle');
+    expect(operator.user.permissions).not.toContain('warning:close');
   });
 
   test('错误密码被拒绝且不会返回用户信息', async () => {

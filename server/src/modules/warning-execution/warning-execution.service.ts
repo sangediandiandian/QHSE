@@ -1,19 +1,32 @@
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import type { WorkPermitService } from '../work-permits/work-permit.service';
 import type { WarningRuleService } from '../warning-rules/warning-rule.service';
 import type { WarningRule, WarningRuleExpressionItem } from '../warning-rules/warning-rule.types';
 import type { EvaluateWarningSampleDto } from './dto/evaluate-warning-sample.dto';
-import type { WarningExecutionRepository } from './warning-execution.repository';
+import {
+  type WarningExecutionRepository,
+  WarningSignalNotFoundError,
+  WarningSignalVersionConflictError,
+} from './warning-execution.repository';
 import type { MetricValue, WarningEvaluationState, WarningSignal } from './warning-execution.types';
 
 interface WarningExecutionOptions {
   createId?: () => string;
   suppressionMs?: number;
+  now?: () => Date;
+}
+
+export interface WarningSignalAccess {
+  actorId: string;
+  actorName: string;
+  allowedAreaIds?: string[];
 }
 
 export class WarningExecutionService {
   private readonly createId: () => string;
   private readonly suppressionMs: number;
+  private readonly now: () => Date;
 
   constructor(
     private readonly repository: WarningExecutionRepository,
@@ -23,6 +36,7 @@ export class WarningExecutionService {
   ) {
     this.createId = options.createId ?? randomUUID;
     this.suppressionMs = options.suppressionMs ?? 5 * 60 * 1000;
+    this.now = options.now ?? (() => new Date());
   }
 
   async evaluate(sample: EvaluateWarningSampleDto) {
@@ -61,8 +75,41 @@ export class WarningExecutionService {
     };
   }
 
-  listSignals(limit?: number) {
-    return this.repository.listSignals(limit);
+  async listSignals(limit?: number, allowedAreaIds?: string[]) {
+    const signals = await this.repository.listSignals(limit, allowedAreaIds);
+    return allowedAreaIds
+      ? signals.filter((signal) => signal.areaId && allowedAreaIds.includes(signal.areaId))
+      : signals;
+  }
+
+  async getSignal(id: string, allowedAreaIds?: string[]) {
+    const signal = await this.repository.findSignalById(id, allowedAreaIds);
+    if (!signal)
+      throw new NotFoundException({ code: 'WARNING_SIGNAL_NOT_FOUND', message: '预警信号不存在' });
+    return signal;
+  }
+
+  async acknowledge(id: string, expectedVersion: number, access: WarningSignalAccess) {
+    const signal = await this.getSignal(id, access.allowedAreaIds);
+    if (signal.status !== 'active') this.stateConflict(signal, '确认');
+    return this.mutate(signal, 'acknowledged', expectedVersion, access, '确认', '预警信号已确认');
+  }
+
+  async startHandling(id: string, expectedVersion: number, access: WarningSignalAccess) {
+    const signal = await this.getSignal(id, access.allowedAreaIds);
+    if (signal.status !== 'acknowledged') this.stateConflict(signal, '开始处置');
+    return this.mutate(signal, 'processing', expectedVersion, access, '开始处置', '预警处置已启动');
+  }
+
+  async close(id: string, expectedVersion: number, reason: string, access: WarningSignalAccess) {
+    if (!reason.trim())
+      throw new BadRequestException({
+        code: 'WARNING_SIGNAL_CLOSE_REASON_REQUIRED',
+        message: '关闭预警必须填写处置结论',
+      });
+    const signal = await this.getSignal(id, access.allowedAreaIds);
+    if (!['acknowledged', 'processing'].includes(signal.status)) this.stateConflict(signal, '关闭');
+    return this.mutate(signal, 'closed', expectedVersion, access, '关闭', reason.trim());
   }
 
   private async nextState(rule: WarningRule, sample: EvaluateWarningSampleDto, occurredAt: string) {
@@ -104,8 +151,64 @@ export class WarningExecutionService {
       detail: `${rule.condition}；采样对象 ${sample.subjectId}`,
       occurredAt,
       status: 'active',
+      operations: [],
+      version: 1,
       createdAt: occurredAt,
+      updatedAt: occurredAt,
     };
+  }
+
+  private async mutate(
+    signal: WarningSignal,
+    status: WarningSignal['status'],
+    expectedVersion: number,
+    access: WarningSignalAccess,
+    action: '确认' | '开始处置' | '关闭',
+    detail: string,
+  ) {
+    const timestamp = this.now().toISOString();
+    try {
+      return await this.repository.mutateSignal(
+        signal.id,
+        {
+          status,
+          operation: {
+            id: this.createId(),
+            action,
+            operatorId: access.actorId,
+            operator: access.actorName,
+            operatedAt: timestamp,
+            detail,
+          },
+          updatedAt: timestamp,
+        },
+        expectedVersion,
+        access.allowedAreaIds,
+      );
+    } catch (error) {
+      if (error instanceof WarningSignalNotFoundError)
+        throw new NotFoundException({
+          code: 'WARNING_SIGNAL_NOT_FOUND',
+          message: '预警信号不存在',
+        });
+      if (error instanceof WarningSignalVersionConflictError)
+        throw new ConflictException({
+          code: 'VERSION_CONFLICT',
+          message: '预警信号已被其他用户更新，请刷新后重试',
+          details: {
+            expectedVersion: error.expectedVersion,
+            actualVersion: error.actualVersion,
+          },
+        });
+      throw error;
+    }
+  }
+
+  private stateConflict(signal: WarningSignal, action: string): never {
+    throw new ConflictException({
+      code: 'WARNING_SIGNAL_STATE_CONFLICT',
+      message: `当前状态 ${signal.status} 不能${action}`,
+    });
   }
 
   private async linkWorkPermits(signals: WarningSignal[], areaId?: string) {

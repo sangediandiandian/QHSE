@@ -18,6 +18,8 @@ export const permissions = [
   'warning:approve',
   'warning:toggle',
   'warning:evaluate',
+  'warning:handle',
+  'warning:close',
   'emergency:read',
   'emergency:manage',
   'emergency:evidence',

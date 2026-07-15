@@ -66,6 +66,12 @@ function isAbnormal(point: TelemetryPoint) {
 }
 
 function mapSignal(signal: WarningSignal, areaNames: Map<string, string>) {
+  const status = {
+    active: '待确认',
+    acknowledged: '已确认',
+    processing: '处置中',
+    closed: '监控中',
+  } as const;
   return {
     id: signal.id,
     code: signal.code,
@@ -76,7 +82,19 @@ function mapSignal(signal: WarningSignal, areaNames: Map<string, string>) {
     level: signal.level,
     value: signal.detail,
     occurredAt: signal.occurredAt,
-    status: '待确认' as const,
+    status: status[signal.status],
+    operations: signal.operations.map((operation) => ({
+      id: operation.id,
+      type: {
+        确认: '事件确认',
+        开始处置: '处置启动',
+        关闭: '预警关闭',
+      }[operation.action],
+      operator: operation.operator,
+      operatedAt: operation.operatedAt,
+      detail: operation.detail,
+    })),
+    version: signal.version,
   };
 }
 
@@ -132,7 +150,7 @@ export class DashboardService {
       await Promise.all([
         this.telemetry.listPoints({}, allowedAreaIds),
         this.risks.list({}, allowedAreaIds),
-        this.warnings.listSignals(100),
+        this.warnings.listSignals(100, allowedAreaIds),
         this.communications.list(),
         this.resources.list(),
         this.emergencies.list({}, allowedAreaIds),
@@ -150,7 +168,7 @@ export class DashboardService {
     const areaNames = new Map(areaCatalog.map((area) => [area.id, area.name]));
     const scopedSignals = signals.filter(
       (signal) =>
-        signal.status === 'active' && (!allowed || (signal.areaId && allowed.has(signal.areaId))),
+        signal.status !== 'closed' && (!allowed || (signal.areaId && allowed.has(signal.areaId))),
     );
     const scopedDispatches = dispatches.filter(
       (dispatch) => !allowed || [...areaNames.values()].includes(dispatch.areaName),

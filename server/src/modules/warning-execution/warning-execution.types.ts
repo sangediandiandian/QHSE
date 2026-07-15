@@ -34,8 +34,26 @@ export interface WarningSignal {
   title: string;
   detail: string;
   occurredAt: string;
-  status: 'active' | 'closed';
+  status: 'active' | 'acknowledged' | 'processing' | 'closed';
+  operations: WarningSignalOperation[];
+  version: number;
   createdAt: string;
+  updatedAt: string;
+}
+
+export interface WarningSignalOperation {
+  id: string;
+  action: '确认' | '开始处置' | '关闭';
+  operatorId: string;
+  operator: string;
+  operatedAt: string;
+  detail: string;
+}
+
+export interface WarningSignalMutation {
+  status: WarningSignal['status'];
+  operation: WarningSignalOperation;
+  updatedAt: string;
 }
 
 export interface WarningEvaluationResult {

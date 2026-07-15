@@ -28,6 +28,7 @@ export interface AlarmEvent {
   status: '待确认' | '已确认' | '处置中' | '监控中';
   evidenceChecks?: WarningEvidenceCheck[];
   operations?: WarningEventOperation[];
+  version?: number;
 }
 
 export type WarningEvidenceCategory = '监测数据' | '工艺参数' | '作业票证' | '关联人员';
@@ -40,7 +41,7 @@ export interface WarningEvidenceCheck {
 
 export interface WarningEventOperation {
   id: string;
-  type: '证据核验' | '事件确认' | '预案启动';
+  type: '证据核验' | '事件确认' | '预案启动' | '处置启动' | '预警关闭';
   operator: string;
   operatedAt: string;
   detail: string;
@@ -978,7 +979,18 @@ export interface WarningSignal {
   title: string;
   detail: string;
   occurredAt: string;
-  status: 'active' | 'closed';
+  status: 'active' | 'acknowledged' | 'processing' | 'closed';
+  operations: Array<{
+    id: string;
+    action: '确认' | '开始处置' | '关闭';
+    operatorId: string;
+    operator: string;
+    operatedAt: string;
+    detail: string;
+  }>;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface WarningSampleInput {

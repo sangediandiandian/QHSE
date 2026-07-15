@@ -50,7 +50,7 @@ export default function WarningCenter() {
           <div><AlertFilled /><strong>{pending}</strong><span>待确认</span></div>
           <div><ClockCircleFilled /><strong>{processing}</strong><span>处置中</span></div>
           <div><FireFilled /><strong>{major}</strong><span>较大及以上</span></div>
-          <div><CheckCircleFilled /><strong>87<em>%</em></strong><span>今日闭环率</span></div>
+          <div><CheckCircleFilled /><strong>{dashboard.alarms.length}</strong><span>活动预警</span></div>
         </div>
       </section>
 
