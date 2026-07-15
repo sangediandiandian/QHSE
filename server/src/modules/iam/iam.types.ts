@@ -36,6 +36,8 @@ export const permissions = [
   'communication:confirm',
   'telemetry:read',
   'telemetry:ingest',
+  'attachment:read',
+  'attachment:upload',
   'iam:read',
   'iam:manage',
   'audit:read',

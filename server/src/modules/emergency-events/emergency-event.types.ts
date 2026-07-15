@@ -36,6 +36,7 @@ export interface EmergencyEventOperation {
 
 export interface EmergencyEventEvidence {
   id: string;
+  objectId?: string;
   name: string;
   category: EmergencyEvidenceCategory;
   uploaderId: string;
@@ -43,6 +44,8 @@ export interface EmergencyEventEvidence {
   uploadedAt: string;
   note: string;
   hash: string;
+  contentType?: string;
+  size?: number;
 }
 
 export interface EmergencyClosureApproval {

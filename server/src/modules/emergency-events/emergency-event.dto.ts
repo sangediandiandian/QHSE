@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsPositive, IsString, MinLength } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsPositive, IsString, IsUUID, MinLength } from 'class-validator';
 import {
   emergencyEvidenceCategories,
   emergencyResponseLevels,
@@ -37,6 +37,7 @@ export class TransitionEmergencyEventDto extends EventVersionDto {
 }
 
 export class AddEmergencyEvidenceDto extends EventVersionDto {
+  @ApiPropertyOptional() @IsOptional() @IsUUID() objectId?: string;
   @ApiProperty() @IsString() @MinLength(1) name!: string;
   @ApiProperty({ enum: emergencyEvidenceCategories })
   @IsIn(emergencyEvidenceCategories)

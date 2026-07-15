@@ -7,14 +7,17 @@ import {
   CheckCircleFilled,
   ClockCircleFilled,
   ControlFilled,
+  DownloadOutlined,
   HistoryOutlined,
   PaperClipOutlined,
   SafetyCertificateFilled,
+  UploadOutlined,
 } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
 import { useAccess, useModel } from '@umijs/max';
-import { Button, Empty, Form, Input, Modal, Segmented, Select, Skeleton, Space, Tag, message } from 'antd';
+import { Button, Empty, Form, Input, Modal, Segmented, Select, Skeleton, Space, Tag, Upload, message } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
+import { downloadAttachment, uploadAttachment } from '@/services/qhse/attachments';
 import styles from './index.less';
 
 const statusColor: Record<EmergencyEventStatus, string> = {
@@ -61,6 +64,7 @@ export default function EventLifecycle() {
   const [selectedId, setSelectedId] = useState('lifecycle-001');
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const [approvalOpen, setApprovalOpen] = useState(false);
+  const [evidenceFile, setEvidenceFile] = useState<File>();
   const [evidenceForm] = Form.useForm<Omit<EmergencyEventEvidence, 'id' | 'uploadedAt' | 'hash'>>();
   const [approvalForm] = Form.useForm<{ opinion: string }>();
 
@@ -119,7 +123,7 @@ export default function EventLifecycle() {
         <dl><div><dt>响应等级</dt><dd>{selected.responseLevel}</dd></div><div><dt>事件区域</dt><dd>{selected.areaName}</dd></div><div><dt>现场指挥</dt><dd>{selected.commander}</dd></div><div><dt>责任部门</dt><dd>{selected.ownerDepartment}</dd></div></dl>
         <section className={styles.actionPanel}><div><ControlFilled /><span>当前可执行操作<small>状态与等级限制由工作流规则校验</small></span></div><EventActions event={selected} canManage={access.canManageEmergency} onAction={(action) => void handleAction(action)} /></section>
         <section className={styles.businessGrid}>
-          <div className={styles.evidence}><h3>事件证据 <span>{selected.evidence?.length ?? 0} 项</span></h3>{selected.evidence?.length ? selected.evidence.map((item) => <article key={item.id}><Tag>{item.category}</Tag><strong>{item.name}</strong><small>{item.uploader} · {item.uploadedAt}</small><p>{item.note}</p><code>{item.hash}</code></article>) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无归档证据" />}</div>
+          <div className={styles.evidence}><h3>事件证据 <span>{selected.evidence?.length ?? 0} 项</span></h3>{selected.evidence?.length ? selected.evidence.map((item) => <article key={item.id}><Tag>{item.category}</Tag><strong>{item.name}</strong>{item.objectId && <Button type="link" size="small" icon={<DownloadOutlined />} disabled={!access.canReadAttachment} onClick={() => void downloadAttachment(item.objectId!, item.name)}>下载</Button>}<small>{item.uploader} · {item.uploadedAt}{item.size ? ` · ${(item.size / 1024).toFixed(1)} KB` : ''}</small><p>{item.note}</p><code>{item.hash}</code></article>) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无归档证据" />}</div>
           <div className={`${styles.approval} ${isEmergencyApprovalOverdue(selected, getCurrentTimestamp()) ? styles.approvalOverdue : ''}`}><h3>关闭审批任务</h3>{selected.closureApproval ? <><header><Tag color={selected.closureApproval.status === '已通过' ? 'success' : isEmergencyApprovalOverdue(selected, getCurrentTimestamp()) ? 'error' : 'processing'}>{selected.closureApproval.status === '已通过' ? '已通过' : isEmergencyApprovalOverdue(selected, getCurrentTimestamp()) ? '已超时' : '待审批'}</Tag><strong>{selected.closureApproval.assignee}</strong></header><dl><div><dt>申请人</dt><dd>{selected.closureApproval.applicant}</dd></div><div><dt>审批时限</dt><dd>{selected.closureApproval.dueAt}</dd></div><div><dt>催办</dt><dd>{selected.closureApproval.reminderCount} 次{selected.closureApproval.lastReminderAt ? ` · ${selected.closureApproval.lastReminderAt}` : ''}</dd></div><div><dt>签名</dt><dd>{selected.closureApproval.signature ?? '待签名'}</dd></div></dl>{selected.closureApproval.opinion && <p>{selected.closureApproval.opinion}</p>}{selected.closureApproval.status === '待审批' && <Space><Button icon={<BellFilled />} disabled={!access.canManageEmergency} onClick={() => { void remindEmergencyClosureApproval(selected.id).then(() => message.success('催办已记录并通知审批人')); }}>催办</Button><Button type="primary" disabled={!access.canApproveEmergencyClosure} onClick={() => void handleAction('审批关闭')}>审批关闭</Button></Space>}</> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={selected.status === '监控中' ? '申请关闭后将生成审批任务' : '暂无关闭审批任务'} />}</div>
         </section>
         <section className={styles.operations}><h3>操作留痕 <span>{selected.operations.length} 条</span></h3>{[...selected.operations].reverse().map((operation) => <article key={operation.id}>
@@ -127,7 +131,7 @@ export default function EventLifecycle() {
         </article>)}</section>
       </section>}
     </main>
-    <Modal title={`归档事件证据 · ${selected?.code ?? ''}`} open={evidenceOpen} onCancel={() => setEvidenceOpen(false)} onOk={() => evidenceForm.validateFields().then(async (values) => { if (!selected) return; await addEmergencyEventEvidence(selected.id, values); setEvidenceOpen(false); evidenceForm.resetFields(); message.success('事件证据已归档'); })} okText="归档证据"><Form form={evidenceForm} layout="vertical"><Form.Item name="name" label="证据名称" rules={[{ required: true }]}><Input /></Form.Item><div className={styles.formGrid}><Form.Item name="category" label="证据类别" rules={[{ required: true }]}><Select options={['现场照片', '监测报告', '处置记录', '审批材料'].map((value) => ({ value }))} /></Form.Item>{!emergencyEventApiMode && <Form.Item name="uploader" label="归档人" rules={[{ required: true }]}><Input /></Form.Item>}</div><Form.Item name="note" label="证据说明" rules={[{ required: true }]}><Input.TextArea rows={3} /></Form.Item><p className={styles.formHint}>{emergencyEventApiMode ? '归档人取当前登录用户，服务端生成证据哈希；实际文件待对接对象存储。' : '当前原型记录附件元数据和本地指纹，实际文件与哈希待对接对象存储服务。'}</p></Form></Modal>
+    <Modal title={`归档事件证据 · ${selected?.code ?? ''}`} open={evidenceOpen} onCancel={() => { setEvidenceOpen(false); setEvidenceFile(undefined); }} onOk={() => evidenceForm.validateFields().then(async (values) => { if (!selected) return; if (emergencyEventApiMode && !evidenceFile) { message.warning('请选择证据文件'); return; } const attachment = emergencyEventApiMode && evidenceFile ? await uploadAttachment(evidenceFile, selected.areaId) : undefined; await addEmergencyEventEvidence(selected.id, { ...values, objectId: attachment?.id }); setEvidenceOpen(false); setEvidenceFile(undefined); evidenceForm.resetFields(); message.success('事件证据已归档'); })} okText="归档证据"><Form form={evidenceForm} layout="vertical">{emergencyEventApiMode && <Form.Item label="证据文件" required><Upload maxCount={1} fileList={evidenceFile ? [{ uid: 'event-evidence', name: evidenceFile.name, status: 'done' }] : []} beforeUpload={(file) => { setEvidenceFile(file); evidenceForm.setFieldValue('name', file.name); return false; }} onRemove={() => { setEvidenceFile(undefined); return true; }}><Button icon={<UploadOutlined />} disabled={!access.canUploadAttachment}>选择文件</Button></Upload></Form.Item>}<Form.Item name="name" label="证据名称" rules={[{ required: true }]}><Input /></Form.Item><div className={styles.formGrid}><Form.Item name="category" label="证据类别" rules={[{ required: true }]}><Select options={['现场照片', '监测报告', '处置记录', '审批材料'].map((value) => ({ value }))} /></Form.Item>{!emergencyEventApiMode && <Form.Item name="uploader" label="归档人" rules={[{ required: true }]}><Input /></Form.Item>}</div><Form.Item name="note" label="证据说明" rules={[{ required: true }]}><Input.TextArea rows={3} /></Form.Item><p className={styles.formHint}>{emergencyEventApiMode ? '文件经服务端校验并计算 SHA-256，按事件区域权限归档。' : '当前原型记录附件元数据和本地指纹。'}</p></Form></Modal>
     <Modal title={`审批关闭 · ${selected?.code ?? ''}`} open={approvalOpen} onCancel={() => setApprovalOpen(false)} onOk={() => approvalForm.validateFields().then(async ({ opinion }) => { if (!selected) return; await approveEmergencyEventClosure(selected.id, opinion); setApprovalOpen(false); message.success('关闭审批已签署，事件已归档'); })} okText="签署并关闭"><Form form={approvalForm} layout="vertical"><Form.Item name="opinion" label="审批意见" rules={[{ required: true }]}><Input.TextArea rows={4} /></Form.Item><p className={styles.formHint}>签署人：{selected?.closureApproval?.assignee ?? '赵磊 / QHSE 管理部'}</p></Form></Modal>
   </PageContainer>;
 }

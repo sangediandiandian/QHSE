@@ -191,6 +191,10 @@ function mapHazardRecord(record: HazardRecord): Hazard {
       category: item.category as HazardEvidenceCategory,
       uploadedAt: item.uploadedAt.toISOString(),
       note: item.note ?? undefined,
+      objectId: item.objectId ?? undefined,
+      contentType: item.contentType ?? undefined,
+      size: item.size ?? undefined,
+      sha256: item.sha256 ?? undefined,
     })),
     operations: record.operations.map((item) => ({
       ...item,

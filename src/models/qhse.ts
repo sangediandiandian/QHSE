@@ -1080,6 +1080,7 @@ export default function useQhseModel() {
     hazards: hazardApiMode ? hazardRecords : (dashboard?.hazards ?? []),
     hazardRiskUnits: hazardApiMode ? hazardRiskUnits : (dashboard?.riskUnits ?? []),
     hazardLoading: hazardApiMode ? hazardLoading : loading,
+    hazardApiMode,
     loadHazards,
     workPermits: hazardApiMode ? workPermitRecords : (dashboard?.workPermits ?? []),
     workPermitAreas: hazardApiMode ? workPermitAreas : (dashboard?.areas ?? []),

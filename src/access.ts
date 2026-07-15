@@ -9,9 +9,9 @@ export default function access(initialState: { currentUser?: API.CurrentUser } |
     canAdmin: Boolean(currentUser && (isLegacyAdmin || granted.has('iam:manage'))),
     canViewRisk: Boolean(currentUser && (isLegacyAdmin || granted.has('risk:read'))),
     canAssessRisk: Boolean(currentUser && (isLegacyAdmin || granted.has('risk:assess'))),
-    canUpdateRiskControls: Boolean(currentUser && (
-      isLegacyAdmin || granted.has('risk:controls:update')
-    )),
+    canUpdateRiskControls: Boolean(
+      currentUser && (isLegacyAdmin || granted.has('risk:controls:update')),
+    ),
     canViewHazard: Boolean(currentUser && (isLegacyAdmin || granted.has('hazard:read'))),
     canReportHazard: Boolean(currentUser && (isLegacyAdmin || granted.has('hazard:report'))),
     canRectifyHazard: Boolean(currentUser && (isLegacyAdmin || granted.has('hazard:rectify'))),
@@ -25,13 +25,21 @@ export default function access(initialState: { currentUser?: API.CurrentUser } |
     canViewWarningRule: Boolean(currentUser && (isLegacyAdmin || granted.has('warning:read'))),
     canEditWarningRule: Boolean(currentUser && (isLegacyAdmin || granted.has('warning:edit'))),
     canSubmitWarningRule: Boolean(currentUser && (isLegacyAdmin || granted.has('warning:submit'))),
-    canApproveWarningRule: Boolean(currentUser && (isLegacyAdmin || granted.has('warning:approve'))),
+    canApproveWarningRule: Boolean(
+      currentUser && (isLegacyAdmin || granted.has('warning:approve')),
+    ),
     canToggleWarningRule: Boolean(currentUser && (isLegacyAdmin || granted.has('warning:toggle'))),
-    canEvaluateWarningRule: Boolean(currentUser && (isLegacyAdmin || granted.has('warning:evaluate'))),
+    canEvaluateWarningRule: Boolean(
+      currentUser && (isLegacyAdmin || granted.has('warning:evaluate')),
+    ),
     canViewEmergency: Boolean(currentUser && (isLegacyAdmin || granted.has('emergency:read'))),
     canManageEmergency: Boolean(currentUser && (isLegacyAdmin || granted.has('emergency:manage'))),
-    canAddEmergencyEvidence: Boolean(currentUser && (isLegacyAdmin || granted.has('emergency:evidence'))),
-    canApproveEmergencyClosure: Boolean(currentUser && (isLegacyAdmin || granted.has('emergency:approve'))),
+    canAddEmergencyEvidence: Boolean(
+      currentUser && (isLegacyAdmin || granted.has('emergency:evidence')),
+    ),
+    canApproveEmergencyClosure: Boolean(
+      currentUser && (isLegacyAdmin || granted.has('emergency:approve')),
+    ),
     canViewPlan: Boolean(currentUser && (isLegacyAdmin || granted.has('plan:read'))),
     canEditPlan: Boolean(currentUser && (isLegacyAdmin || granted.has('plan:edit'))),
     canSubmitPlan: Boolean(currentUser && (isLegacyAdmin || granted.has('plan:submit'))),
@@ -39,16 +47,27 @@ export default function access(initialState: { currentUser?: API.CurrentUser } |
     canManageDrill: Boolean(currentUser && (isLegacyAdmin || granted.has('plan:drill'))),
     canViewResource: Boolean(currentUser && (isLegacyAdmin || granted.has('resource:read'))),
     canManageResource: Boolean(currentUser && (isLegacyAdmin || granted.has('resource:manage'))),
-    canDispatchResource: Boolean(currentUser && (isLegacyAdmin || granted.has('resource:dispatch'))),
+    canDispatchResource: Boolean(
+      currentUser && (isLegacyAdmin || granted.has('resource:dispatch')),
+    ),
     canInspectResource: Boolean(currentUser && (isLegacyAdmin || granted.has('resource:inspect'))),
-    canViewCommunication: Boolean(currentUser && (isLegacyAdmin || granted.has('communication:read'))),
-    canSendCommunication: Boolean(currentUser && (isLegacyAdmin || granted.has('communication:send'))),
-    canConfirmCommunication: Boolean(currentUser && (isLegacyAdmin || granted.has('communication:confirm'))),
+    canViewCommunication: Boolean(
+      currentUser && (isLegacyAdmin || granted.has('communication:read')),
+    ),
+    canSendCommunication: Boolean(
+      currentUser && (isLegacyAdmin || granted.has('communication:send')),
+    ),
+    canConfirmCommunication: Boolean(
+      currentUser && (isLegacyAdmin || granted.has('communication:confirm')),
+    ),
     canViewTelemetry: Boolean(currentUser && (isLegacyAdmin || granted.has('telemetry:read'))),
     canIngestTelemetry: Boolean(currentUser && (isLegacyAdmin || granted.has('telemetry:ingest'))),
+    canReadAttachment: Boolean(currentUser && (isLegacyAdmin || granted.has('attachment:read'))),
+    canUploadAttachment: Boolean(
+      currentUser && (isLegacyAdmin || granted.has('attachment:upload')),
+    ),
     canReadAudit: Boolean(currentUser && (isLegacyAdmin || granted.has('audit:read'))),
-    hasPermission: (permission: string) => Boolean(currentUser && (
-      isLegacyAdmin || granted.has(permission)
-    )),
+    hasPermission: (permission: string) =>
+      Boolean(currentUser && (isLegacyAdmin || granted.has(permission))),
   };
 }

@@ -2,6 +2,7 @@ import {
   CallHandler,
   ExecutionContext,
   Injectable,
+  StreamableFile,
   type NestInterceptor,
 } from '@nestjs/common';
 import type { Observable } from 'rxjs';
@@ -12,11 +13,17 @@ import type { RequestWithId } from './request-context.middleware';
 export class ApiResponseInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const request = context.switchToHttp().getRequest<RequestWithId>();
-    return next.handle().pipe(map((data) => ({
-      success: true,
-      data,
-      requestId: request.requestId,
-      timestamp: new Date().toISOString(),
-    })));
+    return next.handle().pipe(
+      map((data) =>
+        data instanceof StreamableFile
+          ? data
+          : {
+              success: true,
+              data,
+              requestId: request.requestId,
+              timestamp: new Date().toISOString(),
+            },
+      ),
+    );
   }
 }

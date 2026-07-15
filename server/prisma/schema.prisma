@@ -174,18 +174,46 @@ model Hazard {
 }
 
 model HazardEvidence {
-  id         String   @id @default(uuid())
-  hazardId   String
-  name       String
-  category   String
-  uploaderId String
-  uploader   String
-  uploadedAt DateTime @default(now())
-  note       String?
-  hazard     Hazard   @relation(fields: [hazardId], references: [id], onDelete: Cascade)
+  id          String   @id @default(uuid())
+  hazardId    String
+  name        String
+  category    String
+  uploaderId  String
+  uploader    String
+  uploadedAt  DateTime @default(now())
+  note        String?
+  objectId    String?
+  contentType String?
+  size        Int?
+  sha256      String?
+  hazard      Hazard   @relation(fields: [hazardId], references: [id], onDelete: Cascade)
 
   @@index([hazardId, uploadedAt])
   @@map("hazard_evidence")
+}
+
+model StoredObject {
+  id           String   @id @default(uuid())
+  storageKey   String   @unique
+  provider     String
+  bucket       String?
+  originalName String
+  contentType  String
+  size         Int
+  sha256       String
+  uploaderId   String
+  uploader     String
+  areaId       String
+  businessType String?
+  businessId   String?
+  status       String   @default("uploaded")
+  createdAt    DateTime @default(now())
+  boundAt      DateTime?
+
+  @@index([areaId, createdAt])
+  @@index([businessType, businessId])
+  @@index([sha256])
+  @@map("stored_objects")
 }
 
 model HazardOperation {

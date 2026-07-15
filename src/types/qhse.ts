@@ -486,12 +486,31 @@ export interface EmergencyEvent {
 
 export interface EmergencyEventEvidence {
   id: string;
+  objectId?: string;
   name: string;
   category: '现场照片' | '监测报告' | '处置记录' | '审批材料';
   uploader: string;
   uploadedAt: string;
   note: string;
   hash: string;
+  contentType?: string;
+  size?: number;
+}
+
+export interface Attachment {
+  id: string;
+  originalName: string;
+  contentType: string;
+  size: number;
+  sha256: string;
+  uploader: string;
+  areaId: string;
+  businessType?: 'hazard' | 'emergency_event' | 'emergency_plan' | 'drill';
+  businessId?: string;
+  status: 'uploaded' | 'bound';
+  createdAt: string;
+  boundAt?: string;
+  downloadUrl: string;
 }
 
 export interface EmergencyEventApprovalTask {
@@ -601,12 +620,16 @@ export interface Hazard {
 
 export interface HazardEvidence {
   id: string;
+  objectId?: string;
   name: string;
   category: '整改前' | '整改过程' | '整改完成';
   uploader: string;
   uploaderId?: string;
   uploadedAt: string;
   note?: string;
+  contentType?: string;
+  size?: number;
+  sha256?: string;
 }
 
 export interface HazardOperation {
@@ -635,7 +658,7 @@ export interface HazardInput {
 }
 
 export type HazardReportInput = Omit<HazardInput, 'areaId' | 'areaName'>;
-export type HazardEvidenceInput = Pick<HazardEvidence, 'name' | 'category' | 'note'>;
+export type HazardEvidenceInput = Pick<HazardEvidence, 'name' | 'category' | 'note' | 'objectId'>;
 
 export interface HazardQuery {
   status?: HazardStatus;

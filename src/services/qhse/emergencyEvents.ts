@@ -18,6 +18,6 @@ export const requestEmergencyClosure = (id: string, expectedVersion: number) => 
 export const remindEmergencyClosure = (id: string, expectedVersion: number) => post(id, 'closure-reminder', { expectedVersion });
 export const approveEmergencyClosure = (id: string, opinion: string, expectedVersion: number, workflowVersion?: number) => post(id, 'closure-approval', { opinion, expectedVersion, workflowVersion });
 
-export function addEmergencyEvidence(id: string, evidence: Pick<EmergencyEventEvidence, 'name' | 'category' | 'note'>, expectedVersion: number) {
+export function addEmergencyEvidence(id: string, evidence: Pick<EmergencyEventEvidence, 'name' | 'category' | 'note' | 'objectId'>, expectedVersion: number) {
   return post(id, 'evidence', { ...evidence, expectedVersion });
 }

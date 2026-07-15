@@ -8,9 +8,11 @@ import { InMemoryEmergencyEventRepository } from './in-memory-emergency-event.re
 import { PrismaEmergencyEventRepository } from './prisma-emergency-event.repository';
 import { EMERGENCY_EVENT_REPOSITORY } from './emergency-event.repository';
 import { EmergencyEventService } from './emergency-event.service';
+import { AttachmentModule } from '../attachments/attachment.module';
+import { AttachmentService } from '../attachments/attachment.service';
 
 @Module({
-  imports: [IamModule, WorkflowModule],
+  imports: [IamModule, WorkflowModule, AttachmentModule],
   controllers: [EmergencyEventController],
   providers: [
     InMemoryEmergencyEventRepository,
@@ -25,12 +27,13 @@ import { EmergencyEventService } from './emergency-event.service';
     },
     {
       provide: EmergencyEventService,
-      inject: [EMERGENCY_EVENT_REPOSITORY, WorkflowService, IamService],
+      inject: [EMERGENCY_EVENT_REPOSITORY, WorkflowService, IamService, AttachmentService],
       useFactory: (
         repository: InMemoryEmergencyEventRepository | PrismaEmergencyEventRepository,
         workflows: WorkflowService,
         iam: IamService,
-      ) => new EmergencyEventService(repository, workflows, iam),
+        attachmentService: AttachmentService,
+      ) => new EmergencyEventService(repository, workflows, iam, {}, attachmentService),
     },
   ],
   exports: [EmergencyEventService],

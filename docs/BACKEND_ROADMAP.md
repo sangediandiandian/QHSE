@@ -31,7 +31,7 @@
 | 5B1 | 应急预案与演练 | 预案发布、版本回滚、到期和演练复盘服务端闭环 | 已完成 |
 | 5B2 | 应急资源 | 库存、批次、FEFO 调拨、归还和巡检维护服务端闭环 | 已完成 |
 | 5C | 融合通信 | 多渠道发送、回执、重试、升级和审计 | 已完成 |
-| 6 | GDS/VOC/MES、WebSocket/MQTT、对象存储 | 真实数据稳定接入，附件与证据可固化 | 进行中：遥测 API、MQTT/WebSocket 与前端实时接入已完成，待对象存储 |
+| 6 | GDS/VOC/MES、WebSocket/MQTT、对象存储 | 真实数据稳定接入，附件与证据可固化 | 已完成 |
 | 7 | 报表、缓存、消息队列、部署、安全与性能 | 完成生产容量、安全和恢复验证 | 待开发 |
 
 应急资源基础闭环已经后端化；仓库/库位、完整库存流水、扫码盘点、维修工单和跨库调拨作为后续生产化增强项建设。
@@ -48,7 +48,7 @@
 - `PUT /api/v1/risks/:id/controls`：更新管控措施。
 - `GET /api/v1/hazards`、`GET /api/v1/hazards/:id`：按角色区域范围查询隐患。
 - `POST /api/v1/hazards`：上报隐患，区域和操作人由服务端生成。
-- `POST /api/v1/hazards/:id/evidence`：归档整改证据元数据。
+- `POST /api/v1/hazards/:id/evidence`：绑定已上传对象并归档整改证据。
 - `POST /api/v1/hazards/:id/rectification/start`：开始整改。
 - `POST /api/v1/hazards/:id/acceptance/submit|close`：提交验收、验收关闭。
 - `PUT /api/v1/hazards/:id/supervision`：显式设置挂牌督办状态。
@@ -84,6 +84,8 @@
 - `POST /api/v1/telemetry/samples`：幂等写入 GDS/VOC/MES 标准样本，更新点位状态并执行预警规则。
 - `GET /api/v1/telemetry/integrations`：查询 MQTT 连接状态、接收/拒绝计数及 WebSocket 补传序号。
 - WebSocket `/telemetry`：按会话权限、区域和数据源订阅实时样本，支持 `afterSequence` 断线补传。
+- `POST /api/v1/attachments`：按区域权限上传附件，校验类型/大小并生成 SHA-256。
+- `GET /api/v1/attachments/:id`、`GET /api/v1/attachments/:id/content`：按区域权限查询元数据或下载原始内容。
 
 除健康检查、登录和 Swagger 外，接口默认需要 Bearer Token。演示账号包括 `admin`、`leader`、`qhse`、`dispatcher`、`unit_manager`、`operator`、`environment` 和 `commander`，本地演示密码统一为 `ant.design`。当前会话默认保存在进程内存中，仅用于开发；正式环境需切换统一身份认证或 Redis 会话并独立配置密码。
 
@@ -108,6 +110,8 @@
 融合通信已形成通信事件聚合。服务端维护 0/2/3/5 分钟升级链，多渠道发送任务记录送达、失败、重试和确认状态；失败回执最多自动重试 2 次，任一任务确认后阻断继续升级。确认人取认证主体，升级、回执和确认均执行权限、审计与乐观锁；真实电话、短信、App 和广播网关适配器安排在阶段 6。
 
 统一遥测接入层已支持 GDS/VOC/MES 点位、当前指标和历史样本。样本以外部 `sampleId` 幂等落库，质量码驱动在线/故障状态，主指标按点位阈值派生业务状态；有效样本自动进入预警规则执行器。乱序样本保留历史但不覆盖当前值或重复触发规则，超出允许未来偏差的样本被拒绝。MQTT QoS 1 适配器通过标准主题接入受信样本；WebSocket 按认证主体和区域范围广播，并使用有界序号缓冲完成断线补传。三个监测页面已实时订阅点位更新。
+
+附件服务以统一对象元数据隔离业务表和二进制内容。上传时执行 MIME 白名单、大小限制、区域权限和 SHA-256 计算；对象只能绑定一条业务记录，同一绑定保持幂等。开发环境默认使用本地文件适配器，生产可切换 S3 兼容存储。隐患整改与应急事件证据已接入真实上传、业务绑定和鉴权下载。
 
 ## 本地启动
 
@@ -141,3 +145,14 @@ QHSE_MQTT_USERNAME=qhse npm run server:dev
 ```
 
 密码通过进程环境的 `QHSE_MQTT_PASSWORD` 提供。未配置 `QHSE_MQTT_URL` 时适配器保持禁用，不影响 HTTP/WebSocket 和本地开发启动。未来时钟允许偏差默认 60 秒，可用 `QHSE_TELEMETRY_MAX_FUTURE_SKEW_MS` 调整；单实例补传缓冲默认 1000 条，可用 `QHSE_TELEMETRY_REPLAY_SIZE` 调整。
+
+附件默认写入仓库外忽略目录 `.qhse-data/objects`，可用 `QHSE_UPLOAD_DIR` 指定路径，`QHSE_ATTACHMENT_MAX_SIZE` 调整默认 20 MB 限制。生产 S3 兼容存储通过以下进程环境切换：
+
+```bash
+QHSE_OBJECT_STORAGE=s3 \
+QHSE_S3_BUCKET=qhse-evidence \
+QHSE_S3_REGION=cn-north-1 \
+QHSE_S3_ENDPOINT=https://s3.example.com npm run server:dev
+```
+
+访问凭据使用 AWS SDK 标准凭据链提供；兼容 MinIO 等服务时可设置 `QHSE_S3_FORCE_PATH_STYLE=true`。

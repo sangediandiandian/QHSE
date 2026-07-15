@@ -9,6 +9,7 @@ _roadhog-api-doc
 # production
 /dist
 /server/dist
+/.qhse-data
 
 # misc
 .DS_Store

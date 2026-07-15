@@ -6,9 +6,11 @@ import { PrismaHazardRepository } from './prisma-hazard.repository';
 import { HAZARD_REPOSITORY } from './hazard.repository';
 import { HazardService } from './hazard.service';
 import { RiskService } from '../risks/risk.service';
+import { AttachmentModule } from '../attachments/attachment.module';
+import { AttachmentService } from '../attachments/attachment.service';
 
 @Module({
-  imports: [RiskModule],
+  imports: [RiskModule, AttachmentModule],
   controllers: [HazardController],
   providers: [
     InMemoryHazardRepository,
@@ -21,11 +23,12 @@ import { RiskService } from '../risks/risk.service';
     },
     {
       provide: HazardService,
-      inject: [HAZARD_REPOSITORY, RiskService],
+      inject: [HAZARD_REPOSITORY, RiskService, AttachmentService],
       useFactory: (
         repository: InMemoryHazardRepository | PrismaHazardRepository,
         riskService: RiskService,
-      ) => new HazardService(repository, riskService),
+        attachmentService: AttachmentService,
+      ) => new HazardService(repository, riskService, {}, attachmentService),
     },
   ],
 })

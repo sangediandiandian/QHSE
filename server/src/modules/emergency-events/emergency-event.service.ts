@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
+import type { AttachmentService } from '../attachments/attachment.service';
 import type { IamService } from '../iam/iam.service';
 import type { WorkflowActor, WorkflowService } from '../workflows/workflow.service';
 import type {
@@ -56,6 +57,7 @@ export class EmergencyEventService {
     private readonly workflows: WorkflowService,
     private readonly iam: IamService,
     options: Options = {},
+    private readonly attachments?: AttachmentService,
   ) {
     this.now = options.now ?? (() => new Date());
     this.createId = options.createId ?? randomUUID;
@@ -151,10 +153,14 @@ export class EmergencyEventService {
   async addEvidence(id: string, input: AddEmergencyEvidenceDto, access: EmergencyAccess) {
     const event = await this.get(id, access.allowedAreaIds);
     if (event.status === '已关闭') this.stateConflict(event, '添加证据');
+    const attachment = input.objectId
+      ? await this.bindAttachment(input.objectId, event, access)
+      : undefined;
     const timestamp = this.now().toISOString();
     return this.mutate(event, input.expectedVersion, access, {
       evidence: {
         id: this.createId(),
+        objectId: attachment?.id,
         name: input.name.trim(),
         category: input.category,
         uploaderId: access.actorId,
@@ -162,11 +168,28 @@ export class EmergencyEventService {
         uploadedAt: timestamp,
         note: input.note.trim(),
         hash:
+          attachment?.sha256 ||
           input.hash?.trim() ||
           createHash('sha256').update(`${event.id}:${input.name}:${timestamp}`).digest('hex'),
+        contentType: attachment?.contentType,
+        size: attachment?.size,
       },
       updatedAt: timestamp,
     });
+  }
+
+  private async bindAttachment(objectId: string, event: EmergencyEvent, access: EmergencyAccess) {
+    if (!this.attachments) {
+      throw new BadRequestException({
+        code: 'ATTACHMENT_SERVICE_UNAVAILABLE',
+        message: '附件服务不可用',
+      });
+    }
+    return this.attachments.bind(
+      objectId,
+      { businessType: 'emergency_event', businessId: event.id, areaId: event.areaId },
+      access,
+    );
   }
 
   async requestClose(id: string, input: EventVersionDto, access: EmergencyAccess) {

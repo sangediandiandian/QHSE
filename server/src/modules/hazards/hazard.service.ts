@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import type { RiskService } from '../risks/risk.service';
+import type { AttachmentService } from '../attachments/attachment.service';
 import type { AddHazardEvidenceDto } from './dto/add-hazard-evidence.dto';
 import type { CloseHazardDto } from './dto/close-hazard.dto';
 import type { CreateHazardDto } from './dto/create-hazard.dto';
@@ -34,6 +35,7 @@ export class HazardService {
     private readonly repository: HazardRepository,
     private readonly riskService: RiskService,
     options: HazardServiceOptions = {},
+    private readonly attachments?: AttachmentService,
   ) {
     this.now = options.now ?? (() => new Date());
     this.createId = options.createId ?? randomUUID;
@@ -96,19 +98,40 @@ export class HazardService {
   async addEvidence(id: string, input: AddHazardEvidenceDto, access: HazardAccessContext) {
     const hazard = await this.get(id, access.allowedAreaIds);
     if (hazard.status === '已关闭') this.throwStateConflict(hazard.status, '添加整改证据');
+    const attachment = input.objectId
+      ? await this.bindAttachment(input.objectId, hazard, access)
+      : undefined;
     const timestamp = this.now().toISOString();
     return this.runMutation(hazard, input.expectedVersion, access, {
       evidence: {
         id: this.createId(),
+        objectId: attachment?.id,
         name: input.name.trim(),
         category: input.category,
         uploaderId: access.actorId,
         uploader: access.actorName,
         uploadedAt: timestamp,
         note: input.note?.trim() || undefined,
+        contentType: attachment?.contentType,
+        size: attachment?.size,
+        sha256: attachment?.sha256,
       },
       updatedAt: timestamp,
     });
+  }
+
+  private async bindAttachment(objectId: string, hazard: Hazard, access: HazardAccessContext) {
+    if (!this.attachments) {
+      throw new BadRequestException({
+        code: 'ATTACHMENT_SERVICE_UNAVAILABLE',
+        message: '附件服务不可用',
+      });
+    }
+    return this.attachments.bind(
+      objectId,
+      { businessType: 'hazard', businessId: hazard.id, areaId: hazard.areaId },
+      access,
+    );
   }
 
   async start(id: string, input: VersionDto, access: HazardAccessContext) {
