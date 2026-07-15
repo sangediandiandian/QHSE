@@ -32,7 +32,7 @@
 | 5B2 | 应急资源 | 库存、批次、FEFO 调拨、归还和巡检维护服务端闭环 | 已完成 |
 | 5C | 融合通信 | 多渠道发送、回执、重试、升级和审计 | 已完成 |
 | 6 | GDS/VOC/MES、WebSocket/MQTT、对象存储 | 真实数据稳定接入，附件与证据可固化 | 已完成 |
-| 7 | 报表、缓存、消息队列、部署、安全与性能 | 完成生产容量、安全和恢复验证 | 进行中：平台能力、健康探针和 OTLP 追踪已完成，待容量与灾备验证 |
+| 7 | 报表、缓存、消息队列、部署、安全与性能 | 完成生产容量、安全和恢复验证 | 进行中：平台能力、健康探针、追踪和容量工具已完成，待生产容量与灾备验证 |
 
 应急资源基础闭环已经后端化；仓库/库位、完整库存流水、扫码盘点、维修工单和跨库调拨作为后续生产化增强项建设。
 
@@ -228,3 +228,16 @@ npm run server:start
 ```
 
 采样、批量延迟、导出超时和认证 Header 使用 OpenTelemetry SDK 标准环境变量管理。端点只允许不内嵌账号密码的 HTTP(S) URL；认证信息应通过 `OTEL_EXPORTER_OTLP_HEADERS` 由部署平台注入，不写入仓库。
+
+后端容量基线工具默认请求本地 liveness，输出吞吐、成功/错误数、网络错误、HTTP 状态分布和 P50/P95/P99/最大延迟，并按 P95 和错误率阈值设置进程退出码：
+
+```bash
+QHSE_CAPACITY_URL=http://127.0.0.1:3001/api/health/live \
+QHSE_CAPACITY_REQUESTS=2000 \
+QHSE_CAPACITY_CONCURRENCY=50 \
+QHSE_CAPACITY_MAX_P95_MS=100 \
+QHSE_CAPACITY_MAX_ERROR_RATE=0 \
+npm run server:capacity
+```
+
+单请求超时使用 `QHSE_CAPACITY_TIMEOUT_MS` 调整。测试受保护接口时可由临时运行环境提供 `QHSE_CAPACITY_BEARER_TOKEN`，工具不会输出 Token；目标 URL 禁止内嵌凭据，报告会移除查询参数。开发机结果只能作为回归基线，生产容量结论必须在目标容器规格、真实 PostgreSQL/Redis/Collector 和代表性业务数据下重新执行。
