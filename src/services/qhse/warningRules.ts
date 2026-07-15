@@ -1,4 +1,4 @@
-import type { WarningEvaluationResult, WarningEvidenceCategory, WarningRule, WarningRuleDraftInput, WarningSampleInput, WarningSignal } from '@/types/qhse';
+import type { EmergencyEvent, WarningEvaluationResult, WarningEvidenceCategory, WarningRule, WarningRuleDraftInput, WarningSampleInput, WarningSignal } from '@/types/qhse';
 import { request } from '@umijs/max';
 
 interface ApiResponse<T> { success: boolean; data: T; requestId: string; timestamp: string }
@@ -52,3 +52,8 @@ export const acknowledgeWarningSignal = (id: string, expectedVersion: number) =>
 export const startWarningSignalHandling = (id: string, expectedVersion: number) => signalPost(id, 'handling', { expectedVersion });
 export const closeWarningSignal = (id: string, expectedVersion: number, reason: string) => signalPost(id, 'close', { expectedVersion, reason });
 export const verifyWarningSignalEvidence = (id: string, expectedVersion: number, category: WarningEvidenceCategory) => signalPost(id, 'evidence', { expectedVersion, category });
+
+export async function startWarningEmergencyResponse(id: string, expectedVersion: number) {
+  const response = await request<ApiResponse<{ signal: WarningSignal; event: EmergencyEvent }>>(`/api/v1/warning-execution/signals/${id}/emergency`, { method: 'POST', data: { expectedVersion } });
+  return response.data;
+}

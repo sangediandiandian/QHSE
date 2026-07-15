@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { EmergencyEventModule } from '../emergency-events/emergency-event.module';
+import { EmergencyEventService } from '../emergency-events/emergency-event.service';
 import { WorkPermitModule } from '../work-permits/work-permit.module';
 import { WorkPermitService } from '../work-permits/work-permit.service';
 import { WarningRuleModule } from '../warning-rules/warning-rule.module';
@@ -10,7 +12,7 @@ import { WARNING_EXECUTION_REPOSITORY } from './warning-execution.repository';
 import { WarningExecutionService } from './warning-execution.service';
 
 @Module({
-  imports: [WarningRuleModule, WorkPermitModule],
+  imports: [WarningRuleModule, WorkPermitModule, EmergencyEventModule],
   controllers: [WarningExecutionController],
   providers: [
     InMemoryWarningExecutionRepository,
@@ -25,12 +27,18 @@ import { WarningExecutionService } from './warning-execution.service';
     },
     {
       provide: WarningExecutionService,
-      inject: [WARNING_EXECUTION_REPOSITORY, WarningRuleService, WorkPermitService],
+      inject: [
+        WARNING_EXECUTION_REPOSITORY,
+        WarningRuleService,
+        WorkPermitService,
+        EmergencyEventService,
+      ],
       useFactory: (
         repository: InMemoryWarningExecutionRepository | PrismaWarningExecutionRepository,
         rules: WarningRuleService,
         permits: WorkPermitService,
-      ) => new WarningExecutionService(repository, rules, permits),
+        emergencies: EmergencyEventService,
+      ) => new WarningExecutionService(repository, rules, permits, {}, emergencies),
     },
   ],
   exports: [WarningExecutionService],

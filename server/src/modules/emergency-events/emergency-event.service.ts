@@ -76,6 +76,11 @@ export class EmergencyEventService {
     return event;
   }
 
+  async findByEventId(eventId: string, allowedAreaIds?: string[]) {
+    const event = await this.repository.findByEventId(eventId);
+    return event && (!allowedAreaIds || allowedAreaIds.includes(event.areaId)) ? event : undefined;
+  }
+
   async create(input: CreateEmergencyEventDto, access: EmergencyAccess) {
     if (await this.repository.findByEventId(input.eventId))
       throw new ConflictException({

@@ -1,5 +1,10 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import type { EmergencyEventService } from '../emergency-events/emergency-event.service';
+import type {
+  EmergencyResponseLevel,
+  EmergencySource,
+} from '../emergency-events/emergency-event.types';
 import type { WorkPermitService } from '../work-permits/work-permit.service';
 import type { WarningRuleService } from '../warning-rules/warning-rule.service';
 import type { WarningRule, WarningRuleExpressionItem } from '../warning-rules/warning-rule.types';
@@ -25,7 +30,20 @@ interface WarningExecutionOptions {
 export interface WarningSignalAccess {
   actorId: string;
   actorName: string;
+  roleCodes?: string[];
   allowedAreaIds?: string[];
+}
+
+function toEmergencySource(source: WarningSignal['source']): EmergencySource {
+  return ['GDS', 'VOC', 'MES', '联合预警', '作业许可'].includes(source)
+    ? (source as EmergencySource)
+    : '联合预警';
+}
+
+function toEmergencyResponseLevel(level: WarningSignal['level']): EmergencyResponseLevel {
+  if (level === 'critical') return 'II级';
+  if (level === 'high') return 'III级';
+  return 'IV级';
 }
 
 export class WarningExecutionService {
@@ -38,6 +56,7 @@ export class WarningExecutionService {
     private readonly ruleService: WarningRuleService,
     private readonly workPermitService: WorkPermitService,
     options: WarningExecutionOptions = {},
+    private readonly emergencyEventService?: EmergencyEventService,
   ) {
     this.createId = options.createId ?? randomUUID;
     this.suppressionMs = options.suppressionMs ?? 5 * 60 * 1000;
@@ -128,6 +147,53 @@ export class WarningExecutionService {
     const signal = await this.getSignal(id, access.allowedAreaIds);
     if (signal.status !== 'acknowledged') this.stateConflict(signal, '开始处置');
     return this.mutate(signal, 'processing', expectedVersion, access, '开始处置', '预警处置已启动');
+  }
+
+  async startEmergencyResponse(id: string, expectedVersion: number, access: WarningSignalAccess) {
+    const signal = await this.getSignal(id, access.allowedAreaIds);
+    if (!this.emergencyEventService)
+      throw new ConflictException({
+        code: 'EMERGENCY_LINKAGE_UNAVAILABLE',
+        message: '应急事件服务不可用',
+      });
+    const existing = await this.emergencyEventService.findByEventId(
+      signal.id,
+      access.allowedAreaIds,
+    );
+    if (signal.status === 'processing' && existing) return { signal, event: existing };
+    if (signal.status !== 'acknowledged') this.stateConflict(signal, '启动应急响应');
+    if (!signal.areaId)
+      throw new ConflictException({
+        code: 'WARNING_SIGNAL_AREA_REQUIRED',
+        message: '预警信号未关联区域，不能启动应急响应',
+      });
+    const event =
+      existing ??
+      (await this.emergencyEventService.create(
+        {
+          eventId: signal.id,
+          title: signal.title,
+          areaId: signal.areaId,
+          source: toEmergencySource(signal.source),
+          responseLevel: toEmergencyResponseLevel(signal.level),
+          summary: `${signal.detail}；已核验 ${signal.evidenceChecks.length} 类关联证据。`,
+        },
+        {
+          actorId: access.actorId,
+          actorName: access.actorName,
+          roleCodes: access.roleCodes ?? [],
+          allowedAreaIds: access.allowedAreaIds,
+        },
+      ));
+    const updated = await this.mutate(
+      signal,
+      'processing',
+      expectedVersion,
+      access,
+      '开始处置',
+      `已生成应急事件 ${event.code}`,
+    );
+    return { signal: updated, event };
   }
 
   async close(id: string, expectedVersion: number, reason: string, access: WarningSignalAccess) {

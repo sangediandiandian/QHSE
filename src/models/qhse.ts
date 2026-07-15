@@ -64,7 +64,7 @@ import {
   getWarningSignals,
   rollbackWarningRule as rollbackWarningRuleByApi,
   submitWarningRule as submitWarningRuleByApi,
-  startWarningSignalHandling,
+  startWarningEmergencyResponse,
   verifyWarningSignalEvidence,
   toggleWarningRule as toggleWarningRuleByApi,
   updateWarningRuleDraft,
@@ -431,12 +431,18 @@ export default function useQhseModel() {
     if (hazardApiMode) {
       const event = dashboard?.alarms.find((item) => item.id === eventId);
       if (!event?.version) throw new Error('预警信号不存在或不支持处置');
-      const signal = await startWarningSignalHandling(eventId, event.version);
+      const result = await startWarningEmergencyResponse(eventId, event.version);
       setDashboard((current) => current ? {
         ...current,
-        alarms: current.alarms.map((alarm) => alarm.id === eventId ? withSignalState(alarm, signal) : alarm),
+        alarms: current.alarms.map((alarm) => alarm.id === eventId ? withSignalState(alarm, result.signal) : alarm),
+        emergencyEvents: current.emergencyEvents.some((item) => item.id === result.event.id)
+          ? current.emergencyEvents
+          : [result.event, ...current.emergencyEvents],
       } : current);
-      return signal;
+      setEmergencyEventRecords((items) => items.some((item) => item.id === result.event.id)
+        ? items
+        : [result.event, ...items]);
+      return result;
     }
     setDashboard((current) => current ? {
       ...current,

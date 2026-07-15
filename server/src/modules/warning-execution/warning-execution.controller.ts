@@ -23,6 +23,7 @@ const allowedAreas = (principal: AuthPrincipal) =>
 const access = (principal: AuthPrincipal) => ({
   actorId: principal.userId,
   actorName: principal.name,
+  roleCodes: principal.roles,
   allowedAreaIds: allowedAreas(principal),
 });
 
@@ -105,6 +106,23 @@ export class WarningExecutionController {
     @CurrentPrincipal() principal: AuthPrincipal,
   ) {
     return this.service.startHandling(id, input.expectedVersion, access(principal));
+  }
+
+  @Post('signals/:id/emergency')
+  @HttpCode(200)
+  @RequirePermissions('warning:handle', 'emergency:manage')
+  @AuditAction({
+    action: 'warning.signal.emergency.start',
+    resourceType: 'warning_signal',
+    resourceIdParam: 'id',
+  })
+  @ApiOperation({ summary: '从已确认预警幂等生成应急事件并进入处置状态' })
+  startEmergencyResponse(
+    @Param('id') id: string,
+    @Body() input: WarningSignalVersionDto,
+    @CurrentPrincipal() principal: AuthPrincipal,
+  ) {
+    return this.service.startEmergencyResponse(id, input.expectedVersion, access(principal));
   }
 
   @Post('signals/:id/close')

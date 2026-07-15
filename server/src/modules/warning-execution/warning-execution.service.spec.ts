@@ -1,5 +1,8 @@
 /** @jest-environment node */
 
+import { EmergencyEventService } from '../emergency-events/emergency-event.service';
+import { InMemoryEmergencyEventRepository } from '../emergency-events/in-memory-emergency-event.repository';
+import { IamService } from '../iam/iam.service';
 import { InMemoryWorkPermitRepository } from '../work-permits/in-memory-work-permit.repository';
 import { WorkPermitService } from '../work-permits/work-permit.service';
 import { InMemoryWorkflowRepository } from '../workflows/in-memory-workflow.repository';
@@ -18,13 +21,20 @@ function createFixture() {
     { createId },
   );
   const permits = new WorkPermitService(new InMemoryWorkPermitRepository(), { createId });
+  const emergencies = new EmergencyEventService(
+    new InMemoryEmergencyEventRepository(),
+    new WorkflowService(new InMemoryWorkflowRepository(), { createId }),
+    new IamService(),
+    { createId },
+  );
   const execution = new WarningExecutionService(
     new InMemoryWarningExecutionRepository(),
     rules,
     permits,
     { createId, suppressionMs: 5 * 60 * 1000 },
+    emergencies,
   );
-  return { execution, rules, permits };
+  return { execution, rules, permits, emergencies };
 }
 
 describe('WarningExecutionService', () => {
@@ -162,6 +172,45 @@ describe('WarningExecutionService', () => {
     ).rejects.toMatchObject({
       response: expect.objectContaining({ code: 'WARNING_SIGNAL_STATE_CONFLICT' }),
     });
+  });
+
+  test('已确认预警幂等生成应急事件并进入处置状态', async () => {
+    const { execution, emergencies } = createFixture();
+    const signal = (
+      await execution.evaluate({
+        source: 'GDS',
+        subjectId: 'GDS-101',
+        areaId: 'area-02',
+        occurredAt: '2026-07-15T08:00:00.000Z',
+        metrics: { 'GDS.currentValue': 55 },
+      })
+    ).triggeredSignals[0];
+    const access = {
+      actorId: 'user-unit',
+      actorName: '李建国',
+      roleCodes: ['unit_manager'],
+      allowedAreaIds: ['area-02'],
+    };
+
+    await execution.acknowledge(signal.id, 1, access);
+    const started = await execution.startEmergencyResponse(signal.id, 2, access);
+    expect(started.signal).toMatchObject({ status: 'processing', version: 3 });
+    expect(started.signal.operations.at(-1)).toMatchObject({
+      action: '开始处置',
+      detail: expect.stringContaining(started.event.code),
+    });
+    expect(started.event).toMatchObject({
+      eventId: signal.id,
+      areaId: 'area-02',
+      source: 'GDS',
+      status: '待研判',
+      responseLevel: 'II级',
+    });
+
+    const repeated = await execution.startEmergencyResponse(signal.id, 3, access);
+    expect(repeated).toEqual(started);
+    const linked = await emergencies.list({}, ['area-02']);
+    expect(linked.filter((item) => item.eventId === signal.id)).toHaveLength(1);
   });
 
   test('证据核验记录可信操作人并阻止重复核验', async () => {

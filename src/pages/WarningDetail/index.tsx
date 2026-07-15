@@ -103,6 +103,7 @@ export default function WarningDetail() {
 
   const confirmed = event.status !== '待确认';
   const processing = event.status === '处置中';
+  const canStartResponse = access.canHandleWarning && access.canManageEmergency;
   const planName = event.source === 'VOC' ? 'VOC 治理设施异常核查方案' : '可燃气体泄漏现场处置方案';
   const responseTasks = event.source === 'VOC'
     ? [
@@ -133,7 +134,7 @@ export default function WarningDetail() {
     setMutating(true);
     try {
       await startEmergency(event.id);
-      message.success(warningRuleApiMode ? '预警处置已启动' : '应急预案已启动，处置任务已生成');
+      message.success(warningRuleApiMode ? '应急事件已生成，等待研判' : '应急预案已启动，处置任务已生成');
     } finally {
       setMutating(false);
     }
@@ -165,7 +166,7 @@ export default function WarningDetail() {
       className={styles.page}
       extra={[
         <Button key="confirm" loading={mutating} disabled={confirmed || !access.canHandleWarning} icon={<CheckCircleFilled />} onClick={() => void handleConfirm()}>{confirmed ? '已确认' : '确认事件'}</Button>,
-        <Button key="start" type="primary" danger loading={mutating} disabled={!confirmed || processing || !access.canHandleWarning} icon={<PlayCircleFilled />} onClick={() => void handleStart()}>{processing ? (warningRuleApiMode ? '处置中' : '预案已启动') : (warningRuleApiMode ? '开始处置' : '启动应急预案')}</Button>,
+        <Button key="start" type="primary" danger loading={mutating} disabled={!confirmed || processing || (warningRuleApiMode ? !canStartResponse : !access.canHandleWarning)} icon={<PlayCircleFilled />} onClick={() => void handleStart()}>{processing ? (warningRuleApiMode ? '应急事件已生成' : '预案已启动') : (warningRuleApiMode ? '启动应急响应' : '启动应急预案')}</Button>,
         warningRuleApiMode && <Button key="close" disabled={!confirmed || !access.canCloseWarning} onClick={() => setCloseOpen(true)}>关闭预警</Button>,
       ]}
     >
@@ -191,7 +192,7 @@ export default function WarningDetail() {
 
         <aside className={styles.sideColumn}>
           <article className={styles.planCard}>
-            <header><SafetyCertificateFilled /><span>推荐应急预案</span></header><strong>{planName}</strong><p>匹配介质、装置区域和报警等级，推荐度 96%。</p><Progress percent={96} showInfo={false} strokeColor="#1a7791" /><Button block disabled={!confirmed || processing || !access.canHandleWarning} onClick={() => void handleStart()}>{processing ? '执行中' : warningRuleApiMode ? '开始处置' : '启动该预案'}</Button>
+            <header><SafetyCertificateFilled /><span>推荐应急预案</span></header><strong>{planName}</strong><p>匹配介质、装置区域和报警等级，推荐度 96%。</p><Progress percent={96} showInfo={false} strokeColor="#1a7791" /><Button block disabled={!confirmed || processing || (warningRuleApiMode ? !canStartResponse : !access.canHandleWarning)} onClick={() => void handleStart()}>{processing ? '执行中' : warningRuleApiMode ? '启动应急响应' : '启动该预案'}</Button>
           </article>
           <article className={styles.communication}>
             <header><NotificationFilled /><span>融合通信</span><Tag bordered={false}>{communications.length ? `${communications.length} 人` : '待启动'}</Tag></header>
