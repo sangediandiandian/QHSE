@@ -37,11 +37,21 @@ describe('CacheService', () => {
     expect(loader).toHaveBeenCalledTimes(1);
   });
 
+  test('按命名空间失效后重新加载所有授权范围', async () => {
+    const service = new CacheService(new MemoryCacheStore());
+    const loader = jest.fn().mockResolvedValueOnce('v1').mockResolvedValueOnce('v2');
+    await expect(service.getOrLoad('dashboard', 'area-02', 1_000, loader)).resolves.toBe('v1');
+    await service.invalidate('dashboard');
+    await expect(service.getOrLoad('dashboard', 'area-02', 1_000, loader)).resolves.toBe('v2');
+    expect(service.snapshot()).toMatchObject({ invalidations: 1 });
+  });
+
   test('缓存后端故障时回源并短时熔断后续访问', async () => {
     const store = {
       backend: 'redis',
       get: jest.fn().mockRejectedValue(new Error('offline')),
       set: jest.fn(),
+      deleteByPrefix: jest.fn(),
       ping: jest.fn(),
       close: jest.fn(),
     } as unknown as CacheStore;

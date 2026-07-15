@@ -22,6 +22,7 @@ export default function RiskManagement() {
   const [selectedId, setSelectedId] = useState('risk-001');
   const [assessmentOpen, setAssessmentOpen] = useState(false);
   const [controlsOpen, setControlsOpen] = useState(false);
+  const [mutating, setMutating] = useState(false);
   const [assessmentForm] = Form.useForm<RiskAssessmentInput>();
   const [controlsForm] = Form.useForm<{ controls: Array<Pick<RiskControlRecord, 'content' | 'owner' | 'status'>> }>();
   const likelihood = Form.useWatch('likelihood', assessmentForm) ?? 1;
@@ -45,6 +46,32 @@ export default function RiskManagement() {
       children: (dashboard?.riskUnits ?? []).filter((unit) => unit.areaId === area.id && unit.parentName === parentName).map((unit) => ({ title: unit.name, key: unit.id })),
     })),
   })).filter((area) => area.children.length > 0), [dashboard]);
+
+  const handleAssessment = async () => {
+    const values = await assessmentForm.validateFields();
+    if (!selected) return;
+    setMutating(true);
+    try {
+      await assessRiskUnit(selected.id, values);
+      setAssessmentOpen(false);
+      message.success('风险评估已保存并写入审计记录');
+    } finally {
+      setMutating(false);
+    }
+  };
+
+  const handleControls = async () => {
+    const { controls } = await controlsForm.validateFields();
+    if (!selected) return;
+    setMutating(true);
+    try {
+      await saveRiskControls(selected.id, controls);
+      setControlsOpen(false);
+      message.success('管控措施已保存并写入审计记录');
+    } finally {
+      setMutating(false);
+    }
+  };
 
   if (!dashboard && loading) return <PageContainer><Skeleton active paragraph={{ rows: 14 }} /></PageContainer>;
   if (!dashboard) return <PageContainer><Empty description="风险数据暂不可用" /></PageContainer>;
@@ -96,7 +123,7 @@ export default function RiskManagement() {
         </section>}
       </main>
 
-      <Modal title={`LEC 风险评估 · ${selected?.name ?? ''}`} open={assessmentOpen} onCancel={() => setAssessmentOpen(false)} onOk={() => assessmentForm.validateFields().then((values) => { if (!selected) return; assessRiskUnit(selected.id, values); setAssessmentOpen(false); message.success('风险评估已完成'); })} okText="完成评估">
+      <Modal title={`LEC 风险评估 · ${selected?.name ?? ''}`} open={assessmentOpen} confirmLoading={mutating} onCancel={() => { if (!mutating) setAssessmentOpen(false); }} onOk={() => void handleAssessment()} okText="完成评估">
         <Form form={assessmentForm} layout="vertical">
           <div className={styles.formGrid}><Form.Item name="likelihood" label="L 事故可能性" rules={[{ required: true }]}><InputNumber min={1} max={10} /></Form.Item><Form.Item name="exposure" label="E 暴露频率" rules={[{ required: true }]}><InputNumber min={1} max={10} /></Form.Item><Form.Item name="consequence" label="C 后果严重度" rules={[{ required: true }]}><InputNumber min={1} max={100} /></Form.Item></div>
           <div className={styles.scorePreview}><span>LEC 风险值</span><strong>{likelihood * exposure * consequence}</strong><Tag color={levelColor[getLecRiskLevel(likelihood * exposure * consequence)]}>{levelText[getLecRiskLevel(likelihood * exposure * consequence)]}</Tag></div>
@@ -104,7 +131,7 @@ export default function RiskManagement() {
         </Form>
       </Modal>
 
-      <Modal width={720} title={`管控措施 · ${selected?.name ?? ''}`} open={controlsOpen} onCancel={() => setControlsOpen(false)} onOk={() => controlsForm.validateFields().then(({ controls }) => { if (!selected) return; saveRiskControls(selected.id, controls); setControlsOpen(false); message.success('管控措施已更新'); })} okText="保存措施">
+      <Modal width={720} title={`管控措施 · ${selected?.name ?? ''}`} open={controlsOpen} confirmLoading={mutating} onCancel={() => { if (!mutating) setControlsOpen(false); }} onOk={() => void handleControls()} okText="保存措施">
         <Form form={controlsForm} layout="vertical"><Form.List name="controls">{(fields, { add, remove }) => <><div className={styles.controlFormHeader}><span>措施内容</span><span>责任人</span><span>状态</span></div>{fields.map((field) => <Space key={field.key} className={styles.controlForm} align="start"><Form.Item name={[field.name, 'content']} rules={[{ required: true, message: '请填写措施' }]}><Input placeholder="管控措施" /></Form.Item><Form.Item name={[field.name, 'owner']} rules={[{ required: true, message: '请填写责任人' }]}><Input placeholder="责任人" /></Form.Item><Form.Item name={[field.name, 'status']}><Select options={[{ value: '有效' }, { value: '待验证' }]} /></Form.Item><Button danger onClick={() => remove(field.name)}>移除</Button></Space>)}<Button block icon={<PlusOutlined />} onClick={() => add({ owner: selected?.owner, status: '待验证' })}>添加管控措施</Button></>}</Form.List></Form>
       </Modal>
     </PageContainer>

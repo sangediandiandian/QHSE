@@ -1,4 +1,8 @@
 import { getDashboard } from '@/services/qhse/dashboard';
+import {
+  assessRiskUnit as assessRiskUnitByApi,
+  saveRiskControls as saveRiskControlsByApi,
+} from '@/services/qhse/risks';
 import type {
   AlarmEvent,
   DashboardData,
@@ -831,23 +835,45 @@ export default function useQhseModel() {
     });
   }, [emergencyEventRecords]);
 
-  const assessRiskUnit = useCallback((riskUnitId: string, input: RiskAssessmentInput) => {
+  const assessRiskUnit = useCallback(async (riskUnitId: string, input: RiskAssessmentInput) => {
+    if (hazardApiMode) {
+      const unit = dashboard?.riskUnits.find((item) => item.id === riskUnitId);
+      if (!unit?.version) throw new Error('风险单元不存在或不支持服务端评估');
+      const updated = await assessRiskUnitByApi(riskUnitId, input, unit.version);
+      setDashboard((current) => current ? {
+        ...current,
+        riskUnits: current.riskUnits.map((item) => item.id === riskUnitId ? updated : item),
+      } : current);
+      return updated;
+    }
     setDashboard((current) => current ? {
       ...current,
       riskUnits: current.riskUnits.map((unit) => unit.id === riskUnitId
         ? withAssessedRiskUnit(unit, input, `assessment-${Date.now()}`, getCurrentTimestamp())
         : unit),
     } : current);
-  }, []);
+    return undefined;
+  }, [dashboard]);
 
-  const saveRiskControls = useCallback((riskUnitId: string, controls: Array<Pick<RiskControlRecord, 'content' | 'owner' | 'status'>>) => {
+  const saveRiskControls = useCallback(async (riskUnitId: string, controls: Array<Pick<RiskControlRecord, 'content' | 'owner' | 'status'>>) => {
+    if (hazardApiMode) {
+      const unit = dashboard?.riskUnits.find((item) => item.id === riskUnitId);
+      if (!unit?.version) throw new Error('风险单元不存在或不支持服务端措施维护');
+      const updated = await saveRiskControlsByApi(riskUnitId, controls, unit.version);
+      setDashboard((current) => current ? {
+        ...current,
+        riskUnits: current.riskUnits.map((item) => item.id === riskUnitId ? updated : item),
+      } : current);
+      return updated;
+    }
     setDashboard((current) => current ? {
       ...current,
       riskUnits: current.riskUnits.map((unit) => unit.id === riskUnitId
         ? withSavedRiskControls(unit, controls, getCurrentTimestamp())
         : unit),
     } : current);
-  }, []);
+    return undefined;
+  }, [dashboard]);
 
   const addHazard = useCallback(async (input: HazardReportInput) => {
     if (hazardApiMode) {

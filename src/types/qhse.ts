@@ -724,10 +724,12 @@ export interface RiskUnit {
   }>;
   assessments?: RiskAssessment[];
   controlRecords?: RiskControlRecord[];
+  version?: number;
 }
 
 export interface RiskAssessment {
   id: string;
+  assessorId?: string;
   method: 'LEC';
   likelihood: number;
   exposure: number;

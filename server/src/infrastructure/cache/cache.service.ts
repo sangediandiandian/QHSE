@@ -8,6 +8,7 @@ export class CacheService implements OnModuleDestroy {
   private misses = 0;
   private writes = 0;
   private failures = 0;
+  private invalidations = 0;
   private lastErrorAt?: string;
   private lastSuccessAt?: string;
   private unavailableUntil = 0;
@@ -64,6 +65,7 @@ export class CacheService implements OnModuleDestroy {
       misses: this.misses,
       writes: this.writes,
       failures: this.failures,
+      invalidations: this.invalidations,
       inFlight: this.inFlight.size,
       lastErrorAt: this.lastErrorAt,
       lastSuccessAt: this.lastSuccessAt,
@@ -78,6 +80,21 @@ export class CacheService implements OnModuleDestroy {
     } catch (error) {
       this.recordFailure();
       throw error;
+    }
+  }
+
+  async invalidate(namespace: string) {
+    const prefix = `qhse:${namespace}:`;
+    const loading = [...this.inFlight.entries()]
+      .filter(([key]) => key.startsWith(prefix))
+      .map(([, pending]) => pending.catch(() => undefined));
+    await Promise.all(loading);
+    try {
+      await this.store.deleteByPrefix(prefix);
+      this.invalidations += 1;
+      this.lastSuccessAt = new Date().toISOString();
+    } catch {
+      this.recordFailure();
     }
   }
 

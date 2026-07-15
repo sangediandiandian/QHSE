@@ -25,6 +25,12 @@ export class MemoryCacheStore implements CacheStore {
     this.entries.set(key, { value: JSON.stringify(value), expiresAt: this.now() + ttlMs });
   }
 
+  async deleteByPrefix(prefix: string) {
+    for (const key of this.entries.keys()) {
+      if (key.startsWith(prefix)) this.entries.delete(key);
+    }
+  }
+
   async ping() {}
 
   async close() {

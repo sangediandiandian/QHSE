@@ -25,6 +25,15 @@ export class RedisCacheStore implements CacheStore {
     await this.client.set(key, JSON.stringify(value), { PX: ttlMs });
   }
 
+  async deleteByPrefix(prefix: string) {
+    await this.connect();
+    const keys: string[] = [];
+    for await (const batch of this.client.scanIterator({ MATCH: `${prefix}*`, COUNT: 100 })) {
+      keys.push(...batch);
+    }
+    if (keys.length) await this.client.sendCommand(['DEL', ...keys]);
+  }
+
   async ping() {
     await this.connect();
     await this.client.ping();
