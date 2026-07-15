@@ -20,6 +20,9 @@ export class AccessLogMiddleware implements NestMiddleware {
         response.statusCode >= 500 ? 'error' : response.statusCode >= 400 ? 'warn' : 'info';
       this.logger.write(level, 'http.request.completed', {
         requestId: request.requestId,
+        traceId: request.traceId,
+        spanId: request.spanId,
+        parentSpanId: request.parentSpanId,
         method: request.method,
         path: request.route?.path || normalizeRoutePath(request.path),
         status: response.statusCode,

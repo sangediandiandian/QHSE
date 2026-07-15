@@ -21,6 +21,7 @@ export class ApiResponseInterceptor implements NestInterceptor {
               success: true,
               data,
               requestId: request.requestId,
+              traceId: request.traceId,
               timestamp: new Date().toISOString(),
             },
       ),

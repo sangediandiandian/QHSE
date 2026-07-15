@@ -24,19 +24,20 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const context = host.switchToHttp();
     const request = context.getRequest<RequestWithId>();
     const response = context.getResponse<Response>();
-    const status = exception instanceof HttpException
-      ? exception.getStatus()
-      : HttpStatus.INTERNAL_SERVER_ERROR;
-    const exceptionResponse = exception instanceof HttpException
-      ? exception.getResponse()
-      : undefined;
-    const payload: ErrorPayload = typeof exceptionResponse === 'object'
-      ? exceptionResponse as ErrorPayload
-      : { message: String(exceptionResponse || '') };
+    const status =
+      exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
+    const exceptionResponse =
+      exception instanceof HttpException ? exception.getResponse() : undefined;
+    const payload: ErrorPayload =
+      typeof exceptionResponse === 'object'
+        ? (exceptionResponse as ErrorPayload)
+        : { message: String(exceptionResponse || '') };
 
     if (!(exception instanceof HttpException)) {
       this.logger.write('error', 'http.request.internal_error', {
         requestId: request.requestId,
+        traceId: request.traceId,
+        spanId: request.spanId,
         method: request.method,
         path: request.route?.path || normalizeRoutePath(request.path),
         errorType: exception instanceof Error ? exception.name : 'UnknownError',
@@ -51,6 +52,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         details: payload.details,
       },
       requestId: request.requestId,
+      traceId: request.traceId,
       timestamp: new Date().toISOString(),
     });
   }

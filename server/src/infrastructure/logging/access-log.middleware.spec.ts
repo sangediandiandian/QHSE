@@ -16,6 +16,9 @@ describe('AccessLogMiddleware', () => {
     const middleware = new AccessLogMiddleware(logger);
     const request = {
       requestId: 'request-1',
+      traceId: '1234567890abcdef1234567890abcdef',
+      spanId: '1234567890abcdef',
+      parentSpanId: 'fedcba0987654321',
       method: 'GET',
       path: '/api/v1/risks/123456',
       route: { path: '/api/v1/risks/:id' },
@@ -35,6 +38,9 @@ describe('AccessLogMiddleware', () => {
       level: 'warn',
       event: 'http.request.completed',
       requestId: 'request-1',
+      traceId: '1234567890abcdef1234567890abcdef',
+      spanId: '1234567890abcdef',
+      parentSpanId: 'fedcba0987654321',
       method: 'GET',
       path: '/api/v1/risks/:id',
       status: 404,

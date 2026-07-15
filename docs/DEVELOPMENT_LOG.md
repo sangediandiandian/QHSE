@@ -421,3 +421,22 @@
 - 前后端 TypeScript、后端生产编译和阶段文件 ESLint：通过。
 - Jest：全依赖就绪、单依赖失败、检查超时及缓存/会话/队列回归共 13 项测试通过。
 - 运行时联调：内存模式 legacy/live/ready 均返回 200，四项依赖全部 ready；Redis 缓存不可用时 liveness 保持 200，readiness 在 5 ms 内返回结构化 503，并只标记 cache 为 not_ready。
+
+## 2026-07-15 · Stage 7J W3C 追踪上下文
+
+计划提交：`build trace context propagation`
+
+完成内容：
+
+- 请求上下文解析 W3C `traceparent`，继承有效上游 `traceId`、父 span 和采样标记，并为每个入站 HTTP 请求创建新的服务端 `spanId`。
+- 拒绝全零 trace/span、非法格式和不支持版本；无可信上游时使用密码学随机数创建根追踪上下文。
+- 响应头返回当前服务端 `traceparent`，统一成功与异常响应新增 `traceId`，保留原有 `requestId` 兼容能力。
+- 访问完成和未处理异常日志新增 `traceId`、`spanId`，存在有效上游时记录 `parentSpanId`，不扩大敏感数据采集范围。
+- 本阶段只建设标准上下文生成、传播和日志关联，不将其描述为完整 OpenTelemetry span 导出能力。
+
+验证记录：
+
+- 前后端 TypeScript、前后端生产编译、阶段文件 ESLint：通过。
+- Jest：有效父上下文传播、非法/全零上下文重建、访问日志字段与异常响应脱敏共 7 项测试通过；全量后端相关测试通过。
+- 运行时联调：有效父 `traceId` 在响应头、响应体和 JSON 日志保持一致且服务端 `spanId` 已更新；非法全零头生成新上下文，404 异常响应仍可按 `traceId` 关联。
+- 已知基线：全仓后端 ESLint 存在 124 个历史错误；前端登录页存在 1 个既有快照差异，本阶段未修改对应文件或快照。

@@ -12,6 +12,8 @@ describe('AllExceptionsFilter', () => {
     const response = { status: jest.fn(() => ({ json })) };
     const request = {
       requestId: 'request-error',
+      traceId: '1234567890abcdef1234567890abcdef',
+      spanId: '1234567890abcdef',
       method: 'POST',
       path: '/api/v1/hazards',
     };
@@ -30,12 +32,15 @@ describe('AllExceptionsFilter', () => {
         success: false,
         error: expect.objectContaining({ code: 'HTTP_500', message: '服务内部错误' }),
         requestId: 'request-error',
+        traceId: '1234567890abcdef1234567890abcdef',
       }),
     );
     expect(JSON.parse(lines[0])).toMatchObject({
       level: 'error',
       event: 'http.request.internal_error',
       requestId: 'request-error',
+      traceId: '1234567890abcdef1234567890abcdef',
+      spanId: '1234567890abcdef',
       errorType: 'Error',
     });
     expect(lines[0]).not.toContain('secret');
