@@ -596,6 +596,46 @@ export interface IntegrationConfig {
   updatedAt: string;
 }
 
+export interface SystemDiagnostics {
+  service: {
+    name: string;
+    status: string;
+    repository: 'memory' | 'prisma';
+    objectStorage: 'local' | 's3';
+    nodeVersion: string;
+    uptimeSeconds: number;
+  };
+  memory: {
+    rssBytes: number;
+    heapUsedBytes: number;
+    heapTotalBytes: number;
+    externalBytes: number;
+  };
+  integrations: {
+    total: number;
+    enabled: number;
+    unhealthy: number;
+    items: Array<Pick<IntegrationConfig, 'code' | 'name' | 'type' | 'enabled' | 'healthStatus' | 'lastCheckedAt' | 'owner'>>;
+  };
+  requests: {
+    startedAt: string;
+    totalRequests: number;
+    totalErrors: number;
+    routes: Array<{
+      method: string;
+      path: string;
+      count: number;
+      errorCount: number;
+      averageDurationMs: number;
+      durationMaxMs: number;
+      errorRate: number;
+      lastStatus: number;
+      lastSeenAt: string;
+    }>;
+  };
+  generatedAt: string;
+}
+
 export interface EmergencyEventApprovalTask {
   id: string;
   workflowId?: string;

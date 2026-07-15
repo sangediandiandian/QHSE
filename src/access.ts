@@ -70,6 +70,7 @@ export default function access(initialState: { currentUser?: API.CurrentUser } |
     canExportReport: Boolean(currentUser && (isLegacyAdmin || granted.has('report:export'))),
     canViewConfig: Boolean(currentUser && (isLegacyAdmin || granted.has('config:read'))),
     canManageConfig: Boolean(currentUser && (isLegacyAdmin || granted.has('config:manage'))),
+    canViewDiagnostics: Boolean(currentUser && (isLegacyAdmin || granted.has('monitor:read'))),
     canReadAudit: Boolean(currentUser && (isLegacyAdmin || granted.has('audit:read'))),
     hasPermission: (permission: string) =>
       Boolean(currentUser && (isLegacyAdmin || granted.has(permission))),

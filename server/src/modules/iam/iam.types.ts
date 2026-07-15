@@ -42,6 +42,7 @@ export const permissions = [
   'report:export',
   'config:read',
   'config:manage',
+  'monitor:read',
   'iam:read',
   'iam:manage',
   'audit:read',

@@ -160,6 +160,13 @@ export default [
     access: 'canViewConfig',
   },
   {
+    name: '运行诊断',
+    icon: 'fundProjectionScreen',
+    path: '/diagnostics',
+    component: './Diagnostics',
+    access: 'canViewDiagnostics',
+  },
+  {
     path: '/warnings/:id',
     component: './WarningDetail',
     hideInMenu: true,

@@ -18,6 +18,8 @@ import { TelemetryModule } from './modules/telemetry/telemetry.module';
 import { AttachmentModule } from './modules/attachments/attachment.module';
 import { ReportingModule } from './modules/reporting/reporting.module';
 import { PlatformConfigModule } from './modules/platform-config/platform-config.module';
+import { DiagnosticsModule } from './modules/diagnostics/diagnostics.module';
+import { RuntimeMetricsMiddleware } from './modules/diagnostics/runtime-metrics.middleware';
 
 @Module({
   imports: [
@@ -38,11 +40,12 @@ import { PlatformConfigModule } from './modules/platform-config/platform-config.
     AttachmentModule,
     ReportingModule,
     PlatformConfigModule,
+    DiagnosticsModule,
   ],
   controllers: [HealthController],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(RequestContextMiddleware).forRoutes('{*path}');
+    consumer.apply(RequestContextMiddleware, RuntimeMetricsMiddleware).forRoutes('{*path}');
   }
 }
