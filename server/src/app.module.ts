@@ -2,6 +2,8 @@ import { MiddlewareConsumer, Module, type NestModule } from '@nestjs/common';
 import { RequestContextMiddleware } from './common/request-context.middleware';
 import { SecurityHeadersMiddleware } from './common/security-headers.middleware';
 import { CacheModule } from './infrastructure/cache/cache.module';
+import { LoggingModule } from './infrastructure/logging/logging.module';
+import { AccessLogMiddleware } from './infrastructure/logging/access-log.middleware';
 import { DatabaseModule } from './database/database.module';
 import { HealthController } from './health/health.controller';
 import { AuditModule } from './modules/audit/audit.module';
@@ -25,6 +27,7 @@ import { RuntimeMetricsMiddleware } from './modules/diagnostics/runtime-metrics.
 
 @Module({
   imports: [
+    LoggingModule,
     CacheModule,
     DatabaseModule,
     AuthModule,
@@ -50,7 +53,12 @@ import { RuntimeMetricsMiddleware } from './modules/diagnostics/runtime-metrics.
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
-      .apply(RequestContextMiddleware, SecurityHeadersMiddleware, RuntimeMetricsMiddleware)
+      .apply(
+        RequestContextMiddleware,
+        SecurityHeadersMiddleware,
+        RuntimeMetricsMiddleware,
+        AccessLogMiddleware,
+      )
       .forRoutes('{*path}');
   }
 }

@@ -22,6 +22,7 @@ export class DiagnosticsService {
         objectStorage: process.env.QHSE_OBJECT_STORAGE === 's3' ? 's3' : 'local',
         nodeVersion: process.version,
         uptimeSeconds: Math.floor(process.uptime()),
+        accessLogging: process.env.QHSE_ACCESS_LOG === 'false' ? 'disabled' : 'json',
       },
       memory: {
         rssBytes: memory.rss,

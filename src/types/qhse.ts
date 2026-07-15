@@ -613,6 +613,7 @@ export interface SystemDiagnostics {
     objectStorage: 'local' | 's3';
     nodeVersion: string;
     uptimeSeconds: number;
+    accessLogging: 'json' | 'disabled';
   };
   memory: {
     rssBytes: number;

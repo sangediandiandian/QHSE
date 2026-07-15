@@ -91,6 +91,7 @@ export default function DiagnosticsPage() {
             API 状态<strong>{data.service.status}</strong>
             <small>
               {data.service.nodeVersion} · 已运行 {Math.floor(data.service.uptimeSeconds / 60)} 分钟
+              {' · '}日志 {data.service.accessLogging}
             </small>
           </span>
         </article>

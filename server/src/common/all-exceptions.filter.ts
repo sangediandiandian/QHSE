@@ -7,6 +7,8 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import type { RequestWithId } from './request-context.middleware';
+import { normalizeRoutePath } from './route-path';
+import { StructuredLoggerService } from '../infrastructure/logging/structured-logger.service';
 
 interface ErrorPayload {
   code?: string;
@@ -16,6 +18,8 @@ interface ErrorPayload {
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
+  constructor(private readonly logger: StructuredLoggerService) {}
+
   catch(exception: unknown, host: ArgumentsHost) {
     const context = host.switchToHttp();
     const request = context.getRequest<RequestWithId>();
@@ -31,7 +35,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
       : { message: String(exceptionResponse || '') };
 
     if (!(exception instanceof HttpException)) {
-      console.error(`[${request.requestId}]`, exception);
+      this.logger.write('error', 'http.request.internal_error', {
+        requestId: request.requestId,
+        method: request.method,
+        path: request.route?.path || normalizeRoutePath(request.path),
+        errorType: exception instanceof Error ? exception.name : 'UnknownError',
+      });
     }
 
     response.status(status).json({

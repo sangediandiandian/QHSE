@@ -5,6 +5,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/all-exceptions.filter';
 import { ApiResponseInterceptor } from './common/api-response.interceptor';
+import { StructuredLoggerService } from './infrastructure/logging/structured-logger.service';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -15,7 +16,7 @@ async function bootstrap() {
     forbidNonWhitelisted: true,
   }));
   app.useGlobalInterceptors(new ApiResponseInterceptor());
-  app.useGlobalFilters(new AllExceptionsFilter());
+  app.useGlobalFilters(new AllExceptionsFilter(app.get(StructuredLoggerService)));
   app.enableShutdownHooks();
 
   const swaggerConfig = new DocumentBuilder()
