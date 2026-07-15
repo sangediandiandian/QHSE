@@ -1,6 +1,7 @@
 import type { PlatformConfigService } from '../platform-config/platform-config.service';
-import { CacheService } from '../../infrastructure/cache/cache.service';
-import { ReportExportQueueService } from '../reporting/report-export-queue.service';
+import type { CacheService } from '../../infrastructure/cache/cache.service';
+import type { ReportExportQueueService } from '../reporting/report-export-queue.service';
+import type { SessionStoreService } from '../../infrastructure/session/session-store.service';
 import { RuntimeMetricsService } from './runtime-metrics.service';
 
 export class DiagnosticsService {
@@ -9,6 +10,7 @@ export class DiagnosticsService {
     private readonly platformConfig: PlatformConfigService,
     private readonly cache: CacheService,
     private readonly queue: ReportExportQueueService,
+    private readonly sessions: SessionStoreService,
   ) {}
 
   async snapshot() {
@@ -49,6 +51,7 @@ export class DiagnosticsService {
       requests: this.metrics.snapshot(),
       cache: this.cache.snapshot(),
       queue: this.queue.snapshot(),
+      sessions: this.sessions.snapshot(),
       generatedAt: new Date().toISOString(),
     };
   }

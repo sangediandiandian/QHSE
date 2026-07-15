@@ -105,6 +105,7 @@ export default function DiagnosticsPage() {
             <small>
               缓存 {data.cache.backend} · {data.cache.status === 'ready' ? '正常' : '降级'}
               {' · '}队列 {data.queue.backend}
+              {' · '}会话 {data.sessions.backend}
             </small>
           </span>
         </article>

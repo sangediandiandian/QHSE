@@ -1,13 +1,15 @@
 /** @jest-environment node */
 
-import { UnauthorizedException } from '@nestjs/common';
+import { ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { IamService } from '../iam/iam.service';
 import { AuthService } from './auth.service';
+import { SessionStoreService } from '../../infrastructure/session/session-store.service';
+import type { SessionStore } from '../../infrastructure/session/session-store';
 
 describe('AuthService', () => {
-  test('登录后返回随机会话和 QHSE 权限', () => {
+  test('登录后返回随机会话和 QHSE 权限', async () => {
     const service = new AuthService(new IamService());
-    const result = service.login('qhse', 'ant.design');
+    const result = await service.login('qhse', 'ant.design');
     expect(result.accessToken).toHaveLength(64);
     expect(result.user).toMatchObject({
       username: 'qhse',
@@ -19,36 +21,54 @@ describe('AuthService', () => {
       'risk:controls:update',
       'audit:read',
     ]));
-    expect(service.authenticate(result.accessToken).userId).toBe('user-qhse');
+    await expect(service.authenticate(result.accessToken)).resolves.toMatchObject({
+      userId: 'user-qhse',
+    });
   });
 
-  test('装置负责人只获得授权区域', () => {
-    const result = new AuthService(new IamService()).login('unit_manager', 'ant.design');
+  test('装置负责人只获得授权区域', async () => {
+    const result = await new AuthService(new IamService()).login('unit_manager', 'ant.design');
     expect(result.user).toMatchObject({
       dataScope: 'assigned_areas',
       areaIds: ['area-02'],
     });
   });
 
-  test('错误密码被拒绝且不会返回用户信息', () => {
-    expect(() => new AuthService(new IamService()).login('admin', 'wrong'))
-      .toThrow(UnauthorizedException);
+  test('错误密码被拒绝且不会返回用户信息', async () => {
+    await expect(new AuthService(new IamService()).login('admin', 'wrong'))
+      .rejects.toThrow(UnauthorizedException);
   });
 
-  test('退出后会话立即失效', () => {
+  test('退出后会话立即失效', async () => {
     const service = new AuthService(new IamService());
-    const result = service.login('leader', 'ant.design');
-    service.logout(result.accessToken);
-    expect(() => service.authenticate(result.accessToken)).toThrow(UnauthorizedException);
+    const result = await service.login('leader', 'ant.design');
+    await service.logout(result.accessToken);
+    await expect(service.authenticate(result.accessToken)).rejects.toThrow(UnauthorizedException);
   });
 
-  test('同一账号最多保留五个活动会话', () => {
+  test('同一账号最多保留五个活动会话', async () => {
     const service = new AuthService(new IamService());
-    const tokens = Array.from(
-      { length: 6 },
-      () => service.login('leader', 'ant.design').accessToken,
+    const tokens: string[] = [];
+    for (let index = 0; index < 6; index += 1) {
+      tokens.push((await service.login('leader', 'ant.design')).accessToken);
+    }
+    await expect(service.authenticate(tokens[0])).rejects.toThrow(UnauthorizedException);
+    await expect(service.authenticate(tokens[5])).resolves.toMatchObject({ userId: 'user-leader' });
+  });
+
+  test('会话后端故障时登录稳定返回服务不可用', async () => {
+    const store = {
+      backend: 'redis',
+      create: jest.fn().mockRejectedValue(new Error('offline')),
+      get: jest.fn(),
+      delete: jest.fn(),
+      close: jest.fn(),
+    } as unknown as SessionStore;
+    const service = new AuthService(
+      new IamService(),
+      undefined,
+      new SessionStoreService(store),
     );
-    expect(() => service.authenticate(tokens[0])).toThrow(UnauthorizedException);
-    expect(service.authenticate(tokens[5]).userId).toBe('user-leader');
+    await expect(service.login('admin', 'ant.design')).rejects.toThrow(ServiceUnavailableException);
   });
 });

@@ -35,8 +35,8 @@ export class AuthController {
   @ApiBearerAuth()
   @AuditAction({ action: 'auth.logout', resourceType: 'session' })
   @ApiOperation({ summary: '退出登录' })
-  logout(@CurrentRequest() request: RequestWithId) {
-    this.authService.logout(request.accessToken || '');
+  async logout(@CurrentRequest() request: RequestWithId) {
+    await this.authService.logout(request.accessToken || '');
     return { loggedOut: true };
   }
 }

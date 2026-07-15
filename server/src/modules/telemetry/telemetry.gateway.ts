@@ -1,4 +1,4 @@
-import type { OnModuleDestroy } from '@nestjs/common';
+import { ServiceUnavailableException, type OnModuleDestroy } from '@nestjs/common';
 import { OnGatewayInit, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import type { Namespace, Socket } from 'socket.io';
 import { AuthService } from '../auth/auth.service';
@@ -50,17 +50,17 @@ export class TelemetryGateway implements OnGatewayInit, OnModuleDestroy {
 
   afterInit() {
     this.unsubscribe = this.stream.subscribe((event) => this.broadcast(event));
-    this.server.on('connection', (client) => this.handleConnection(client));
+    this.server.on('connection', (client) => void this.handleConnection(client));
   }
 
   onModuleDestroy() {
     this.unsubscribe?.();
   }
 
-  private handleConnection(client: Socket) {
+  private async handleConnection(client: Socket) {
     try {
       const token = tokenFrom(client);
-      const principal = this.auth.authenticate(token);
+      const principal = await this.auth.authenticate(token);
       if (!principal.permissions.includes('telemetry:read')) throw new Error('PERMISSION_DENIED');
       client.data.subscription = { principal } satisfies SocketSubscription;
       client.emit('telemetry:ready', {
@@ -94,7 +94,9 @@ export class TelemetryGateway implements OnGatewayInit, OnModuleDestroy {
     } catch (error) {
       client.emit('telemetry:error', {
         code:
-          error instanceof Error && error.message === 'PERMISSION_DENIED'
+          error instanceof ServiceUnavailableException
+            ? 'SESSION_STORE_UNAVAILABLE'
+            : error instanceof Error && error.message === 'PERMISSION_DENIED'
             ? 'PERMISSION_DENIED'
             : 'SESSION_INVALID',
       });

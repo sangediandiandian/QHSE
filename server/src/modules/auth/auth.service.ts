@@ -1,14 +1,9 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { IamService } from '../iam/iam.service';
-import type { AuthPrincipal } from '../iam/iam.types';
 import { LoginAttemptLimiterService } from './login-attempt-limiter.service';
-
-interface Session {
-  principal: AuthPrincipal;
-  expiresAt: number;
-  createdAt: number;
-}
+import { SessionStoreService } from '../../infrastructure/session/session-store.service';
+import { MemorySessionStore } from '../../infrastructure/session/memory-session.store';
 
 export function hashPassword(password: string) {
   return scryptSync(password, 'qhse-demo-auth-v1', 64).toString('hex');
@@ -24,15 +19,17 @@ const demoPasswordHash = hashPassword('ant.design');
 
 @Injectable()
 export class AuthService {
-  private readonly sessions = new Map<string, Session>();
   private readonly sessionTtlMs = 8 * 60 * 60 * 1000;
 
   constructor(
     private readonly iamService: IamService,
     private readonly loginLimiter: LoginAttemptLimiterService = new LoginAttemptLimiterService(),
+    private readonly sessions: SessionStoreService = new SessionStoreService(
+      new MemorySessionStore(),
+    ),
   ) {}
 
-  login(username: string, password: string, clientKey = 'local') {
+  async login(username: string, password: string, clientKey = 'local') {
     const normalizedUsername = username.trim();
     const attemptKey = `${clientKey}:${normalizedUsername.toLowerCase()}`;
     this.loginLimiter.assertAllowed(attemptKey);
@@ -44,18 +41,18 @@ export class AuthService {
 
     this.loginLimiter.clear(attemptKey);
     const now = Date.now();
-    this.removeExpiredSessions(now);
-    const existing = [...this.sessions.entries()]
-      .filter(([, session]) => session.principal.userId === user.id)
-      .sort((a, b) => a[1].createdAt - b[1].createdAt);
-    while (existing.length >= 5) this.sessions.delete(existing.shift()![0]);
     const accessToken = randomBytes(32).toString('hex');
     const principal = this.iamService.createPrincipal(user);
-    this.sessions.set(accessToken, {
-      principal,
-      expiresAt: now + this.sessionTtlMs,
-      createdAt: now,
-    });
+    try {
+      await this.sessions.create(
+        accessToken,
+        { principal, expiresAt: now + this.sessionTtlMs, createdAt: now },
+        this.sessionTtlMs,
+        5,
+      );
+    } catch {
+      throw this.sessionUnavailable();
+    }
     return {
       accessToken,
       tokenType: 'Bearer',
@@ -64,22 +61,32 @@ export class AuthService {
     };
   }
 
-  authenticate(accessToken: string) {
-    const session = this.sessions.get(accessToken);
+  async authenticate(accessToken: string) {
+    let session;
+    try {
+      session = await this.sessions.get(accessToken);
+    } catch {
+      throw this.sessionUnavailable();
+    }
     if (!session || session.expiresAt <= Date.now()) {
-      if (session) this.sessions.delete(accessToken);
+      if (session) await this.sessions.delete(accessToken).catch(() => undefined);
       throw new UnauthorizedException({ code: 'SESSION_INVALID', message: '登录状态已失效，请重新登录' });
     }
     return structuredClone(session.principal);
   }
 
-  logout(accessToken: string) {
-    this.sessions.delete(accessToken);
+  async logout(accessToken: string) {
+    try {
+      await this.sessions.delete(accessToken);
+    } catch {
+      throw this.sessionUnavailable();
+    }
   }
 
-  private removeExpiredSessions(now: number) {
-    for (const [token, session] of this.sessions) {
-      if (session.expiresAt <= now) this.sessions.delete(token);
-    }
+  private sessionUnavailable() {
+    return new ServiceUnavailableException({
+      code: 'SESSION_STORE_UNAVAILABLE',
+      message: '登录服务暂不可用，请稍后重试',
+    });
   }
 }

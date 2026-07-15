@@ -3,6 +3,7 @@ import {
   ExecutionContext,
   ForbiddenException,
   Injectable,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
@@ -21,7 +22,7 @@ export class AuthGuard implements CanActivate {
     private readonly auditService: AuditService,
   ) {}
 
-  canActivate(context: ExecutionContext) {
+  async canActivate(context: ExecutionContext) {
     const request = context.switchToHttp().getRequest<RequestWithId>();
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
@@ -38,9 +39,14 @@ export class AuthGuard implements CanActivate {
 
     request.accessToken = match[1];
     try {
-      request.principal = this.authService.authenticate(match[1]);
+      request.principal = await this.authService.authenticate(match[1]);
     } catch (error) {
-      this.recordSecurityFailure(request, 'security.session_invalid');
+      this.recordSecurityFailure(
+        request,
+        error instanceof ServiceUnavailableException
+          ? 'security.session_store_unavailable'
+          : 'security.session_invalid',
+      );
       throw error;
     }
     const required = this.reflector.getAllAndOverride<Permission[]>(REQUIRED_PERMISSIONS_KEY, [

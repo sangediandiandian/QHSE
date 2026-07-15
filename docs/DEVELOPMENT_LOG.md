@@ -383,3 +383,22 @@
 - 前后端 TypeScript、后端生产编译和阶段文件 ESLint：通过。
 - Jest：访问日志字段/脱敏、内部异常脱敏和诊断汇总共 5 项测试通过。
 - 运行时联调：200/404/401 分别输出 info/warn/warn JSON 事件，资源路径归并为 `/api/v1/risks/:id`；日志中未出现请求携带的 Token、password 或查询参数。
+
+## 2026-07-15 · Stage 7H 分布式会话存储
+
+计划提交：`build distributed session storage`
+
+完成内容：
+
+- 新增统一会话存储服务、进程内适配器和 Redis 适配器，本地默认内存，生产通过运行环境切换。
+- Redis 会话使用 TTL 键和用户会话有序集合，原子写入并淘汰同账号最早会话，最多保留 5 个活动会话。
+- AuthService 登录、认证和退出全部异步化；HTTP Guard、标准/兼容控制器及遥测 WebSocket 握手同步完成调用链改造。
+- 会话存储不可用统一返回 `503/SESSION_STORE_UNAVAILABLE`，不误报密码或会话失效，也不静默回落本地存储。
+- 安全审计区分 `session_invalid` 与 `session_store_unavailable`；WebSocket 返回独立的 `SESSION_STORE_UNAVAILABLE` 错误码。
+- 运行诊断接口和前端诊断页显示会话后端、健康状态、操作量和失败量。
+
+验证记录：
+
+- 前后端 TypeScript、后端生产编译和阶段文件 ESLint：通过。
+- Jest：共享存储语义、五会话上限、过期/删除、会话后端故障、认证和诊断共 12 项测试通过。
+- 运行时联调：内存模式登录、`/auth/me`、退出后 401 全部通过，遥测 WebSocket 异步认证收到 `telemetry:ready`；Redis 不可用时登录 45 ms 内返回稳定 503。

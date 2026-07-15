@@ -658,6 +658,14 @@ export interface SystemDiagnostics {
     backend: 'memory' | 'redis';
     retainedJobs?: number;
   };
+  sessions: {
+    backend: 'memory' | 'redis';
+    status: 'ready' | 'degraded';
+    operations: number;
+    failures: number;
+    lastErrorAt?: string;
+    lastSuccessAt?: string;
+  };
   generatedAt: string;
 }
 

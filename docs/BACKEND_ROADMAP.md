@@ -32,7 +32,7 @@
 | 5B2 | 应急资源 | 库存、批次、FEFO 调拨、归还和巡检维护服务端闭环 | 已完成 |
 | 5C | 融合通信 | 多渠道发送、回执、重试、升级和审计 | 已完成 |
 | 6 | GDS/VOC/MES、WebSocket/MQTT、对象存储 | 真实数据稳定接入，附件与证据可固化 | 已完成 |
-| 7 | 报表、缓存、消息队列、部署、安全与性能 | 完成生产容量、安全和恢复验证 | 进行中：报表、配置、诊断、安全、缓存、队列和结构化日志已完成，待生产化验证 |
+| 7 | 报表、缓存、消息队列、部署、安全与性能 | 完成生产容量、安全和恢复验证 | 进行中：报表、配置、诊断、安全、缓存、队列、日志和分布式会话已完成，待生产化验证 |
 
 应急资源基础闭环已经后端化；仓库/库位、完整库存流水、扫码盘点、维修工单和跨库调拨作为后续生产化增强项建设。
 
@@ -94,7 +94,7 @@
 - `GET|POST /api/v1/platform-config/integrations`、`PUT /api/v1/platform-config/integrations/:id`：维护不含凭据的外部系统登记。
 - `GET /api/v1/system/diagnostics`：查询服务进程、存储模式、内存、集成状态和低基数请求指标。
 
-除健康检查、登录和 Swagger 外，接口默认需要 Bearer Token。演示账号包括 `admin`、`leader`、`qhse`、`dispatcher`、`unit_manager`、`operator`、`environment` 和 `commander`，本地演示密码统一为 `ant.design`。当前会话默认保存在进程内存中，仅用于开发；正式环境需切换统一身份认证或 Redis 会话并独立配置密码。
+除健康检查、登录和 Swagger 外，接口默认需要 Bearer Token。演示账号包括 `admin`、`leader`、`qhse`、`dispatcher`、`unit_manager`、`operator`、`environment` 和 `commander`，本地演示密码统一为 `ant.design`。会话默认保存在进程内存中保证本地开箱即启，生产可切换 Redis；正式身份源和账号密码仍需接入统一身份认证。
 
 登录接口按客户端 IP 与账号组合执行 15 分钟失败窗口，第 5 次失败后暂时阻断继续尝试；单账号最多保留 5 个活动会话。所有 API 响应设置内容嗅探、嵌入、引用来源和浏览器能力限制响应头，HTTPS 请求额外启用 HSTS。生产环境默认不开放 Swagger，只有显式设置 `QHSE_SWAGGER_ENABLED=true` 时启用。
 
@@ -133,6 +133,8 @@
 异步报表导出默认使用进程内队列，生产可切换 BullMQ/Redis。任务固化创建人、查询条件和授权区域快照，只有创建人能够查询和下载；Worker 并发数为 2，失败按指数退避最多重试 3 次，结果保留 24 小时且限制数量。Redis 生产者禁用离线命令排队，队列不可用时快速返回稳定 503，避免 HTTP 请求无限等待。
 
 访问日志以单行 JSON 输出到标准输出，包含时间、级别、稳定事件名、请求 ID、HTTP 方法、路由模板、状态、耗时和已认证用户 ID，供容器或日志采集器直接接入。日志不记录请求体、查询参数、Authorization、Cookie 或异常消息；未处理异常只记录异常类型，客户端继续收到通用 500 响应。动态资源 ID 使用路由模板归并，与运行指标保持同一口径。
+
+会话存储支持进程内和 Redis 双模式。Redis 模式使用带 TTL 的会话键和用户会话有序集合，同一账号最多保留最新 5 个活动会话；HTTP Guard、登录/退出和遥测 WebSocket 握手均使用异步会话存储，不存在只对 HTTP 生效的分裂认证链。会话后端不可用时登录或鉴权快速返回稳定 503，禁止静默降级到本地会话，以免多实例产生不一致身份状态。
 
 ## 本地启动
 
@@ -197,3 +199,12 @@ QHSE_QUEUE_REDIS_URL=rediss://queue.example.com:6379 npm run server:dev
 未设置 `QHSE_QUEUE=redis` 时使用进程内任务队列；该模式仅用于本地开发，服务重启后未下载任务不会保留。
 
 访问日志默认启用，可在只需要最小控制台输出的本地场景设置 `QHSE_ACCESS_LOG=false` 关闭。生产环境应保持启用，并由容器平台或日志代理采集标准输出。
+
+生产分布式会话可复用 Redis 或使用独立实例：
+
+```bash
+QHSE_SESSION_STORE=redis \
+QHSE_SESSION_REDIS_URL=rediss://session.example.com:6379 npm run server:dev
+```
+
+未设置 `QHSE_SESSION_STORE=redis` 时使用进程内会话。当前 Redis Lua 会话上限逻辑面向单实例或 Sentinel 部署；Redis Cluster 哈希槽方案需在生产拓扑确定后单独验证。

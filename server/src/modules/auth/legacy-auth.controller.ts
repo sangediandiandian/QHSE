@@ -18,8 +18,12 @@ export class LegacyAuthController {
   @HttpCode(200)
   @Public()
   @AuditAction({ action: 'auth.login', resourceType: 'session', includeUsername: true })
-  login(@Body() input: LoginDto, @CurrentRequest() request: RequestWithId) {
-    const result = this.authService.login(input.username, input.password, request.ip || 'unknown');
+  async login(@Body() input: LoginDto, @CurrentRequest() request: RequestWithId) {
+    const result = await this.authService.login(
+      input.username,
+      input.password,
+      request.ip || 'unknown',
+    );
     return {
       status: 'ok',
       type: input.type || 'account',
@@ -45,8 +49,8 @@ export class LegacyAuthController {
   @Post('login/outLogin')
   @HttpCode(200)
   @AuditAction({ action: 'auth.logout', resourceType: 'session' })
-  logout(@CurrentRequest() request: RequestWithId) {
-    this.authService.logout(request.accessToken || '');
+  async logout(@CurrentRequest() request: RequestWithId) {
+    await this.authService.logout(request.accessToken || '');
     return { loggedOut: true };
   }
 }
