@@ -1,10 +1,14 @@
-import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post, Put } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '../audit/audit.decorator';
 import { CurrentPrincipal } from '../auth/current-principal.decorator';
 import { RequirePermissions } from '../auth/permissions.decorator';
 import type { AuthPrincipal } from '../iam/iam.types';
-import { AdvanceReviewActionDto, EventReviewVersionDto } from './event-review.dto';
+import {
+  AdvanceReviewActionDto,
+  EventReviewVersionDto,
+  UpdateEventReviewAnalysisDto,
+} from './event-review.dto';
 import { EventReviewService } from './event-review.service';
 
 function allowedAreas(principal: AuthPrincipal) {
@@ -35,6 +39,21 @@ export class EventReviewController {
   @RequirePermissions('emergency:read')
   get(@Param('id') id: string, @CurrentPrincipal() principal: AuthPrincipal) {
     return this.service.get(id, allowedAreas(principal));
+  }
+
+  @Put(':id/analysis')
+  @RequirePermissions('emergency:manage')
+  @AuditAction({
+    action: 'event_review.analysis.update',
+    resourceType: 'event_review',
+    resourceIdParam: 'id',
+  })
+  updateAnalysis(
+    @Param('id') id: string,
+    @Body() input: UpdateEventReviewAnalysisDto,
+    @CurrentPrincipal() principal: AuthPrincipal,
+  ) {
+    return this.service.updateAnalysis(id, input, access(principal));
   }
 
   @Post(':id/actions/advance')

@@ -14,6 +14,8 @@ export class EventReviewVersionConflictError extends Error {
 export interface EventReviewRepository {
   findAll(allowedAreaIds?: string[]): Promise<EventReview[]>;
   findById(id: string, allowedAreaIds?: string[]): Promise<EventReview | undefined>;
+  findByEventId(eventId: string): Promise<EventReview | undefined>;
+  create(review: EventReview): Promise<EventReview>;
   update(
     review: EventReview,
     expectedVersion: number,

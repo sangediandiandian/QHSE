@@ -5,6 +5,7 @@ import {
   advanceEventReviewAction,
   closeEventReviewByApi,
   getEventReviews,
+  updateEventReviewAnalysis,
 } from './eventReviews';
 
 jest.mock('@umijs/max', () => ({ request: jest.fn() }));
@@ -33,6 +34,21 @@ describe('event review API client', () => {
     expect(requestMock).toHaveBeenLastCalledWith('/api/v1/event-reviews/review-001/close', {
       method: 'POST',
       data: { expectedVersion: 2 },
+    });
+  });
+
+  test('调查结论更新不发送可伪造的复盘负责人', async () => {
+    requestMock.mockResolvedValue({ data: { id: 'review-001', version: 2 } });
+    const analysis = {
+      summary: '事件摘要',
+      directCause: '直接原因',
+      rootCause: '根本原因',
+      lesson: '经验教训',
+    };
+    await updateEventReviewAnalysis('review-001', analysis, 1);
+    expect(requestMock).toHaveBeenLastCalledWith('/api/v1/event-reviews/review-001/analysis', {
+      method: 'PUT',
+      data: { ...analysis, expectedVersion: 1 },
     });
   });
 });

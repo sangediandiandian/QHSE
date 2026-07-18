@@ -86,6 +86,7 @@ import {
   advanceEventReviewAction as advanceEventReviewActionByApi,
   closeEventReviewByApi,
   getEventReviews,
+  updateEventReviewAnalysis as updateEventReviewAnalysisByApi,
 } from '@/services/qhse/eventReviews';
 import {
   addEmergencyDrill as addEmergencyDrillByApi,
@@ -757,6 +758,27 @@ export default function useQhseModel() {
     return undefined;
   }, [eventReviewRecords]);
 
+  const saveEventReviewAnalysis = useCallback(async (
+    reviewId: string,
+    input: Pick<EventReview, 'summary' | 'directCause' | 'rootCause' | 'lesson'>,
+  ) => {
+    if (hazardApiMode) {
+      const review = eventReviewRecords.find((item) => item.id === reviewId);
+      if (!review) throw new Error('事件复盘不存在');
+      const updated = await updateEventReviewAnalysisByApi(reviewId, input, review.version ?? 1);
+      setEventReviewRecords((items) => items.map((item) => item.id === reviewId ? updated : item));
+      return updated;
+    }
+    setDashboard((current) => current ? {
+      ...current,
+      eventReviews: current.eventReviews.map((review) => review.id === reviewId ? {
+        ...review,
+        ...input,
+      } : review),
+    } : current);
+    return undefined;
+  }, [eventReviewRecords]);
+
   const closeEventReview = useCallback(async (reviewId: string) => {
     if (hazardApiMode) {
       const review = eventReviewRecords.find((item) => item.id === reviewId);
@@ -1310,6 +1332,7 @@ export default function useQhseModel() {
     startEmergencyDrill,
     recordEmergencyDrill,
     advanceReviewAction,
+    saveEventReviewAnalysis,
     closeEventReview,
     transitionEvent,
     addEmergencyEventEvidence,

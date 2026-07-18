@@ -1,4 +1,7 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
+import type { EmergencyEvent } from '../emergency-events/emergency-event.types';
+import type { UpdateEventReviewAnalysisDto } from './event-review.dto';
 import {
   EventReviewNotFoundError,
   type EventReviewRepository,
@@ -10,6 +13,7 @@ export class EventReviewService {
   constructor(
     private readonly repository: EventReviewRepository,
     private readonly now: () => Date = () => new Date(),
+    private readonly createId: () => string = randomUUID,
   ) {}
 
   list(allowedAreaIds?: string[]) {
@@ -20,6 +24,89 @@ export class EventReviewService {
     const review = await this.repository.findById(id, allowedAreaIds);
     if (!review) this.notFound();
     return review;
+  }
+
+  async ensureForEmergencyEvent(event: EmergencyEvent, access: EventReviewAccess) {
+    const existing = await this.repository.findByEventId(event.eventId);
+    if (existing) return existing;
+    if (event.status !== '已关闭')
+      throw new ConflictException({
+        code: 'EVENT_REVIEW_EVENT_NOT_CLOSED',
+        message: '应急事件关闭后才能生成复盘档案',
+      });
+    if (access.allowedAreaIds && !access.allowedAreaIds.includes(event.areaId)) this.notFound();
+    const timestamp = this.now().toISOString();
+    const actionId = this.createId();
+    return this.repository.create({
+      id: this.createId(),
+      eventId: event.eventId,
+      eventCode: event.code,
+      eventTitle: event.title,
+      areaId: event.areaId,
+      areaName: event.areaName,
+      reviewCode: `RP${event.code.replace(/^EC/, '')}`,
+      status: '待关闭',
+      reviewer: access.actorName,
+      summary: event.summary,
+      directCause: '',
+      rootCause: '',
+      lesson: '',
+      controlledAt: event.updatedAt,
+      timeline: [
+        ...event.operations.map((operation) => ({
+          time: operation.operatedAt.slice(11, 19),
+          title: operation.action,
+          detail: operation.detail,
+          status: 'done' as const,
+        })),
+        {
+          time: '--',
+          title: '复盘归档',
+          detail: '等待调查结论和整改措施完成',
+          status: 'pending',
+        },
+      ],
+      actions: [
+        {
+          id: actionId,
+          title: '完成事件调查报告和经验反馈',
+          ownerDepartment: event.ownerDepartment,
+          owner: access.actorName,
+          deadline: new Date(this.now().getTime() + 7 * 24 * 60 * 60 * 1000)
+            .toISOString()
+            .slice(0, 10),
+          priority: '重要',
+          status: '待整改',
+        },
+      ],
+      version: 1,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+  }
+
+  async updateAnalysis(id: string, input: UpdateEventReviewAnalysisDto, access: EventReviewAccess) {
+    const review = await this.get(id, access.allowedAreaIds);
+    if (review.status === '已复盘')
+      throw new ConflictException({
+        code: 'EVENT_REVIEW_ALREADY_CLOSED',
+        message: '已归档复盘不能修改调查结论',
+      });
+    const timestamp = this.now().toISOString();
+    return this.update(
+      {
+        ...review,
+        reviewer: access.actorName,
+        summary: input.summary.trim(),
+        directCause: input.directCause.trim(),
+        rootCause: input.rootCause.trim(),
+        lesson: input.lesson.trim(),
+        version: review.version + 1,
+        updatedAt: timestamp,
+      },
+      input.expectedVersion,
+      access.allowedAreaIds,
+    );
   }
 
   async advanceAction(
@@ -76,6 +163,15 @@ export class EventReviewService {
         code: 'EVENT_REVIEW_ACTIONS_INCOMPLETE',
         message: '所有整改措施完成后才能关闭归档',
       });
+    if (
+      ![review.summary, review.directCause, review.rootCause, review.lesson].every((item) =>
+        item.trim(),
+      )
+    )
+      throw new BadRequestException({
+        code: 'EVENT_REVIEW_ANALYSIS_INCOMPLETE',
+        message: '事件摘要、直接原因、根本原因和经验教训填写完整后才能归档',
+      });
     const timestamp = this.now().toISOString();
     return this.update(
       {
@@ -84,7 +180,7 @@ export class EventReviewService {
         reviewer: access.actorName,
         closedAt: timestamp,
         timeline: review.timeline.map((item) =>
-          item.title === '事件关闭'
+          item.status === 'pending'
             ? {
                 ...item,
                 time: timestamp.slice(11, 19),

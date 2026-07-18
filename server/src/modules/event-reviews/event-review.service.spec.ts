@@ -2,6 +2,7 @@
 
 import { InMemoryEventReviewRepository } from './in-memory-event-review.repository';
 import { EventReviewService } from './event-review.service';
+import { emergencyEventSeed } from '../emergency-events/emergency-event.seed';
 
 const manager = {
   actorId: 'user-unit',
@@ -81,6 +82,47 @@ describe('EventReviewService', () => {
       instance.advanceAction('review-001', 'action-001', 2, manager),
     ).rejects.toMatchObject({
       response: expect.objectContaining({ code: 'EVENT_REVIEW_ACTION_COMPLETED' }),
+    });
+  });
+
+  test('应急事件关闭后幂等生成待复盘档案', async () => {
+    const instance = service();
+    const event = {
+      ...emergencyEventSeed.find((item) => item.id === 'lifecycle-003')!,
+      status: '已关闭' as const,
+      updatedAt: '2026-07-18T11:30:00.000Z',
+    };
+    const created = await instance.ensureForEmergencyEvent(event, approver);
+    expect(created).toMatchObject({
+      eventId: 'evt-003',
+      eventCode: 'EC20260711003',
+      areaId: 'area-01',
+      status: '待关闭',
+      version: 1,
+    });
+    expect(created.actions).toEqual([expect.objectContaining({ status: '待整改', owner: '赵磊' })]);
+    await expect(instance.ensureForEmergencyEvent(event, approver)).resolves.toEqual(created);
+    await expect(instance.list()).resolves.toHaveLength(2);
+  });
+
+  test('调查负责人维护结构化结论，归档后禁止修改', async () => {
+    const instance = service();
+    const updated = await instance.updateAnalysis(
+      'review-001',
+      {
+        summary: '现场处置完成，监测稳定。',
+        directCause: '法兰垫片失效。',
+        rootCause: '选型复核流程不完整。',
+        lesson: '补充高温法兰专项检查。',
+        expectedVersion: 1,
+      },
+      manager,
+    );
+    expect(updated).toMatchObject({
+      reviewer: '李建国',
+      summary: '现场处置完成，监测稳定。',
+      directCause: '法兰垫片失效。',
+      version: 2,
     });
   });
 });

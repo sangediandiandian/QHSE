@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
 import type { AttachmentService } from '../attachments/attachment.service';
+import type { EventReviewService } from '../event-reviews/event-review.service';
 import type { IamService } from '../iam/iam.service';
 import type { WorkflowActor, WorkflowService } from '../workflows/workflow.service';
 import type {
@@ -47,6 +48,19 @@ const detail: Record<EmergencyEventAction, string> = {
   审批关闭: '关闭审批通过，事件资料和操作记录已归档。',
 };
 
+function nextState(event: EmergencyEvent, action: TransitionEmergencyEventDto['action']) {
+  const index = levels.indexOf(event.responseLevel);
+  if (action === '研判启动' && event.status === '待研判')
+    return { status: '响应中' as const, level: event.responseLevel };
+  if (action === '升级响应' && event.status === '响应中' && index < levels.length - 1)
+    return { status: event.status, level: levels[index + 1] };
+  if (action === '降级响应' && event.status === '响应中' && index > 0)
+    return { status: event.status, level: levels[index - 1] };
+  if (action === '终止响应' && event.status === '响应中')
+    return { status: '监控中' as const, level: event.responseLevel };
+  return undefined;
+}
+
 export class EmergencyEventService {
   private readonly now: () => Date;
   private readonly createId: () => string;
@@ -58,6 +72,7 @@ export class EmergencyEventService {
     private readonly iam: IamService,
     options: Options = {},
     private readonly attachments?: AttachmentService,
+    private readonly eventReviews?: EventReviewService,
   ) {
     this.now = options.now ?? (() => new Date());
     this.createId = options.createId ?? randomUUID;
@@ -269,6 +284,10 @@ export class EmergencyEventService {
 
   async approveClose(id: string, input: ApproveEmergencyClosureDto, access: EmergencyAccess) {
     const event = await this.get(id, access.allowedAreaIds);
+    if (event.status === '已关闭' && this.eventReviews) {
+      await this.eventReviews.ensureForEmergencyEvent(event, access);
+      return event;
+    }
     const approval = event.closureApproval;
     if (event.status !== '待关闭' || !approval || approval.status !== '待审批')
       this.stateConflict(event, '审批关闭');
@@ -289,7 +308,7 @@ export class EmergencyEventService {
       access,
     );
     const timestamp = this.now().toISOString();
-    return this.mutate(event, input.expectedVersion, access, {
+    const closed = await this.mutate(event, input.expectedVersion, access, {
       status: '已关闭',
       closureApproval: {
         ...approval,
@@ -311,6 +330,8 @@ export class EmergencyEventService {
       ),
       updatedAt: timestamp,
     });
+    await this.eventReviews?.ensureForEmergencyEvent(closed, access);
+    return closed;
   }
 
   private operation(
@@ -370,17 +391,4 @@ export class EmergencyEventService {
   private notFound(): never {
     throw new NotFoundException({ code: 'EMERGENCY_EVENT_NOT_FOUND', message: '应急事件不存在' });
   }
-}
-
-function nextState(event: EmergencyEvent, action: TransitionEmergencyEventDto['action']) {
-  const index = levels.indexOf(event.responseLevel);
-  if (action === '研判启动' && event.status === '待研判')
-    return { status: '响应中' as const, level: event.responseLevel };
-  if (action === '升级响应' && event.status === '响应中' && index < levels.length - 1)
-    return { status: event.status, level: levels[index + 1] };
-  if (action === '降级响应' && event.status === '响应中' && index > 0)
-    return { status: event.status, level: levels[index - 1] };
-  if (action === '终止响应' && event.status === '响应中')
-    return { status: '监控中' as const, level: event.responseLevel };
-  return undefined;
 }

@@ -41,6 +41,47 @@ export class PrismaEventReviewRepository implements EventReviewRepository {
     return review ? mapRecord(review) : undefined;
   }
 
+  async findByEventId(eventId: string) {
+    const review = await this.prisma.eventReview.findUnique({ where: { eventId } });
+    return review ? mapRecord(review) : undefined;
+  }
+
+  async create(review: EventReview) {
+    try {
+      return mapRecord(
+        await this.prisma.eventReview.create({
+          data: {
+            id: review.id,
+            eventId: review.eventId,
+            eventCode: review.eventCode,
+            eventTitle: review.eventTitle,
+            areaId: review.areaId,
+            areaName: review.areaName,
+            reviewCode: review.reviewCode,
+            status: review.status,
+            reviewer: review.reviewer,
+            summary: review.summary,
+            directCause: review.directCause,
+            rootCause: review.rootCause,
+            lesson: review.lesson,
+            controlledAt: new Date(review.controlledAt),
+            timeline: review.timeline as unknown as Prisma.InputJsonValue,
+            actions: review.actions as unknown as Prisma.InputJsonValue,
+            version: review.version,
+            createdAt: new Date(review.createdAt),
+            updatedAt: new Date(review.updatedAt),
+          },
+        }),
+      );
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        const existing = await this.findByEventId(review.eventId);
+        if (existing) return existing;
+      }
+      throw error;
+    }
+  }
+
   async update(review: EventReview, expectedVersion: number, allowedAreaIds?: string[]) {
     const result = await this.prisma.eventReview.updateMany({
       where: {
@@ -51,6 +92,10 @@ export class PrismaEventReviewRepository implements EventReviewRepository {
       data: {
         status: review.status,
         reviewer: review.reviewer,
+        summary: review.summary,
+        directCause: review.directCause,
+        rootCause: review.rootCause,
+        lesson: review.lesson,
         closedAt: review.closedAt ? new Date(review.closedAt) : null,
         timeline: review.timeline as unknown as Prisma.InputJsonValue,
         actions: review.actions as unknown as Prisma.InputJsonValue,

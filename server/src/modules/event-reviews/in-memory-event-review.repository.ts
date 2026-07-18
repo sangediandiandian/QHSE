@@ -25,6 +25,18 @@ export class InMemoryEventReviewRepository implements EventReviewRepository {
       : undefined;
   }
 
+  async findByEventId(eventId: string) {
+    const review = [...this.records.values()].find((item) => item.eventId === eventId);
+    return review ? clone(review) : undefined;
+  }
+
+  async create(review: EventReview) {
+    const existing = await this.findByEventId(review.eventId);
+    if (existing) return existing;
+    this.records.set(review.id, clone(review));
+    return clone(review);
+  }
+
   async update(review: EventReview, expectedVersion: number, allowedAreaIds?: string[]) {
     const current = this.records.get(review.id);
     if (!current || (allowedAreaIds && !allowedAreaIds.includes(current.areaId)))

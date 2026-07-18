@@ -14,3 +14,25 @@ export class AdvanceReviewActionDto extends EventReviewVersionDto {
   @MinLength(1)
   actionId!: string;
 }
+
+export class UpdateEventReviewAnalysisDto extends EventReviewVersionDto {
+  @ApiProperty()
+  @IsString()
+  @MinLength(2)
+  summary!: string;
+
+  @ApiProperty()
+  @IsString()
+  @MinLength(2)
+  directCause!: string;
+
+  @ApiProperty()
+  @IsString()
+  @MinLength(2)
+  rootCause!: string;
+
+  @ApiProperty()
+  @IsString()
+  @MinLength(2)
+  lesson!: string;
+}

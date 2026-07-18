@@ -1,9 +1,10 @@
-import type { ReviewAction } from '@/types/qhse';
+import type { EventReview, ReviewAction } from '@/types/qhse';
 import {
   AlertFilled,
   AuditOutlined,
   CheckCircleFilled,
   ClockCircleOutlined,
+  EditOutlined,
   FileDoneOutlined,
   NodeIndexOutlined,
   SafetyCertificateFilled,
@@ -11,8 +12,8 @@ import {
 } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
 import { useAccess, useModel } from '@umijs/max';
-import { Button, Empty, Progress, Skeleton, Tag, message } from 'antd';
-import { useEffect } from 'react';
+import { Button, Empty, Form, Input, Modal, Progress, Skeleton, Tag, message } from 'antd';
+import { useEffect, useState } from 'react';
 import styles from './index.less';
 
 const priorityColor: Record<ReviewAction['priority'], string> = { 一般: 'default', 重要: 'orange', 紧急: 'red' };
@@ -20,7 +21,10 @@ const statusColor: Record<ReviewAction['status'], string> = { 待整改: 'defaul
 
 export default function EventReviews() {
   const access = useAccess();
-  const { dashboard, eventReviews, eventReviewLoading, eventReviewApiMode, loadEventReviews, advanceReviewAction, closeEventReview } = useModel('qhse');
+  const { dashboard, eventReviews, eventReviewLoading, eventReviewApiMode, loadEventReviews, advanceReviewAction, saveEventReviewAnalysis, closeEventReview } = useModel('qhse');
+  const [analysisOpen, setAnalysisOpen] = useState(false);
+  const [analysisSaving, setAnalysisSaving] = useState(false);
+  const [analysisForm] = Form.useForm<Pick<EventReview, 'summary' | 'directCause' | 'rootCause' | 'lesson'>>();
   useEffect(() => { void loadEventReviews(); }, [loadEventReviews]);
 
   if (eventReviewLoading && !eventReviews.length) return <PageContainer><Skeleton active paragraph={{ rows: 14 }} /></PageContainer>;
@@ -32,13 +36,29 @@ export default function EventReviews() {
     : dashboard?.alarms.find((item) => item.id === review.eventId) ?? dashboard?.alarms[0];
   const completed = review.actions.filter((action) => action.status === '已完成').length;
   const progress = Math.round((completed / review.actions.length) * 100);
-  const canClose = completed === review.actions.length;
+  const analysisComplete = [review.summary, review.directCause, review.rootCause, review.lesson].every((item) => item.trim());
+  const canClose = completed === review.actions.length && analysisComplete;
+  const openAnalysis = () => {
+    analysisForm.setFieldsValue({ summary: review.summary, directCause: review.directCause, rootCause: review.rootCause, lesson: review.lesson });
+    setAnalysisOpen(true);
+  };
+  const submitAnalysis = async () => {
+    const values = await analysisForm.validateFields();
+    setAnalysisSaving(true);
+    try {
+      await saveEventReviewAnalysis(review.id, values);
+      setAnalysisOpen(false);
+      message.success('调查结论已保存');
+    } finally {
+      setAnalysisSaving(false);
+    }
+  };
 
   return (
-    <PageContainer title={false} className={styles.page} extra={<Button type="primary" disabled={!canClose || review.status === '已复盘' || (eventReviewApiMode && !access.canApproveEmergencyClosure)} icon={<FileDoneOutlined />} onClick={() => { void closeEventReview(review.id).then(() => message.success('事件已关闭，复盘报告和整改证据已归档')); }}>{review.status === '已复盘' ? '已关闭归档' : '关闭事件并归档'}</Button>}>
+    <PageContainer title={false} className={styles.page} extra={[<Button key="analysis" disabled={review.status === '已复盘' || (eventReviewApiMode && !access.canManageEmergency)} icon={<EditOutlined />} onClick={openAnalysis}>编辑调查结论</Button>, <Button key="close" type="primary" disabled={!canClose || review.status === '已复盘' || (eventReviewApiMode && !access.canApproveEmergencyClosure)} icon={<FileDoneOutlined />} onClick={() => { void closeEventReview(review.id).then(() => message.success('事件已关闭，复盘报告和整改证据已归档')); }}>{review.status === '已复盘' ? '已关闭归档' : '关闭事件并归档'}</Button>]}>
       <header className={styles.heading}>
         <div><span>INCIDENT REVIEW / {review.reviewCode}</span><h1>事件关闭与复盘</h1><p>{event?.code} · {event?.title} · {event?.areaName}</p></div>
-        <div className={styles.closeState}><i /><span>当前状态<strong>{review.status}</strong><small>{canClose ? '关闭条件已满足' : `仍有 ${review.actions.length - completed} 项整改未完成`}</small></span></div>
+        <div className={styles.closeState}><i /><span>当前状态<strong>{review.status}</strong><small>{canClose ? '关闭条件已满足' : completed < review.actions.length ? `仍有 ${review.actions.length - completed} 项整改未完成` : '调查结论待完善'}</small></span></div>
       </header>
 
       <section className={styles.metrics} aria-label="事件复盘指标">
@@ -59,10 +79,10 @@ export default function EventReviews() {
 
         <section className={`${styles.panel} ${styles.analysisPanel}`}>
           <header><span>CAUSE ANALYSIS</span><h2>调查分析与经验反馈</h2></header>
-          <article><b>01</b><div><span>事件摘要</span><p>{review.summary}</p></div></article>
-          <article><b>02</b><div><span>直接原因</span><p>{review.directCause}</p></div></article>
-          <article className={styles.rootCause}><b>03</b><div><span>根本原因</span><p>{review.rootCause}</p></div></article>
-          <article><b>04</b><div><span>经验教训</span><p>{review.lesson}</p></div></article>
+          <article><b>01</b><div><span>事件摘要</span><p>{review.summary || '待补充'}</p></div></article>
+          <article><b>02</b><div><span>直接原因</span><p>{review.directCause || '待补充'}</p></div></article>
+          <article className={styles.rootCause}><b>03</b><div><span>根本原因</span><p>{review.rootCause || '待补充'}</p></div></article>
+          <article><b>04</b><div><span>经验教训</span><p>{review.lesson || '待补充'}</p></div></article>
           <footer><AuditOutlined /><span>复盘负责人<strong>{review.reviewer}</strong></span><small>风险受控 {review.controlledAt}</small></footer>
         </section>
 
@@ -80,6 +100,14 @@ export default function EventReviews() {
           </footer>
         </section>
       </main>
+      <Modal title="编辑调查结论" open={analysisOpen} confirmLoading={analysisSaving} onCancel={() => setAnalysisOpen(false)} onOk={() => void submitAnalysis()} okText="保存结论">
+        <Form form={analysisForm} layout="vertical">
+          <Form.Item name="summary" label="事件摘要" rules={[{ required: true, min: 2, message: '请填写事件摘要' }]}><Input.TextArea rows={3} /></Form.Item>
+          <Form.Item name="directCause" label="直接原因" rules={[{ required: true, min: 2, message: '请填写直接原因' }]}><Input.TextArea rows={3} /></Form.Item>
+          <Form.Item name="rootCause" label="根本原因" rules={[{ required: true, min: 2, message: '请填写根本原因' }]}><Input.TextArea rows={3} /></Form.Item>
+          <Form.Item name="lesson" label="经验教训" rules={[{ required: true, min: 2, message: '请填写经验教训' }]}><Input.TextArea rows={3} /></Form.Item>
+        </Form>
+      </Modal>
     </PageContainer>
   );
 }

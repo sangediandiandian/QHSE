@@ -1,5 +1,7 @@
 import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { IamService } from '../iam/iam.service';
+import { EventReviewService } from '../event-reviews/event-review.service';
+import { InMemoryEventReviewRepository } from '../event-reviews/in-memory-event-review.repository';
 import { InMemoryWorkflowRepository } from '../workflows/in-memory-workflow.repository';
 import { WorkflowService } from '../workflows/workflow.service';
 import { InMemoryEmergencyEventRepository } from './in-memory-emergency-event.repository';
@@ -22,7 +24,7 @@ const unitManager: EmergencyAccess = {
   allowedAreaIds: ['area-01'],
 };
 
-function createService() {
+function createService(eventReviews?: EventReviewService) {
   let sequence = 0;
   return new EmergencyEventService(
     new InMemoryEmergencyEventRepository(),
@@ -36,6 +38,8 @@ function createService() {
       now: () => new Date('2026-07-15T08:00:00.000Z'),
       createCode: () => 'EC20260715001',
     },
+    undefined,
+    eventReviews,
   );
 }
 
@@ -101,7 +105,12 @@ describe('EmergencyEventService', () => {
   });
 
   it('关闭申请复用审批流并由异人签署关闭', async () => {
-    const service = createService();
+    const eventReviews = new EventReviewService(
+      new InMemoryEventReviewRepository(),
+      () => new Date('2026-07-15T08:00:00.000Z'),
+      () => 'generated-review-part',
+    );
+    const service = createService(eventReviews);
     const pending = await service.requestClose(
       'lifecycle-003',
       { expectedVersion: 1 },
@@ -126,6 +135,14 @@ describe('EmergencyEventService', () => {
       closureApproval: { status: '已通过', opinion: '同意关闭' },
     });
     expect(closed.closureApproval?.signature).toContain('赵磊');
+    await expect(eventReviews.list()).resolves.toEqual([
+      expect.objectContaining({ eventId: 'evt-003', status: '待关闭' }),
+      expect.objectContaining({ eventId: 'evt-001' }),
+    ]);
+    await expect(
+      service.approveClose(closed.id, { opinion: '重复请求', expectedVersion: 3 }, qhse),
+    ).resolves.toEqual(closed);
+    await expect(eventReviews.list()).resolves.toHaveLength(2);
   });
 
   it('区域数据范围和可信上传人由服务端控制', async () => {
