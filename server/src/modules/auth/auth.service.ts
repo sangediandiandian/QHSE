@@ -1,21 +1,10 @@
 import { Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
-import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { IamService } from '../iam/iam.service';
 import { LoginAttemptLimiterService } from './login-attempt-limiter.service';
 import { SessionStoreService } from '../../infrastructure/session/session-store.service';
 import { MemorySessionStore } from '../../infrastructure/session/memory-session.store';
-
-export function hashPassword(password: string) {
-  return scryptSync(password, 'qhse-demo-auth-v1', 64).toString('hex');
-}
-
-function verifyPassword(password: string, expectedHash: string) {
-  const actual = Buffer.from(hashPassword(password), 'hex');
-  const expected = Buffer.from(expectedHash, 'hex');
-  return actual.length === expected.length && timingSafeEqual(actual, expected);
-}
-
-const demoPasswordHash = hashPassword('ant.design');
+import { verifyPassword } from './password';
 
 @Injectable()
 export class AuthService {
@@ -34,7 +23,7 @@ export class AuthService {
     const attemptKey = `${clientKey}:${normalizedUsername.toLowerCase()}`;
     this.loginLimiter.assertAllowed(attemptKey);
     const user = this.iamService.findUserByUsername(normalizedUsername);
-    if (!user || user.status !== 'enabled' || !verifyPassword(password, demoPasswordHash)) {
+    if (!user || user.status !== 'enabled' || !verifyPassword(password, user.passwordHash)) {
       this.loginLimiter.recordFailure(attemptKey);
       throw new UnauthorizedException({ code: 'INVALID_CREDENTIALS', message: '用户名或密码错误' });
     }

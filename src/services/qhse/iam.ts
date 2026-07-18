@@ -15,6 +15,16 @@ export interface UserAuthorizationInput {
   areaIds: string[];
 }
 
+export interface CreateIamUserInput {
+  username: string;
+  name: string;
+  title: string;
+  initialPassword: string;
+  organizationId: string;
+  roleCodes: string[];
+  areaIds: string[];
+}
+
 export async function getIamOverview() {
   const [organizations, roles, users] = await Promise.all([
     request<ApiResponse<IamOrganization[]>>('/api/v1/iam/organizations', { method: 'GET' }),
@@ -36,5 +46,13 @@ export async function updateUserAuthorization(user: IamUser, input: UserAuthoriz
       data: { ...input, expectedVersion: user.version },
     },
   );
+  return response.data;
+}
+
+export async function createIamUser(input: CreateIamUserInput) {
+  const response = await request<ApiResponse<IamUser>>('/api/v1/iam/users', {
+    method: 'POST',
+    data: input,
+  });
   return response.data;
 }

@@ -37,6 +37,27 @@ describe('AuthService', () => {
     expect(operator.user.permissions).not.toContain('warning:close');
   });
 
+  test('新建账号只能使用自己的初始密码登录', async () => {
+    const iam = new IamService(undefined, () => 'user-created');
+    await iam.createUser({
+      username: 'new_operator',
+      name: '新操作员',
+      title: '岗位操作员',
+      initialPassword: 'TempPass-2026',
+      organizationId: 'org-fcc',
+      roleCodes: ['operator'],
+      areaIds: ['area-02'],
+    });
+    const service = new AuthService(iam);
+
+    await expect(service.login('new_operator', 'TempPass-2026')).resolves.toMatchObject({
+      user: { userId: 'user-created', roles: ['operator'] },
+    });
+    await expect(service.login('new_operator', 'ant.design')).rejects.toThrow(
+      UnauthorizedException,
+    );
+  });
+
   test('错误密码被拒绝且不会返回用户信息', async () => {
     await expect(new AuthService(new IamService()).login('admin', 'wrong')).rejects.toThrow(
       UnauthorizedException,

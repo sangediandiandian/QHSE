@@ -12,6 +12,7 @@ export interface IamSnapshot {
 }
 
 export class IamUserNotFoundError extends Error {}
+export class IamUsernameConflictError extends Error {}
 
 export class IamVersionConflictError extends Error {
   constructor(
@@ -24,5 +25,6 @@ export class IamVersionConflictError extends Error {
 
 export interface IamRepository {
   loadSnapshot(): Promise<IamSnapshot>;
+  createUser(user: UserAccount): Promise<number>;
   updateUserAuthorization(user: UserAccount, expectedVersion: number): Promise<number>;
 }

@@ -1,6 +1,7 @@
 /** @jest-environment node */
 
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { verifyPassword } from '../auth/password';
 import { IamService } from './iam.service';
 
 const operatorUpdate = {
@@ -12,6 +13,42 @@ const operatorUpdate = {
 };
 
 describe('IamService', () => {
+  test('创建用户时哈希初始密码且不向列表泄露摘要', async () => {
+    const service = new IamService(undefined, () => 'user-created');
+    const created = await service.createUser({
+      username: 'new.operator',
+      name: ' 新操作员 ',
+      title: ' 岗位操作员 ',
+      initialPassword: 'TempPass-2026',
+      organizationId: 'org-fcc',
+      roleCodes: ['operator'],
+      areaIds: ['area-02'],
+    });
+
+    expect(created).toMatchObject({
+      id: 'user-created',
+      username: 'new.operator',
+      name: '新操作员',
+      title: '岗位操作员',
+      version: 1,
+    });
+    expect(created).not.toHaveProperty('passwordHash');
+    expect(
+      verifyPassword('TempPass-2026', service.findUserByUsername('new.operator')!.passwordHash),
+    ).toBe(true);
+    await expect(
+      service.createUser({
+        username: 'new.operator',
+        name: '重复账号',
+        title: '操作员',
+        initialPassword: 'TempPass-2026',
+        organizationId: 'org-fcc',
+        roleCodes: ['operator'],
+        areaIds: ['area-02'],
+      }),
+    ).rejects.toThrow(ConflictException);
+  });
+
   test('更新用户组织、角色和区域授权并递增版本', async () => {
     const service = new IamService();
     const updated = await service.updateUserAuthorization(

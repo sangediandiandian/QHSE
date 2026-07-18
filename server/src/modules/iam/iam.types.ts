@@ -79,6 +79,7 @@ export interface Role {
 export interface UserAccount {
   id: string;
   username: string;
+  passwordHash: string;
   name: string;
   title: string;
   organizationId: string;

@@ -3,6 +3,7 @@ import { areas, organizations, roles, users } from './iam.seed';
 import {
   type IamRepository,
   IamUserNotFoundError,
+  IamUsernameConflictError,
   IamVersionConflictError,
   type VersionedUserAccount,
 } from './iam.repository';
@@ -34,5 +35,17 @@ export class InMemoryIamRepository implements IamRepository {
     const version = current.version + 1;
     this.accounts.set(user.id, { ...clone(user), version });
     return version;
+  }
+
+  async createUser(user: UserAccount) {
+    if (
+      [...this.accounts.values()].some(
+        (item) => item.username.toLowerCase() === user.username.toLowerCase(),
+      )
+    ) {
+      throw new IamUsernameConflictError();
+    }
+    this.accounts.set(user.id, { ...clone(user), version: 1 });
+    return 1;
   }
 }

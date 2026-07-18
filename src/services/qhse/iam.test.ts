@@ -1,7 +1,7 @@
 /** @jest-environment node */
 
 import { request } from '@umijs/max';
-import { getIamOverview, updateUserAuthorization } from './iam';
+import { createIamUser, getIamOverview, updateUserAuthorization } from './iam';
 
 jest.mock('@umijs/max', () => ({ request: jest.fn() }));
 
@@ -35,6 +35,25 @@ describe('iam service', () => {
     expect(requestMock).toHaveBeenCalledWith('/api/v1/iam/users/user-1/authorization', {
       method: 'PUT',
       data: { ...input, expectedVersion: 3 },
+    });
+  });
+
+  test('创建用户只提交初始密码和授权', async () => {
+    const input = {
+      username: 'new_operator',
+      name: '新操作员',
+      title: '岗位操作员',
+      initialPassword: 'TempPass-2026',
+      organizationId: 'org-fcc',
+      roleCodes: ['operator'],
+      areaIds: ['area-02'],
+    };
+    requestMock.mockResolvedValue({ data: { id: 'user-created', ...input } });
+
+    await createIamUser(input);
+    expect(requestMock).toHaveBeenCalledWith('/api/v1/iam/users', {
+      method: 'POST',
+      data: input,
     });
   });
 });

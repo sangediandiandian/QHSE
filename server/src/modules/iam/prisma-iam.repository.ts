@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import type { UserStatus } from '@prisma/client';
+import { Prisma, type UserStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import {
   type IamRepository,
   IamUserNotFoundError,
+  IamUsernameConflictError,
   IamVersionConflictError,
 } from './iam.repository';
 import type { AreaAssignment, Organization, Permission, Role, UserAccount } from './iam.types';
@@ -49,6 +50,7 @@ export class PrismaIamRepository implements IamRepository {
       users: userRecords.map((item) => ({
         id: item.id,
         username: item.username,
+        passwordHash: item.passwordHash,
         name: item.name,
         title: item.title,
         organizationId: item.organizationId,
@@ -97,5 +99,44 @@ export class PrismaIamRepository implements IamRepository {
       }
       return expectedVersion + 1;
     });
+  }
+
+  async createUser(user: UserAccount) {
+    try {
+      return await this.prisma.$transaction(async (transaction) => {
+        const assignedRoles = await transaction.role.findMany({
+          where: { code: { in: user.roleCodes } },
+          select: { id: true },
+        });
+        await transaction.user.create({
+          data: {
+            id: user.id,
+            username: user.username,
+            passwordHash: user.passwordHash,
+            name: user.name,
+            title: user.title,
+            organizationId: user.organizationId,
+            status: user.status as UserStatus,
+            tokenVersion: 1,
+          },
+        });
+        if (assignedRoles.length) {
+          await transaction.userRole.createMany({
+            data: assignedRoles.map((role) => ({ userId: user.id, roleId: role.id })),
+          });
+        }
+        if (user.areaIds.length) {
+          await transaction.userAreaAssignment.createMany({
+            data: user.areaIds.map((areaId) => ({ userId: user.id, areaId })),
+          });
+        }
+        return 1;
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new IamUsernameConflictError();
+      }
+      throw error;
+    }
   }
 }

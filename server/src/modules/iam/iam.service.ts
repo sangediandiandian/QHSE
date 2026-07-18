@@ -5,11 +5,14 @@ import {
   NotFoundException,
   type OnModuleInit,
 } from '@nestjs/common';
-import type { UpdateUserAuthorizationDto } from './iam.dto';
+import { randomUUID } from 'node:crypto';
+import { hashPassword } from '../auth/password';
+import type { CreateUserDto, UpdateUserAuthorizationDto } from './iam.dto';
 import { InMemoryIamRepository } from './in-memory-iam.repository';
 import {
   type IamRepository,
   IamUserNotFoundError,
+  IamUsernameConflictError,
   IamVersionConflictError,
 } from './iam.repository';
 import { areas, organizations, roles, users } from './iam.seed';
@@ -30,7 +33,10 @@ export class IamService implements OnModuleInit {
   private accounts: UserAccount[] = [];
   private readonly versions = new Map<string, number>();
 
-  constructor(private readonly repository: IamRepository = new InMemoryIamRepository()) {
+  constructor(
+    private readonly repository: IamRepository = new InMemoryIamRepository(),
+    private readonly createId: () => string = randomUUID,
+  ) {
     this.replaceSnapshot({
       organizations,
       areas,
@@ -66,6 +72,36 @@ export class IamService implements OnModuleInit {
     return this.accounts.find((user) => user.id === id);
   }
 
+  async createUser(input: CreateUserDto) {
+    const username = input.username.trim().toLowerCase();
+    if (this.accounts.some((user) => user.username.toLowerCase() === username)) {
+      throw new ConflictException({ code: 'IAM_USERNAME_EXISTS', message: '登录账号已存在' });
+    }
+    const areaIds = this.validateAssignment(input.organizationId, input.roleCodes, input.areaIds);
+    const user: UserAccount = {
+      id: this.createId(),
+      username,
+      passwordHash: hashPassword(input.initialPassword),
+      name: input.name.trim(),
+      title: input.title.trim(),
+      organizationId: input.organizationId,
+      roleCodes: [...input.roleCodes],
+      areaIds,
+      status: 'enabled',
+    };
+    try {
+      const version = await this.repository.createUser(user);
+      this.accounts.push(user);
+      this.versions.set(user.id, version);
+      return this.toManagedUser(user);
+    } catch (error) {
+      if (error instanceof IamUsernameConflictError) {
+        throw new ConflictException({ code: 'IAM_USERNAME_EXISTS', message: '登录账号已存在' });
+      }
+      throw error;
+    }
+  }
+
   async updateUserAuthorization(id: string, input: UpdateUserAuthorizationDto, actorId: string) {
     const user = this.findUserById(id);
     if (!user) {
@@ -75,28 +111,7 @@ export class IamService implements OnModuleInit {
     if (input.expectedVersion !== actualVersion) {
       this.versionConflict(input.expectedVersion, actualVersion);
     }
-    if (!this.organizations.some((item) => item.id === input.organizationId)) {
-      throw new BadRequestException({
-        code: 'IAM_ORGANIZATION_INVALID',
-        message: '所属组织不存在',
-      });
-    }
-    const assignedRoles = input.roleCodes.map((code) =>
-      this.roles.find((role) => role.code === code),
-    );
-    if (assignedRoles.some((role) => !role)) {
-      throw new BadRequestException({ code: 'IAM_ROLE_INVALID', message: '包含无效角色' });
-    }
-    if (input.areaIds.some((areaId) => !this.areas.some((area) => area.id === areaId))) {
-      throw new BadRequestException({ code: 'IAM_AREA_INVALID', message: '包含无效区域' });
-    }
-    const isAllScope = assignedRoles.some((role) => role?.dataScope === 'all');
-    if (!isAllScope && input.areaIds.length === 0) {
-      throw new BadRequestException({
-        code: 'IAM_AREA_REQUIRED',
-        message: '区域数据权限角色至少需要分配一个区域',
-      });
-    }
+    const areaIds = this.validateAssignment(input.organizationId, input.roleCodes, input.areaIds);
     if (
       actorId === id &&
       (input.status === 'disabled' || !input.roleCodes.includes('system_admin'))
@@ -112,7 +127,7 @@ export class IamService implements OnModuleInit {
       status: input.status,
       organizationId: input.organizationId,
       roleCodes: [...input.roleCodes],
-      areaIds: isAllScope ? [] : [...input.areaIds],
+      areaIds,
     };
     try {
       const version = await this.repository.updateUserAuthorization(updated, input.expectedVersion);
@@ -147,7 +162,12 @@ export class IamService implements OnModuleInit {
 
   private toManagedUser(user: UserAccount) {
     return {
-      ...user,
+      id: user.id,
+      username: user.username,
+      name: user.name,
+      title: user.title,
+      organizationId: user.organizationId,
+      status: user.status,
       roleCodes: [...user.roleCodes],
       areaIds: [...user.areaIds],
       version: this.versions.get(user.id) ?? 1,
@@ -156,6 +176,30 @@ export class IamService implements OnModuleInit {
         .filter((role) => user.roleCodes.includes(role.code))
         .map((role) => ({ ...role, permissions: [...role.permissions] })),
     };
+  }
+
+  private validateAssignment(organizationId: string, roleCodes: string[], areaIds: string[]) {
+    if (!this.organizations.some((item) => item.id === organizationId)) {
+      throw new BadRequestException({
+        code: 'IAM_ORGANIZATION_INVALID',
+        message: '所属组织不存在',
+      });
+    }
+    const assignedRoles = roleCodes.map((code) => this.roles.find((role) => role.code === code));
+    if (assignedRoles.some((role) => !role)) {
+      throw new BadRequestException({ code: 'IAM_ROLE_INVALID', message: '包含无效角色' });
+    }
+    if (areaIds.some((areaId) => !this.areas.some((area) => area.id === areaId))) {
+      throw new BadRequestException({ code: 'IAM_AREA_INVALID', message: '包含无效区域' });
+    }
+    const isAllScope = assignedRoles.some((role) => role?.dataScope === 'all');
+    if (!isAllScope && areaIds.length === 0) {
+      throw new BadRequestException({
+        code: 'IAM_AREA_REQUIRED',
+        message: '区域数据权限角色至少需要分配一个区域',
+      });
+    }
+    return isAllScope ? [] : [...areaIds];
   }
 
   private replaceSnapshot(snapshot: Awaited<ReturnType<IamRepository['loadSnapshot']>>) {
@@ -168,6 +212,7 @@ export class IamService implements OnModuleInit {
     this.accounts = snapshot.users.map((user) => ({
       id: user.id,
       username: user.username,
+      passwordHash: user.passwordHash,
       name: user.name,
       title: user.title,
       organizationId: user.organizationId,

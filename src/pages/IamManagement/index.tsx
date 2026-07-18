@@ -1,9 +1,10 @@
 import type { UserAuthorizationInput } from '@/services/qhse/iam';
-import { getIamOverview, updateUserAuthorization } from '@/services/qhse/iam';
+import { createIamUser, getIamOverview, updateUserAuthorization } from '@/services/qhse/iam';
 import type { IamOrganization, IamRole, IamUser } from '@/types/qhse';
 import {
   ApartmentOutlined,
   EditOutlined,
+  PlusOutlined,
   SafetyCertificateOutlined,
   TeamOutlined,
   UserSwitchOutlined,
@@ -15,6 +16,13 @@ import type { ColumnsType } from 'antd/es/table';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import styles from './index.less';
 
+interface UserForm extends UserAuthorizationInput {
+  username?: string;
+  name?: string;
+  title?: string;
+  initialPassword?: string;
+}
+
 export default function IamManagement() {
   const access = useAccess();
   const { initialState } = useModel('@@initialState');
@@ -22,11 +30,12 @@ export default function IamManagement() {
   const [roles, setRoles] = useState<IamRole[]>([]);
   const [users, setUsers] = useState<IamUser[]>([]);
   const [editing, setEditing] = useState<IamUser>();
+  const [creating, setCreating] = useState(false);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<'all' | IamUser['status']>('all');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [form] = Form.useForm<UserAuthorizationInput>();
+  const [form] = Form.useForm<UserForm>();
   const selectedRoleCodes = Form.useWatch('roleCodes', form) ?? [];
   const allScope = roles.some(
     (role) => selectedRoleCodes.includes(role.code) && role.dataScope === 'all',
@@ -64,6 +73,7 @@ export default function IamManagement() {
   }, [query, status, users]);
 
   const open = (user: IamUser) => {
+    setCreating(false);
     setEditing(user);
     form.setFieldsValue({
       status: user.status,
@@ -73,18 +83,47 @@ export default function IamManagement() {
     });
   };
 
+  const openCreate = () => {
+    setEditing(undefined);
+    setCreating(true);
+    form.resetFields();
+    form.setFieldsValue({
+      status: 'enabled',
+      organizationId: organizations[0]?.id,
+      roleCodes: [],
+      areaIds: [],
+    });
+  };
+
   const save = async () => {
-    if (!editing) return;
+    if (!editing && !creating) return;
     const values = await form.validateFields();
     setSaving(true);
     try {
-      const updated = await updateUserAuthorization(editing, {
-        ...values,
-        areaIds: allScope ? [] : values.areaIds,
-      });
-      setUsers((current) => current.map((user) => (user.id === updated.id ? updated : user)));
+      if (creating) {
+        const created = await createIamUser({
+          username: values.username!,
+          name: values.name!,
+          title: values.title!,
+          initialPassword: values.initialPassword!,
+          organizationId: values.organizationId,
+          roleCodes: values.roleCodes,
+          areaIds: allScope ? [] : values.areaIds,
+        });
+        setUsers((current) => [...current, created]);
+        message.success('用户已创建，可使用初始密码登录');
+      } else if (editing) {
+        const updated = await updateUserAuthorization(editing, {
+          status: values.status,
+          organizationId: values.organizationId,
+          roleCodes: values.roleCodes,
+          areaIds: allScope ? [] : values.areaIds,
+        });
+        setUsers((current) => current.map((user) => (user.id === updated.id ? updated : user)));
+        message.success('用户授权已更新，现有会话将立即使用新权限');
+      }
+      setCreating(false);
       setEditing(undefined);
-      message.success('用户授权已更新，现有会话将立即使用新权限');
     } finally {
       setSaving(false);
     }
@@ -207,6 +246,14 @@ export default function IamManagement() {
             <p>停用账号会立即失效；授权更新使用版本号防止覆盖其他管理员的修改。</p>
           </div>
           <Space>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              disabled={!access.canAdmin}
+              onClick={openCreate}
+            >
+              新增用户
+            </Button>
             <Input.Search
               allowClear
               value={query}
@@ -234,13 +281,18 @@ export default function IamManagement() {
       </section>
 
       <Modal
-        title={`用户授权 · ${editing?.name ?? ''}`}
-        open={Boolean(editing)}
+        title={creating ? '新增用户' : `用户授权 · ${editing?.name ?? ''}`}
+        open={creating || Boolean(editing)}
         confirmLoading={saving}
-        okText="保存授权"
+        okText={creating ? '创建用户' : '保存授权'}
         cancelText="取消"
         onOk={() => void save()}
-        onCancel={() => !saving && setEditing(undefined)}
+        onCancel={() => {
+          if (!saving) {
+            setCreating(false);
+            setEditing(undefined);
+          }
+        }}
       >
         {editing?.id === initialState?.currentUser?.userid && (
           <Alert
@@ -250,14 +302,47 @@ export default function IamManagement() {
           />
         )}
         <Form form={form} layout="vertical" className={styles.form}>
-          <Form.Item name="status" label="账号状态" rules={[{ required: true }]}>
-            <Select
-              options={[
-                { value: 'enabled', label: '启用' },
-                { value: 'disabled', label: '停用' },
-              ]}
-            />
-          </Form.Item>
+          {creating && (
+            <>
+              <Form.Item
+                name="username"
+                label="登录账号"
+                rules={[
+                  { required: true },
+                  {
+                    pattern: /^[a-z][a-z0-9._-]{2,49}$/,
+                    message: '使用 3–50 位小写字母、数字、点、下划线或连字符',
+                  },
+                ]}
+              >
+                <Input autoComplete="off" />
+              </Form.Item>
+              <Form.Item name="name" label="姓名" rules={[{ required: true, max: 80 }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item name="title" label="岗位名称" rules={[{ required: true, max: 80 }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item
+                name="initialPassword"
+                label="初始密码"
+                rules={[{ required: true, min: 8, max: 72 }]}
+                extra="密码只在本次创建时提交，页面和用户台账不会回显。"
+              >
+                <Input.Password autoComplete="new-password" />
+              </Form.Item>
+            </>
+          )}
+          {!creating && (
+            <Form.Item name="status" label="账号状态" rules={[{ required: true }]}>
+              <Select
+                options={[
+                  { value: 'enabled', label: '启用' },
+                  { value: 'disabled', label: '停用' },
+                ]}
+              />
+            </Form.Item>
+          )}
           <Form.Item name="organizationId" label="所属组织" rules={[{ required: true }]}>
             <Select
               options={organizations.map((item) => ({

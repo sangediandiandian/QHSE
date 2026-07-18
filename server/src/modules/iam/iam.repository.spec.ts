@@ -37,6 +37,7 @@ describe('IAM repositories', () => {
       user: {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         findUnique: jest.fn(),
+        create: jest.fn().mockResolvedValue({ id: 'user-2' }),
       },
       role: {
         findMany: jest.fn().mockResolvedValue([{ id: 'role-unit' }]),
@@ -81,6 +82,7 @@ describe('IAM repositories', () => {
           {
             id: 'user-1',
             username: 'unit',
+            passwordHash: 'scrypt$salt$hash',
             name: '装置负责人',
             title: '负责人',
             organizationId: 'org-1',
@@ -103,6 +105,7 @@ describe('IAM repositories', () => {
         {
           id: 'user-1',
           username: 'unit',
+          passwordHash: 'scrypt$salt$hash',
           name: '装置负责人',
           title: '负责人',
           organizationId: 'org-1',
@@ -127,6 +130,31 @@ describe('IAM repositories', () => {
     expect(transaction.userAreaAssignment.createMany).toHaveBeenCalledWith({
       data: [{ userId: 'user-1', areaId: 'area-1' }],
     });
+    await expect(
+      repository.createUser({
+        id: 'user-2',
+        username: 'new-user',
+        passwordHash: 'scrypt$new-salt$new-hash',
+        name: '新用户',
+        title: '操作员',
+        organizationId: 'org-1',
+        roleCodes: ['unit_manager'],
+        areaIds: ['area-1'],
+        status: 'enabled',
+      }),
+    ).resolves.toBe(1);
+    expect(transaction.user.create).toHaveBeenCalledWith({
+      data: {
+        id: 'user-2',
+        username: 'new-user',
+        passwordHash: 'scrypt$new-salt$new-hash',
+        name: '新用户',
+        title: '操作员',
+        organizationId: 'org-1',
+        status: 'enabled',
+        tokenVersion: 1,
+      },
+    });
   });
 
   test('Prisma 仓储把条件更新失败映射为版本冲突', async () => {
@@ -146,6 +174,7 @@ describe('IAM repositories', () => {
         {
           id: 'user-1',
           username: 'unit',
+          passwordHash: 'scrypt$salt$hash',
           name: '装置负责人',
           title: '负责人',
           organizationId: 'org-1',
