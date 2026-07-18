@@ -12,6 +12,7 @@ import { hazardSeed } from '../modules/hazards/hazard.seed';
 import { workPermitSeed } from '../modules/work-permits/work-permit.seed';
 import { warningRuleSeed } from '../modules/warning-rules/warning-rule.seed';
 import { emergencyEventSeed } from '../modules/emergency-events/emergency-event.seed';
+import { eventReviewSeed } from '../modules/event-reviews/event-review.seed';
 import { emergencyPlanSeed } from '../modules/emergency-plans/emergency-plan.seed';
 import { emergencyResourceSeed } from '../modules/emergency-resources/emergency-resource.seed';
 import { communicationSeed } from '../modules/communications/communication.seed';
@@ -391,6 +392,34 @@ async function main() {
           : Prisma.JsonNull,
         createdAt: new Date(event.createdAt),
       },
+    });
+  }
+
+  for (const review of eventReviewSeed) {
+    const data = {
+      eventId: review.eventId,
+      eventCode: review.eventCode,
+      eventTitle: review.eventTitle,
+      areaId: review.areaId,
+      areaName: review.areaName,
+      reviewCode: review.reviewCode,
+      status: review.status,
+      reviewer: review.reviewer,
+      summary: review.summary,
+      directCause: review.directCause,
+      rootCause: review.rootCause,
+      lesson: review.lesson,
+      controlledAt: new Date(review.controlledAt),
+      closedAt: review.closedAt ? new Date(review.closedAt) : null,
+      timeline: review.timeline as unknown as Prisma.InputJsonValue,
+      actions: review.actions as unknown as Prisma.InputJsonValue,
+      version: review.version,
+      updatedAt: new Date(review.updatedAt),
+    };
+    await prisma.eventReview.upsert({
+      where: { id: review.id },
+      update: data,
+      create: { id: review.id, ...data, createdAt: new Date(review.createdAt) },
     });
   }
 

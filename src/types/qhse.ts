@@ -429,11 +429,19 @@ export interface ReviewAction {
   deadline: string;
   priority: '一般' | '重要' | '紧急';
   status: '待整改' | '整改中' | '已完成';
+  updatedById?: string;
+  updatedBy?: string;
+  updatedAt?: string;
+  completedAt?: string;
 }
 
 export interface EventReview {
   id: string;
   eventId: string;
+  eventCode?: string;
+  eventTitle?: string;
+  areaId?: string;
+  areaName?: string;
   reviewCode: string;
   status: '待关闭' | '已关闭' | '已复盘';
   reviewer: string;
@@ -445,6 +453,9 @@ export interface EventReview {
   closedAt?: string;
   timeline: Array<{ time: string; title: string; detail: string; status: 'done' | 'active' | 'pending' }>;
   actions: ReviewAction[];
+  version?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type EmergencyEventStatus = '待研判' | '响应中' | '监控中' | '待关闭' | '已关闭';

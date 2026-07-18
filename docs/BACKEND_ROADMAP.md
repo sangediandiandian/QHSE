@@ -75,6 +75,8 @@
 - `POST /api/v1/emergency-events`：将预警或告警转为待研判应急事件，禁止同源重复转化。
 - `POST /api/v1/emergency-events/:id/actions|evidence`：执行响应状态迁移或归档可信证据。
 - `POST /api/v1/emergency-events/:id/closure-request|closure-reminder|closure-approval`：关闭申请、催办和异人审批。
+- `GET /api/v1/event-reviews`、`GET /api/v1/event-reviews/:id`：按区域数据范围查询事件调查复盘。
+- `POST /api/v1/event-reviews/:id/actions/advance|close`：推进整改措施或在全部完成后关闭归档复盘。
 - `GET /api/v1/emergency-plans`、`GET /api/v1/emergency-plans/:id`：查询预案、运行版本、草稿、评审和演练。
 - `POST /api/v1/emergency-plans`、`PUT /api/v1/emergency-plans/:id/draft`：创建或维护独立预案草稿。
 - `POST /api/v1/emergency-plans/:id/submit|approve|rollback`：双人会签发布或将历史版本恢复为草稿。

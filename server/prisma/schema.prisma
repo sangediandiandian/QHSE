@@ -452,6 +452,32 @@ model EmergencyEvent {
   @@map("emergency_events")
 }
 
+model EventReview {
+  id           String    @id @default(uuid())
+  eventId      String    @unique
+  eventCode    String
+  eventTitle   String
+  areaId       String
+  areaName     String
+  reviewCode   String    @unique
+  status       String
+  reviewer     String
+  summary      String
+  directCause  String
+  rootCause    String
+  lesson       String
+  controlledAt DateTime
+  closedAt     DateTime?
+  timeline     Json
+  actions      Json
+  version      Int       @default(1)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([areaId, status, updatedAt])
+  @@map("event_reviews")
+}
+
 model EmergencyPlanTemplate {
   id            String   @id @default(uuid())
   code          String   @unique

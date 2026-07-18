@@ -25,6 +25,7 @@ import { PlatformConfigModule } from './modules/platform-config/platform-config.
 import { DiagnosticsModule } from './modules/diagnostics/diagnostics.module';
 import { RuntimeMetricsMiddleware } from './modules/diagnostics/runtime-metrics.middleware';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { EventReviewModule } from './modules/event-reviews/event-review.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     WarningRuleModule,
     WarningExecutionModule,
     EmergencyEventModule,
+    EventReviewModule,
     EmergencyPlanModule,
     EmergencyResourceModule,
     CommunicationModule,

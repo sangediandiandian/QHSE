@@ -12,6 +12,7 @@ import type {
   EmergencyEvent,
   EmergencyEventAction,
   EmergencyEventEvidence,
+  EventReview,
   EmergencyPlanDraftInput,
   EmergencyPlanTemplate,
   EmergencyResource,
@@ -81,6 +82,11 @@ import {
   requestEmergencyClosure,
   transitionEmergencyEvent as transitionEmergencyEventByApi,
 } from '@/services/qhse/emergencyEvents';
+import {
+  advanceEventReviewAction as advanceEventReviewActionByApi,
+  closeEventReviewByApi,
+  getEventReviews,
+} from '@/services/qhse/eventReviews';
 import {
   addEmergencyDrill as addEmergencyDrillByApi,
   approveEmergencyPlan as approveEmergencyPlanByApi,
@@ -252,6 +258,8 @@ export default function useQhseModel() {
   const [warningRuleLoading, setWarningRuleLoading] = useState(false);
   const [emergencyEventRecords, setEmergencyEventRecords] = useState<EmergencyEvent[]>([]);
   const [emergencyEventLoading, setEmergencyEventLoading] = useState(false);
+  const [eventReviewRecords, setEventReviewRecords] = useState<EventReview[]>([]);
+  const [eventReviewLoading, setEventReviewLoading] = useState(false);
   const [emergencyPlanRecords, setEmergencyPlanRecords] = useState<EmergencyPlanTemplate[]>([]);
   const [emergencyPlanLoading, setEmergencyPlanLoading] = useState(false);
   const [emergencyResourceRecords, setEmergencyResourceRecords] = useState<EmergencyResource[]>([]);
@@ -344,6 +352,12 @@ export default function useQhseModel() {
     } finally {
       setEmergencyEventLoading(false);
     }
+  }, [dashboard, loadDashboard]);
+
+  const loadEventReviews = useCallback(async () => {
+    if (!hazardApiMode) { if (!dashboard) await loadDashboard(); return; }
+    setEventReviewLoading(true);
+    try { setEventReviewRecords(await getEventReviews()); } finally { setEventReviewLoading(false); }
   }, [dashboard, loadDashboard]);
 
   const loadEmergencyPlans = useCallback(async () => {
@@ -722,20 +736,35 @@ export default function useQhseModel() {
     } : current);
   }, [emergencyPlanRecords]);
 
-  const advanceReviewAction = useCallback((actionId: string) => {
+  const advanceReviewAction = useCallback(async (reviewId: string, actionId: string) => {
+    if (hazardApiMode) {
+      const review = eventReviewRecords.find((item) => item.id === reviewId);
+      if (!review) throw new Error('事件复盘不存在');
+      const updated = await advanceEventReviewActionByApi(reviewId, actionId, review.version ?? 1);
+      setEventReviewRecords((items) => items.map((item) => item.id === reviewId ? updated : item));
+      return updated;
+    }
     setDashboard((current) => current ? {
       ...current,
-      eventReviews: current.eventReviews.map((review) => ({
+      eventReviews: current.eventReviews.map((review) => review.id === reviewId ? ({
         ...review,
         actions: review.actions.map((action) => action.id === actionId ? {
           ...action,
           status: action.status === '待整改' ? '整改中' : action.status === '整改中' ? '已完成' : action.status,
         } : action),
-      })),
+      }) : review),
     } : current);
-  }, []);
+    return undefined;
+  }, [eventReviewRecords]);
 
-  const closeEventReview = useCallback((reviewId: string) => {
+  const closeEventReview = useCallback(async (reviewId: string) => {
+    if (hazardApiMode) {
+      const review = eventReviewRecords.find((item) => item.id === reviewId);
+      if (!review) throw new Error('事件复盘不存在');
+      const updated = await closeEventReviewByApi(reviewId, review.version ?? 1);
+      setEventReviewRecords((items) => items.map((item) => item.id === reviewId ? updated : item));
+      return updated;
+    }
     setDashboard((current) => current ? {
       ...current,
       eventReviews: current.eventReviews.map((review) => review.id === reviewId ? {
@@ -750,7 +779,8 @@ export default function useQhseModel() {
         } : item),
       } : review),
     } : current);
-  }, []);
+    return undefined;
+  }, [eventReviewRecords]);
 
   const transitionEvent = useCallback(async (eventId: string, action: EmergencyEventAction) => {
     if (hazardApiMode) {
@@ -1231,6 +1261,10 @@ export default function useQhseModel() {
     emergencyEventLoading: hazardApiMode ? emergencyEventLoading : loading,
     emergencyEventApiMode: hazardApiMode,
     loadEmergencyEvents,
+    eventReviews: hazardApiMode ? eventReviewRecords : (dashboard?.eventReviews ?? []),
+    eventReviewLoading: hazardApiMode ? eventReviewLoading : loading,
+    eventReviewApiMode: hazardApiMode,
+    loadEventReviews,
     emergencyPlans: hazardApiMode ? emergencyPlanRecords : (dashboard?.emergencyPlans ?? []),
     emergencyPlanLoading: hazardApiMode ? emergencyPlanLoading : loading,
     emergencyPlanApiMode: hazardApiMode,

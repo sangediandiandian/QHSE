@@ -10,7 +10,7 @@ import {
   TeamOutlined,
 } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
-import { useModel } from '@umijs/max';
+import { useAccess, useModel } from '@umijs/max';
 import { Button, Empty, Progress, Skeleton, Tag, message } from 'antd';
 import { useEffect } from 'react';
 import styles from './index.less';
@@ -19,22 +19,25 @@ const priorityColor: Record<ReviewAction['priority'], string> = { 一般: 'defau
 const statusColor: Record<ReviewAction['status'], string> = { 待整改: 'default', 整改中: 'processing', 已完成: 'success' };
 
 export default function EventReviews() {
-  const { dashboard, loading, loadDashboard, advanceReviewAction, closeEventReview } = useModel('qhse');
-  useEffect(() => { if (!dashboard) void loadDashboard(); }, [dashboard, loadDashboard]);
+  const access = useAccess();
+  const { dashboard, eventReviews, eventReviewLoading, eventReviewApiMode, loadEventReviews, advanceReviewAction, closeEventReview } = useModel('qhse');
+  useEffect(() => { void loadEventReviews(); }, [loadEventReviews]);
 
-  if (!dashboard && loading) return <PageContainer><Skeleton active paragraph={{ rows: 14 }} /></PageContainer>;
-  if (!dashboard || !dashboard.eventReviews[0]) return <PageContainer><Empty description="暂无待复盘事件" /></PageContainer>;
+  if (eventReviewLoading && !eventReviews.length) return <PageContainer><Skeleton active paragraph={{ rows: 14 }} /></PageContainer>;
+  if (!eventReviews[0]) return <PageContainer><Empty description="暂无待复盘事件" /></PageContainer>;
 
-  const review = dashboard.eventReviews[0];
-  const event = dashboard.alarms.find((item) => item.id === review.eventId) ?? dashboard.alarms[0];
+  const review = eventReviews[0];
+  const event = eventReviewApiMode
+    ? { code: review.eventCode ?? review.eventId, title: review.eventTitle ?? review.summary, areaName: review.areaName ?? '--' }
+    : dashboard?.alarms.find((item) => item.id === review.eventId) ?? dashboard?.alarms[0];
   const completed = review.actions.filter((action) => action.status === '已完成').length;
   const progress = Math.round((completed / review.actions.length) * 100);
   const canClose = completed === review.actions.length;
 
   return (
-    <PageContainer title={false} className={styles.page} extra={<Button type="primary" disabled={!canClose || review.status === '已复盘'} icon={<FileDoneOutlined />} onClick={() => { closeEventReview(review.id); message.success('事件已关闭，复盘报告和整改证据已归档'); }}>{review.status === '已复盘' ? '已关闭归档' : '关闭事件并归档'}</Button>}>
+    <PageContainer title={false} className={styles.page} extra={<Button type="primary" disabled={!canClose || review.status === '已复盘' || (eventReviewApiMode && !access.canApproveEmergencyClosure)} icon={<FileDoneOutlined />} onClick={() => { void closeEventReview(review.id).then(() => message.success('事件已关闭，复盘报告和整改证据已归档')); }}>{review.status === '已复盘' ? '已关闭归档' : '关闭事件并归档'}</Button>}>
       <header className={styles.heading}>
-        <div><span>INCIDENT REVIEW / {review.reviewCode}</span><h1>事件关闭与复盘</h1><p>{event.code} · {event.title} · {event.areaName}</p></div>
+        <div><span>INCIDENT REVIEW / {review.reviewCode}</span><h1>事件关闭与复盘</h1><p>{event?.code} · {event?.title} · {event?.areaName}</p></div>
         <div className={styles.closeState}><i /><span>当前状态<strong>{review.status}</strong><small>{canClose ? '关闭条件已满足' : `仍有 ${review.actions.length - completed} 项整改未完成`}</small></span></div>
       </header>
 
@@ -69,7 +72,7 @@ export default function EventReviews() {
             <article key={action.id}>
               <b>{String(index + 1).padStart(2, '0')}</b>
               <div><div><strong>{action.title}</strong><Tag color={priorityColor[action.priority]}>{action.priority}</Tag></div><p><TeamOutlined /> {action.ownerDepartment} · {action.owner}</p><small><ClockCircleOutlined /> 截止 {action.deadline}</small></div>
-              <div className={styles.actionState}><Tag color={statusColor[action.status]}>{action.status}</Tag><Button size="small" disabled={action.status === '已完成'} onClick={() => { advanceReviewAction(action.id); message.success(action.status === '待整改' ? '整改措施已开始' : '整改措施已完成'); }}>{action.status === '待整改' ? '开始整改' : action.status === '整改中' ? '确认完成' : <CheckCircleFilled />}</Button></div>
+              <div className={styles.actionState}><Tag color={statusColor[action.status]}>{action.status}</Tag><Button size="small" disabled={action.status === '已完成' || (eventReviewApiMode && !access.canManageEmergency)} onClick={() => { void advanceReviewAction(review.id, action.id).then(() => message.success(action.status === '待整改' ? '整改措施已开始' : '整改措施已完成')); }}>{action.status === '待整改' ? '开始整改' : action.status === '整改中' ? '确认完成' : <CheckCircleFilled />}</Button></div>
             </article>
           ))}</div>
           <footer className={styles.closeChecklist}>

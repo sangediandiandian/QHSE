@@ -144,6 +144,7 @@ export default [
     icon: 'audit',
     path: '/reviews',
     component: './EventReviews',
+    access: 'canViewEmergency',
   },
   {
     name: '统计报表',
