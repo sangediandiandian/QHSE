@@ -48,7 +48,7 @@
     "defaults"
   ],
   "dependencies": {
-    "@ant-design/icons": "^4.8.3",
+    "@ant-design/icons": "^6.3.2",
     "@ant-design/pro-components": "^2.7.19",
     "@aws-sdk/client-s3": "^3.1087.0",
     "@nestjs/common": "^11.1.0",
