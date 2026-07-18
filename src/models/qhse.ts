@@ -50,6 +50,7 @@ import {
   closeHazard as closeHazardByApi,
   getHazardRiskUnits,
   getHazards,
+  runHazardReminders as runHazardRemindersByApi,
   reportHazard,
   setHazardSupervision,
   startHazardRectification as startHazardByApi,
@@ -1776,6 +1777,15 @@ export default function useQhseModel() {
     [hazardRecords],
   );
 
+  const runHazardReminders = useCallback(async () => {
+    if (!hazardApiMode) {
+      return { scanned: 0, created: 0, skipped: 0, failed: 0, runAt: getCurrentTimestamp() };
+    }
+    const result = await runHazardRemindersByApi();
+    await loadHazards();
+    return result;
+  }, [loadHazards]);
+
   const triggerPermitLinkage = useCallback(async () => {
     if (hazardApiMode) {
       const { permits, signals } = await refreshWorkPermitLinkageRecords();
@@ -2209,6 +2219,7 @@ export default function useQhseModel() {
     submitHazard,
     acceptHazard,
     toggleHazardSupervision,
+    runHazardReminders,
     triggerPermitLinkage,
     advanceWorkPermit,
     addWorkPermit,

@@ -10,7 +10,8 @@ export type HazardSource = (typeof hazardSources)[number];
 export const hazardEvidenceCategories = ['整改前', '整改过程', '整改完成'] as const;
 export type HazardEvidenceCategory = (typeof hazardEvidenceCategories)[number];
 
-export type HazardAction = '上报' | '开始整改' | '提交验收' | '验收关闭' | '挂牌督办' | '解除挂牌';
+export type HazardAction =
+  '上报' | '开始整改' | '提交验收' | '验收关闭' | '挂牌督办' | '解除挂牌' | '整改催办';
 
 export interface HazardEvidence {
   id: string;
@@ -80,4 +81,12 @@ export interface HazardMutation {
   evidence?: HazardEvidence;
   operation?: HazardOperation;
   updatedAt: string;
+}
+
+export interface HazardReminderResult {
+  scanned: number;
+  created: number;
+  skipped: number;
+  failed: number;
+  runAt: string;
 }

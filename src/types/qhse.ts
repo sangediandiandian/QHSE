@@ -911,11 +911,26 @@ export interface HazardEvidence {
 
 export interface HazardOperation {
   id: string;
-  action: '上报' | '开始整改' | '提交验收' | '验收关闭' | '挂牌督办' | '解除挂牌';
+  action:
+    | '上报'
+    | '开始整改'
+    | '提交验收'
+    | '验收关闭'
+    | '挂牌督办'
+    | '解除挂牌'
+    | '整改催办';
   operator: string;
   operatorId?: string;
   operatedAt: string;
   detail: string;
+}
+
+export interface HazardReminderResult {
+  scanned: number;
+  created: number;
+  skipped: number;
+  failed: number;
+  runAt: string;
 }
 
 export interface HazardInput {

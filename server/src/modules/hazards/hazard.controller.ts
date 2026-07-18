@@ -18,6 +18,18 @@ import { UpdateHazardSupervisionDto } from './dto/update-hazard-supervision.dto'
 import { VersionDto } from './dto/version.dto';
 import { HazardService } from './hazard.service';
 
+function getAllowedAreaIds(principal: AuthPrincipal) {
+  return principal.dataScope === 'all' ? undefined : principal.areaIds;
+}
+
+function getAccess(principal: AuthPrincipal) {
+  return {
+    actorId: principal.userId,
+    actorName: principal.name,
+    allowedAreaIds: getAllowedAreaIds(principal),
+  };
+}
+
 @ApiTags('隐患排查治理')
 @ApiBearerAuth()
 @Controller('v1/hazards')
@@ -46,6 +58,15 @@ export class HazardController {
   @ApiCreatedResponse({ description: '已生成整改任务的隐患' })
   create(@Body() input: CreateHazardDto, @CurrentPrincipal() principal: AuthPrincipal) {
     return this.hazardService.create(input, getAccess(principal));
+  }
+
+  @Post('reminders/run')
+  @RequirePermissions('hazard:supervise')
+  @AuditAction({ action: 'hazard.reminders.run', resourceType: 'hazard' })
+  @HttpCode(200)
+  @ApiOperation({ summary: '执行临期与逾期隐患幂等催办扫描' })
+  runReminders(@CurrentPrincipal() principal: AuthPrincipal) {
+    return this.hazardService.runReminders(getAccess(principal));
   }
 
   @Post(':id/evidence')
@@ -122,16 +143,4 @@ export class HazardController {
   ) {
     return this.hazardService.updateSupervision(id, input, getAccess(principal));
   }
-}
-
-function getAllowedAreaIds(principal: AuthPrincipal) {
-  return principal.dataScope === 'all' ? undefined : principal.areaIds;
-}
-
-function getAccess(principal: AuthPrincipal) {
-  return {
-    actorId: principal.userId,
-    actorName: principal.name,
-    allowedAreaIds: getAllowedAreaIds(principal),
-  };
 }

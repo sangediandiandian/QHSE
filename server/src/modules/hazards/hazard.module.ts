@@ -8,6 +8,7 @@ import { HazardService } from './hazard.service';
 import { RiskService } from '../risks/risk.service';
 import { AttachmentModule } from '../attachments/attachment.module';
 import { AttachmentService } from '../attachments/attachment.service';
+import { HazardReminderScheduler } from './hazard-reminder.scheduler';
 
 @Module({
   imports: [RiskModule, AttachmentModule],
@@ -30,6 +31,7 @@ import { AttachmentService } from '../attachments/attachment.service';
         attachmentService: AttachmentService,
       ) => new HazardService(repository, riskService, {}, attachmentService),
     },
+    HazardReminderScheduler,
   ],
   exports: [HazardService],
 })

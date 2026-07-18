@@ -62,6 +62,7 @@
 - `PUT /api/v1/risks/:id/controls`：更新管控措施。
 - `GET /api/v1/hazards`、`GET /api/v1/hazards/:id`：按角色区域范围查询隐患。
 - `POST /api/v1/hazards`：上报隐患，区域和操作人由服务端生成。
+- `POST /api/v1/hazards/reminders/run`：按账号区域范围扫描三日内到期和已逾期隐患，每日幂等生成催办轨迹。
 - `POST /api/v1/hazards/:id/evidence`：绑定已上传对象并归档整改证据。
 - `POST /api/v1/hazards/:id/rectification/start`：开始整改。
 - `POST /api/v1/hazards/:id/acceptance/submit|close`：提交验收、验收关闭。
@@ -129,7 +130,7 @@
 
 风险接口已经执行权限点和区域数据范围校验。企业领导可审批风险评估，QHSE 管理人员拥有全厂评估、审批和措施维护权限，装置负责人只能评估和维护分配区域；越权读取或更新统一返回 404，权限不足返回 403。评估人与审批人均取认证主体，不接受客户端指定且必须为不同账号。新评估先保存为待审批历史，不改变当前风险等级；批准时在同一仓储事务内更新评估状态和风险等级，驳回保留意见但不改变等级。同一风险单元只允许一条待审批评估，全部写入继续使用风险版本防止并发覆盖。
 
-隐患接口采用同一数据范围策略，并增加 `hazard:read/report/rectify/accept/supervise` 权限点。状态机拒绝非法流转，提交验收必须存在证据，写操作使用 `expectedVersion` 防止并发覆盖；证据上传人、业务操作人和风险单元所属区域均取服务端可信数据。
+隐患接口采用同一数据范围策略，并增加 `hazard:read/report/rectify/accept/supervise` 权限点。状态机拒绝非法流转，提交验收必须存在证据，写操作使用 `expectedVersion` 防止并发覆盖；证据上传人、业务操作人和风险单元所属区域均取服务端可信数据。催办扫描对三日内到期和已逾期未关闭隐患生成“整改催办”操作轨迹，同一隐患、类别和自然日只生成一次；多实例并发通过隐患版本冲突和幂等键阻止重复。设置 `QHSE_HAZARD_REMINDERS_ENABLED=true` 后服务启动即扫描，并按 `QHSE_HAZARD_REMINDER_INTERVAL_MS` 周期运行（最短 60 秒，默认 15 分钟）；生产实际电话、短信或 App 送达仍需对接消息网关。
 
 作业许可接口增加 `permit:read/apply/approve/confirm/control` 权限点。三级审批节点分别校验属地、QHSE 和企业负责人角色；现场双人确认禁止同一账号代签。规则执行引擎在较大/重大预警生成时自动写入同区域票证暂停建议；API 模式页面聚合真实 GDS 点位、规则和信号，并在遥测模拟后同步票证状态。
 

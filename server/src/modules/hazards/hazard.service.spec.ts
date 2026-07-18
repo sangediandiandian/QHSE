@@ -142,6 +142,22 @@ describe('HazardService', () => {
     expect(unchanged).toMatchObject({ supervised: true, version: 2 });
   });
 
+  test('临期和逾期隐患每日只生成一次系统催办记录', async () => {
+    const service = createService();
+    const first = await service.runReminders();
+    expect(first).toMatchObject({ scanned: 6, created: 5, skipped: 1, failed: 0 });
+    const reminded = await service.get('hazard-002');
+    expect(reminded.operations.at(-1)).toMatchObject({
+      action: '整改催办',
+      operatorId: 'system-hazard-reminder',
+      operator: '系统自动催办',
+    });
+    expect(reminded.operations.at(-1)?.detail).toContain('[reminder:overdue:2026-07-15]');
+
+    const repeated = await service.runReminders();
+    expect(repeated).toMatchObject({ scanned: 6, created: 0, skipped: 6, failed: 0 });
+  });
+
   test('拒绝倒置日期和跨区域上报', async () => {
     const input = {
       title: '日期异常',

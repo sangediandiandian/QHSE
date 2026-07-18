@@ -24,7 +24,7 @@ function HazardRow({ hazard, canAdvance, onDetail, onAdvance }: { hazard: Hazard
 
 export default function HazardManagement() {
   const access = useAccess();
-  const { hazards: hazardRecords, hazardRiskUnits, hazardLoading, hazardApiMode, loadHazards, addHazard, addHazardEvidence, startHazard, submitHazard, acceptHazard, toggleHazardSupervision } = useModel('qhse');
+  const { hazards: hazardRecords, hazardRiskUnits, hazardLoading, hazardApiMode, loadHazards, addHazard, addHazardEvidence, startHazard, submitHazard, acceptHazard, toggleHazardSupervision, runHazardReminders } = useModel('qhse');
   const [status, setStatus] = useState('全部');
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string>();
@@ -54,6 +54,9 @@ export default function HazardManagement() {
   const closed = hazardRecords.filter((item) => item.status === '已关闭').length;
   const supervised = hazardRecords.filter((item) => item.supervised && item.status !== '已关闭').length;
   const recurring = hazardRecords.filter((item) => item.recurrenceCount > 0).length;
+  const reminded = hazardRecords.filter((item) =>
+    item.operations?.some((operation) => operation.action === '整改催办'),
+  ).length;
 
   const advance = async (hazard: Hazard) => {
     if (hazard.status === '待整改') {
@@ -91,12 +94,12 @@ export default function HazardManagement() {
 
   return (
     <PageContainer title={false} className={styles.page}>
-      <header className={styles.heading}><div><span>HAZARD CLOSED-LOOP CONTROL</span><h1>隐患排查治理</h1><p>将现场检查、预警和事件复盘统一转化为责任明确、过程可追踪的整改闭环。</p><Button type="primary" icon={<FileAddOutlined />} disabled={!access.canReportHazard} onClick={() => { createForm.setFieldsValue({ level: '一般', source: '现场检查', discoveredAt: new Date().toISOString().slice(0, 10), measures: [] }); setCreateOpen(true); }}>上报隐患</Button></div><div className={styles.rate}><CheckCircleFilled /><span>隐患闭环率<strong>{hazardRecords.length ? Math.round(closed / hazardRecords.length * 100) : 0}%</strong><small>{closed} / {hazardRecords.length} 项已关闭</small></span></div></header>
+      <header className={styles.heading}><div><span>HAZARD CLOSED-LOOP CONTROL</span><h1>隐患排查治理</h1><p>将现场检查、预警和事件复盘统一转化为责任明确、过程可追踪的整改闭环。</p><Space><Button type="primary" icon={<FileAddOutlined />} disabled={!access.canReportHazard} onClick={() => { createForm.setFieldsValue({ level: '一般', source: '现场检查', discoveredAt: new Date().toISOString().slice(0, 10), measures: [] }); setCreateOpen(true); }}>上报隐患</Button><Button icon={<SyncOutlined />} loading={mutating} disabled={!hazardApiMode || !access.canSuperviseHazard} onClick={async () => { setMutating(true); try { const result = await runHazardReminders(); message.success(`催办扫描完成：新增 ${result.created} 条，跳过 ${result.skipped} 条`); } finally { setMutating(false); } }}>执行催办扫描</Button></Space></div><div className={styles.rate}><CheckCircleFilled /><span>隐患闭环率<strong>{hazardRecords.length ? Math.round(closed / hazardRecords.length * 100) : 0}%</strong><small>{closed} / {hazardRecords.length} 项已关闭</small></span></div></header>
 
       <section className={styles.metrics}>
         <div><ClockCircleFilled /><span>未闭环<strong>{open}</strong><small>当前整改任务</small></span></div>
         <div className={styles.danger}><WarningFilled /><span>挂牌督办<strong>{supervised}</strong><small>其中重大隐患 {major} 项</small></span></div>
-        <div className={overdue ? styles.warning : ''}><ExclamationCircleFilled /><span>逾期未完成<strong>{overdue}</strong><small>已触发超期提醒</small></span></div>
+        <div className={overdue ? styles.warning : ''}><ExclamationCircleFilled /><span>逾期未完成<strong>{overdue}</strong><small>{reminded} 项已有催办记录</small></span></div>
         <div><SyncOutlined /><span>重复隐患<strong>{recurring}</strong><small>需开展根因治理</small></span></div>
         <div><CheckCircleFilled /><span>已关闭<strong>{closed}</strong><small>证据完成归档</small></span></div>
       </section>

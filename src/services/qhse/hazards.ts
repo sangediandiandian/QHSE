@@ -1,4 +1,11 @@
-import type { Hazard, HazardEvidenceInput, HazardQuery, HazardReportInput, RiskUnit } from '@/types/qhse';
+import type {
+  Hazard,
+  HazardEvidenceInput,
+  HazardQuery,
+  HazardReminderResult,
+  HazardReportInput,
+  RiskUnit,
+} from '@/types/qhse';
 import { request } from '@umijs/max';
 
 interface ApiResponse<T> {
@@ -20,6 +27,14 @@ export async function getHazardRiskUnits() {
 
 export async function reportHazard(input: HazardReportInput) {
   const response = await request<ApiResponse<Hazard>>('/api/v1/hazards', { method: 'POST', data: input });
+  return response.data;
+}
+
+export async function runHazardReminders() {
+  const response = await request<ApiResponse<HazardReminderResult>>(
+    '/api/v1/hazards/reminders/run',
+    { method: 'POST' },
+  );
   return response.data;
 }
 

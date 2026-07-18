@@ -12,7 +12,13 @@ import {
   HazardNotFoundError,
   HazardVersionConflictError,
 } from './hazard.repository';
-import type { Hazard, HazardAction, HazardQuery, HazardStatus } from './hazard.types';
+import type {
+  Hazard,
+  HazardAction,
+  HazardQuery,
+  HazardReminderResult,
+  HazardStatus,
+} from './hazard.types';
 
 interface HazardServiceOptions {
   now?: () => Date;
@@ -33,6 +39,13 @@ function isDateOnly(value: string) {
 
 function formatDate(value: Date) {
   return value.toISOString().slice(0, 10);
+}
+
+function dateDistance(from: string, to: string) {
+  return Math.round(
+    (new Date(`${to}T00:00:00.000Z`).getTime() - new Date(`${from}T00:00:00.000Z`).getTime()) /
+      86_400_000,
+  );
 }
 
 export class HazardService {
@@ -213,6 +226,70 @@ export class HazardService {
       operation: this.operation(action, access, timestamp, action),
       updatedAt: timestamp,
     });
+  }
+
+  async runReminders(
+    access: HazardAccessContext = {
+      actorId: 'system-hazard-reminder',
+      actorName: '系统自动催办',
+    },
+  ): Promise<HazardReminderResult> {
+    const now = this.now();
+    const runAt = now.toISOString();
+    const today = formatDate(now);
+    const hazards = await this.list({}, access.allowedAreaIds);
+    const result: HazardReminderResult = {
+      scanned: hazards.length,
+      created: 0,
+      skipped: 0,
+      failed: 0,
+      runAt,
+    };
+    for (const hazard of hazards) {
+      const daysRemaining = dateDistance(today, hazard.deadline);
+      if (hazard.status === '已关闭' || daysRemaining > 3) {
+        result.skipped += 1;
+        continue;
+      }
+      const category = daysRemaining < 0 ? 'overdue' : 'due-soon';
+      const key = `[reminder:${category}:${today}]`;
+      if (
+        hazard.operations.some((item) => item.action === '整改催办' && item.detail.includes(key))
+      ) {
+        result.skipped += 1;
+        continue;
+      }
+      const detail =
+        daysRemaining < 0
+          ? `${key} 隐患已逾期 ${Math.abs(daysRemaining)} 天，请责任人立即整改并反馈证据`
+          : `${key} 隐患将在 ${daysRemaining} 天内到期，请责任人按期完成整改`;
+      try {
+        await this.repository.mutate(
+          hazard.id,
+          {
+            operation: this.operation('整改催办', access, runAt, detail),
+            updatedAt: runAt,
+          },
+          hazard.version,
+          access.allowedAreaIds,
+        );
+        result.created += 1;
+      } catch (error) {
+        if (error instanceof HazardVersionConflictError) {
+          const latest = await this.repository.findById(hazard.id, access.allowedAreaIds);
+          if (
+            latest?.operations.some(
+              (item) => item.action === '整改催办' && item.detail.includes(key),
+            )
+          ) {
+            result.skipped += 1;
+            continue;
+          }
+        }
+        result.failed += 1;
+      }
+    }
+    return result;
   }
 
   private async transition(
