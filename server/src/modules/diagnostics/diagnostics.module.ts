@@ -10,10 +10,12 @@ import { ReportingModule } from '../reporting/reporting.module';
 import { ReportExportQueueService } from '../reporting/report-export-queue.service';
 import { SessionStoreService } from '../../infrastructure/session/session-store.service';
 import { TracingService } from '../../infrastructure/tracing/tracing.service';
+import { IamModule } from '../iam/iam.module';
+import { IamChangeBusService } from '../iam/iam-change-bus.service';
 
 @Global()
 @Module({
-  imports: [PlatformConfigModule, ReportingModule],
+  imports: [PlatformConfigModule, ReportingModule, IamModule],
   controllers: [DiagnosticsController],
   providers: [
     RuntimeMetricsService,
@@ -27,6 +29,7 @@ import { TracingService } from '../../infrastructure/tracing/tracing.service';
         ReportExportQueueService,
         SessionStoreService,
         TracingService,
+        IamChangeBusService,
       ],
       useFactory: (
         metrics: RuntimeMetricsService,
@@ -35,7 +38,8 @@ import { TracingService } from '../../infrastructure/tracing/tracing.service';
         queue: ReportExportQueueService,
         sessions: SessionStoreService,
         tracing: TracingService,
-      ) => new DiagnosticsService(metrics, config, cache, queue, sessions, tracing),
+        iamChanges: IamChangeBusService,
+      ) => new DiagnosticsService(metrics, config, cache, queue, sessions, tracing, iamChanges),
     },
   ],
   exports: [RuntimeMetricsService, RuntimeMetricsMiddleware],

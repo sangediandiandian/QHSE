@@ -7,6 +7,7 @@ import type { CacheService } from '../../infrastructure/cache/cache.service';
 import type { ReportExportQueueService } from '../reporting/report-export-queue.service';
 import type { SessionStoreService } from '../../infrastructure/session/session-store.service';
 import type { TracingService } from '../../infrastructure/tracing/tracing.service';
+import type { IamChangeBusService } from '../iam/iam-change-bus.service';
 
 describe('RuntimeMetricsService', () => {
   test('按方法和路由模板聚合请求量、错误率与耗时', () => {
@@ -68,6 +69,9 @@ describe('DiagnosticsService', () => {
     const tracing = {
       snapshot: () => ({ exporter: 'disabled', spansStarted: 4, spansEnded: 3 }),
     } as unknown as TracingService;
+    const iamChanges = {
+      snapshot: () => ({ backend: 'memory', status: 'ready', published: 0, received: 0 }),
+    } as unknown as IamChangeBusService;
     const value = await new DiagnosticsService(
       metrics,
       config,
@@ -75,6 +79,7 @@ describe('DiagnosticsService', () => {
       queue,
       sessions,
       tracing,
+      iamChanges,
     ).snapshot();
     expect(value.integrations).toMatchObject({ total: 1, enabled: 1, unhealthy: 1 });
     expect(value.integrations.items[0]).not.toHaveProperty('endpoint');
@@ -83,6 +88,7 @@ describe('DiagnosticsService', () => {
     expect(value.cache).toMatchObject({ backend: 'memory', hits: 1 });
     expect(value.queue).toMatchObject({ backend: 'memory', retainedJobs: 2 });
     expect(value.sessions).toMatchObject({ backend: 'memory', operations: 3 });
+    expect(value.iamEvents).toMatchObject({ backend: 'memory', status: 'ready' });
     expect(value.tracing).toMatchObject({ exporter: 'disabled', spansStarted: 4, spansEnded: 3 });
   });
 });

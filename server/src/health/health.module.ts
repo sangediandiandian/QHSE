@@ -7,22 +7,31 @@ import { DatabaseModule } from '../database/database.module';
 import { PrismaService } from '../database/prisma.service';
 import { ReportingModule } from '../modules/reporting/reporting.module';
 import { ReportExportQueueService } from '../modules/reporting/report-export-queue.service';
+import { IamModule } from '../modules/iam/iam.module';
+import { IamChangeBusService } from '../modules/iam/iam-change-bus.service';
 import { HealthController } from './health.controller';
 import { HealthService } from './health.service';
 
 @Module({
-  imports: [DatabaseModule, CacheModule, SessionModule, ReportingModule],
+  imports: [DatabaseModule, CacheModule, SessionModule, ReportingModule, IamModule],
   controllers: [HealthController],
   providers: [
     {
       provide: HealthService,
-      inject: [PrismaService, CacheService, SessionStoreService, ReportExportQueueService],
+      inject: [
+        PrismaService,
+        CacheService,
+        SessionStoreService,
+        ReportExportQueueService,
+        IamChangeBusService,
+      ],
       useFactory: (
         prisma: PrismaService,
         cache: CacheService,
         sessions: SessionStoreService,
         queue: ReportExportQueueService,
-      ) => new HealthService(prisma, cache, sessions, queue),
+        iamChanges: IamChangeBusService,
+      ) => new HealthService(prisma, cache, sessions, queue, iamChanges),
     },
   ],
 })

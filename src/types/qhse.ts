@@ -755,6 +755,18 @@ export interface SystemDiagnostics {
     lastErrorAt?: string;
     lastSuccessAt?: string;
   };
+  iamEvents: {
+    backend: 'memory' | 'redis';
+    status: 'ready' | 'degraded';
+    published: number;
+    received: number;
+    reconciliations: number;
+    failures: number;
+    lastPublishedAt?: string;
+    lastReceivedAt?: string;
+    lastErrorAt?: string;
+    lastSuccessAt?: string;
+  };
   tracing: {
     exporter: 'disabled' | 'otlp-http';
     spansStarted: number;

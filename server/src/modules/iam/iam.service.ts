@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { hashPassword, requiresPasswordChange } from '../auth/password';
+import { IamChangeBusService } from './iam-change-bus.service';
 import type {
   CreateRoleDto,
   CreateUserDto,
@@ -46,11 +47,13 @@ export class IamService implements OnModuleInit {
   private accounts: UserAccount[] = [];
   private readonly versions = new Map<string, number>();
   private readonly now: () => Date;
+  private refreshChain = Promise.resolve();
 
   constructor(
     private readonly repository: IamRepository = new InMemoryIamRepository(),
     private readonly createId: () => string = randomUUID,
     now: () => Date = () => new Date(),
+    private readonly changes: IamChangeBusService = new IamChangeBusService(),
   ) {
     this.now = now;
     this.replaceSnapshot({
@@ -62,7 +65,8 @@ export class IamService implements OnModuleInit {
   }
 
   async onModuleInit() {
-    this.replaceSnapshot(await this.repository.loadSnapshot());
+    await this.changes.start(() => this.refreshSnapshot());
+    await this.refreshSnapshot();
   }
 
   listOrganizations() {
@@ -110,6 +114,7 @@ export class IamService implements OnModuleInit {
       const version = await this.repository.createUser(user);
       this.accounts.push(user);
       this.versions.set(user.id, version);
+      await this.changes.publish('user.created', user.id);
       return this.toManagedUser(user);
     } catch (error) {
       if (error instanceof IamUsernameConflictError) {
@@ -134,6 +139,7 @@ export class IamService implements OnModuleInit {
     try {
       await this.repository.createRole(role);
       this.roles.push(role);
+      await this.changes.publish('role.created', role.id);
       return this.toManagedRole(role);
     } catch (error) {
       if (error instanceof IamRoleCodeConflictError) {
@@ -172,6 +178,7 @@ export class IamService implements OnModuleInit {
     try {
       await this.repository.updateRole(updated);
       Object.assign(role, updated);
+      await this.changes.publish('role.updated', role.id);
       return this.toManagedRole(role);
     } catch (error) {
       if (error instanceof IamRoleNotFoundError) {
@@ -204,6 +211,7 @@ export class IamService implements OnModuleInit {
       const version = await this.repository.updateUserAuthorization(updated, input.expectedVersion);
       Object.assign(user, updated);
       this.versions.set(id, version);
+      await this.changes.publish('user.authorization.updated', id);
       return this.toManagedUser(user);
     } catch (error) {
       if (error instanceof IamUserNotFoundError) {
@@ -266,6 +274,7 @@ export class IamService implements OnModuleInit {
     };
     try {
       await this.repository.createAuthorizationRequest(request);
+      await this.changes.publish('authorization.requested', request.id);
       return this.toManagedAuthorizationRequest(request);
     } catch (error) {
       if (error instanceof IamAuthorizationRequestConflictError) {
@@ -353,6 +362,7 @@ export class IamService implements OnModuleInit {
         Object.assign(user, updatedUser);
         this.versions.set(user.id, result.userVersion);
       }
+      await this.changes.publish('authorization.reviewed', reviewed.id);
       return this.toManagedAuthorizationRequest(reviewed);
     } catch (error) {
       if (error instanceof IamAuthorizationRequestNotFoundError) {
@@ -385,6 +395,7 @@ export class IamService implements OnModuleInit {
       user.passwordHash = passwordHash;
       user.passwordChangeRequired = changeRequired;
       this.versions.set(id, version);
+      await this.changes.publish('user.password.updated', id);
       return this.toManagedUser(user);
     } catch (error) {
       if (error instanceof IamUserNotFoundError) {
@@ -518,6 +529,14 @@ export class IamService implements OnModuleInit {
     }));
     this.versions.clear();
     snapshot.users.forEach((user) => this.versions.set(user.id, user.version));
+  }
+
+  private refreshSnapshot() {
+    const refresh = this.refreshChain.then(async () => {
+      this.replaceSnapshot(await this.repository.loadSnapshot());
+    });
+    this.refreshChain = refresh.catch(() => undefined);
+    return refresh;
   }
 
   private versionConflict(expectedVersion: number, actualVersion: number): never {

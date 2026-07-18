@@ -5,6 +5,7 @@ import type { PrismaService } from '../database/prisma.service';
 import type { CacheService } from '../infrastructure/cache/cache.service';
 import type { SessionStoreService } from '../infrastructure/session/session-store.service';
 import type { ReportExportQueueService } from '../modules/reporting/report-export-queue.service';
+import type { IamChangeBusService } from '../modules/iam/iam-change-bus.service';
 import { HealthService } from './health.service';
 
 const dependency = (backend = 'memory') => ({
@@ -18,6 +19,7 @@ function createService(cache = dependency()) {
     cache as unknown as CacheService,
     dependency() as unknown as SessionStoreService,
     dependency() as unknown as ReportExportQueueService,
+    dependency() as unknown as IamChangeBusService,
   );
 }
 
@@ -43,6 +45,7 @@ describe('HealthService', () => {
         { name: 'cache', status: 'ready' },
         { name: 'sessions', status: 'ready' },
         { name: 'queue', status: 'ready' },
+        { name: 'iam-events', status: 'ready' },
       ],
     });
   });

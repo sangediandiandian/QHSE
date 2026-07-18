@@ -3,6 +3,7 @@ import type { CacheService } from '../../infrastructure/cache/cache.service';
 import type { ReportExportQueueService } from '../reporting/report-export-queue.service';
 import type { SessionStoreService } from '../../infrastructure/session/session-store.service';
 import type { TracingService } from '../../infrastructure/tracing/tracing.service';
+import type { IamChangeBusService } from '../iam/iam-change-bus.service';
 import { RuntimeMetricsService } from './runtime-metrics.service';
 
 export class DiagnosticsService {
@@ -13,6 +14,7 @@ export class DiagnosticsService {
     private readonly queue: ReportExportQueueService,
     private readonly sessions: SessionStoreService,
     private readonly tracing: TracingService,
+    private readonly iamChanges: IamChangeBusService,
   ) {}
 
   async snapshot() {
@@ -54,6 +56,7 @@ export class DiagnosticsService {
       cache: this.cache.snapshot(),
       queue: this.queue.snapshot(),
       sessions: this.sessions.snapshot(),
+      iamEvents: this.iamChanges.snapshot(),
       tracing: this.tracing.snapshot(),
       generatedAt: new Date().toISOString(),
     };

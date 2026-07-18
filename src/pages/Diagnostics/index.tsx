@@ -107,6 +107,8 @@ export default function DiagnosticsPage() {
               缓存 {data.cache.backend} · {data.cache.status === 'ready' ? '正常' : '降级'}
               {' · '}队列 {data.queue.backend}/{data.queue.status === 'ready' ? '正常' : '降级'}
               {' · '}会话 {data.sessions.backend}
+              {' · '}IAM 广播 {data.iamEvents.backend}/
+              {data.iamEvents.status === 'ready' ? '正常' : '降级'}
             </small>
           </span>
         </article>
@@ -185,6 +187,10 @@ export default function DiagnosticsPage() {
           <p>
             缓存命中 {data.cache.hits} / 未命中 {data.cache.misses} / 写入 {data.cache.writes} /
             失败 {data.cache.failures}
+          </p>
+          <p>
+            IAM 广播发送 {data.iamEvents.published} / 接收 {data.iamEvents.received} / 重连校准{' '}
+            {data.iamEvents.reconciliations} / 失败 {data.iamEvents.failures}
           </p>
         </div>
       </section>

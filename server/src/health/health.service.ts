@@ -3,6 +3,7 @@ import type { PrismaService } from '../database/prisma.service';
 import type { CacheService } from '../infrastructure/cache/cache.service';
 import type { SessionStoreService } from '../infrastructure/session/session-store.service';
 import type { ReportExportQueueService } from '../modules/reporting/report-export-queue.service';
+import type { IamChangeBusService } from '../modules/iam/iam-change-bus.service';
 
 interface DependencyCheck {
   name: string;
@@ -19,6 +20,7 @@ export class HealthService {
     private readonly cache: CacheService,
     private readonly sessions: SessionStoreService,
     private readonly queue: ReportExportQueueService,
+    private readonly iamChanges: IamChangeBusService,
   ) {
     const configured = Number(process.env.QHSE_READINESS_TIMEOUT_MS || 1_500);
     this.timeoutMs =
@@ -48,6 +50,7 @@ export class HealthService {
       this.check('cache', this.cache.snapshot().backend, () => this.cache.check()),
       this.check('sessions', this.sessions.snapshot().backend, () => this.sessions.check()),
       this.check('queue', this.queue.snapshot().backend, () => this.queue.check()),
+      this.check('iam-events', this.iamChanges.snapshot().backend, () => this.iamChanges.check()),
     ]);
     const ready = checks.every((item) => item.status === 'ready');
     if (!ready) {
