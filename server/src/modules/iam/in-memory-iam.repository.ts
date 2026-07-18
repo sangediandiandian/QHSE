@@ -2,12 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { areas, organizations, roles, users } from './iam.seed';
 import {
   type IamRepository,
+  IamRoleCodeConflictError,
+  IamRoleNotFoundError,
   IamUserNotFoundError,
   IamUsernameConflictError,
   IamVersionConflictError,
   type VersionedUserAccount,
 } from './iam.repository';
-import type { UserAccount } from './iam.types';
+import type { Role, UserAccount } from './iam.types';
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
@@ -16,12 +18,13 @@ export class InMemoryIamRepository implements IamRepository {
   private readonly accounts = new Map<string, VersionedUserAccount>(
     users.map((user) => [user.id, { ...clone(user), version: 1 }]),
   );
+  private readonly roleRecords = new Map<string, Role>(roles.map((role) => [role.id, clone(role)]));
 
   async loadSnapshot() {
     return clone({
       organizations,
       areas,
-      roles,
+      roles: [...this.roleRecords.values()],
       users: [...this.accounts.values()],
     });
   }
@@ -60,5 +63,21 @@ export class InMemoryIamRepository implements IamRepository {
       version,
     });
     return version;
+  }
+
+  async createRole(role: Role) {
+    if (
+      [...this.roleRecords.values()].some(
+        (item) => item.code.toLowerCase() === role.code.toLowerCase(),
+      )
+    ) {
+      throw new IamRoleCodeConflictError();
+    }
+    this.roleRecords.set(role.id, clone(role));
+  }
+
+  async updateRole(role: Role) {
+    if (!this.roleRecords.has(role.id)) throw new IamRoleNotFoundError();
+    this.roleRecords.set(role.id, clone(role));
   }
 }

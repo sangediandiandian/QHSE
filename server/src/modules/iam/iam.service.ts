@@ -7,10 +7,17 @@ import {
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { hashPassword, requiresPasswordChange } from '../auth/password';
-import type { CreateUserDto, UpdateUserAuthorizationDto } from './iam.dto';
+import type {
+  CreateRoleDto,
+  CreateUserDto,
+  UpdateRoleDto,
+  UpdateUserAuthorizationDto,
+} from './iam.dto';
 import { InMemoryIamRepository } from './in-memory-iam.repository';
 import {
   type IamRepository,
+  IamRoleCodeConflictError,
+  IamRoleNotFoundError,
   IamUserNotFoundError,
   IamUsernameConflictError,
   IamVersionConflictError,
@@ -57,7 +64,7 @@ export class IamService implements OnModuleInit {
   }
 
   listRoles() {
-    return this.roles.map((role) => ({ ...role, permissions: [...role.permissions] }));
+    return this.roles.map((role) => this.toManagedRole(role));
   }
 
   listUsers() {
@@ -98,6 +105,68 @@ export class IamService implements OnModuleInit {
     } catch (error) {
       if (error instanceof IamUsernameConflictError) {
         throw new ConflictException({ code: 'IAM_USERNAME_EXISTS', message: '登录账号已存在' });
+      }
+      throw error;
+    }
+  }
+
+  async createRole(input: CreateRoleDto) {
+    const code = input.code.trim().toLowerCase();
+    if (this.roles.some((role) => role.code.toLowerCase() === code)) {
+      throw new ConflictException({ code: 'IAM_ROLE_CODE_EXISTS', message: '角色编码已存在' });
+    }
+    const role: Role = {
+      id: `role-custom-${this.createId()}`,
+      code,
+      name: input.name.trim(),
+      permissions: [...input.permissions],
+      dataScope: input.dataScope,
+    };
+    try {
+      await this.repository.createRole(role);
+      this.roles.push(role);
+      return this.toManagedRole(role);
+    } catch (error) {
+      if (error instanceof IamRoleCodeConflictError) {
+        throw new ConflictException({ code: 'IAM_ROLE_CODE_EXISTS', message: '角色编码已存在' });
+      }
+      throw error;
+    }
+  }
+
+  async updateRole(id: string, input: UpdateRoleDto) {
+    const role = this.roles.find((item) => item.id === id);
+    if (!role) {
+      throw new NotFoundException({ code: 'IAM_ROLE_NOT_FOUND', message: '角色不存在' });
+    }
+    if (!this.isCustomRole(role)) {
+      throw new BadRequestException({
+        code: 'IAM_SYSTEM_ROLE_READONLY',
+        message: '内置角色不可修改',
+      });
+    }
+    if (
+      role.dataScope !== input.dataScope &&
+      this.accounts.some((user) => user.roleCodes.includes(role.code))
+    ) {
+      throw new ConflictException({
+        code: 'IAM_ROLE_SCOPE_IN_USE',
+        message: '角色已分配给用户，调整数据范围前请先移除相关用户授权',
+      });
+    }
+    const updated: Role = {
+      ...role,
+      name: input.name.trim(),
+      permissions: [...input.permissions],
+      dataScope: input.dataScope,
+    };
+    try {
+      await this.repository.updateRole(updated);
+      Object.assign(role, updated);
+      return this.toManagedRole(role);
+    } catch (error) {
+      if (error instanceof IamRoleNotFoundError) {
+        throw new NotFoundException({ code: 'IAM_ROLE_NOT_FOUND', message: '角色不存在' });
       }
       throw error;
     }
@@ -199,6 +268,19 @@ export class IamService implements OnModuleInit {
         .filter((role) => user.roleCodes.includes(role.code))
         .map((role) => ({ ...role, permissions: [...role.permissions] })),
     };
+  }
+
+  private toManagedRole(role: Role) {
+    return {
+      ...role,
+      permissions: [...role.permissions],
+      editable: this.isCustomRole(role),
+      assignedUserCount: this.accounts.filter((user) => user.roleCodes.includes(role.code)).length,
+    };
+  }
+
+  private isCustomRole(role: Role) {
+    return role.id.startsWith('role-custom-');
   }
 
   private validateAssignment(organizationId: string, roleCodes: string[], areaIds: string[]) {

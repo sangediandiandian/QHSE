@@ -3,8 +3,10 @@
 import { request } from '@umijs/max';
 import {
   createIamUser,
+  createIamRole,
   getIamOverview,
   resetIamUserPassword,
+  updateIamRole,
   updateUserAuthorization,
 } from './iam';
 
@@ -71,6 +73,32 @@ describe('iam service', () => {
     expect(requestMock).toHaveBeenCalledWith('/api/v1/auth/users/user-1/password-reset', {
       method: 'PUT',
       data: { temporaryPassword: 'ResetPass-2026' },
+    });
+  });
+
+  test('创建和更新自定义角色提交权限矩阵', async () => {
+    const input = {
+      code: 'safety_observer',
+      name: '安全观察员',
+      permissions: ['risk:read', 'hazard:read'],
+      dataScope: 'assigned_areas' as const,
+    };
+    requestMock.mockResolvedValue({ data: { id: 'role-custom-1', ...input } });
+
+    await createIamRole(input);
+    expect(requestMock).toHaveBeenCalledWith('/api/v1/iam/roles', {
+      method: 'POST',
+      data: input,
+    });
+    const update = {
+      name: input.name,
+      permissions: input.permissions,
+      dataScope: input.dataScope,
+    };
+    await updateIamRole('role-custom-1', update);
+    expect(requestMock).toHaveBeenCalledWith('/api/v1/iam/roles/role-custom-1', {
+      method: 'PUT',
+      data: update,
     });
   });
 });

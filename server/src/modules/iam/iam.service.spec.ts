@@ -13,6 +13,72 @@ const operatorUpdate = {
 };
 
 describe('IamService', () => {
+  test('创建并维护自定义角色，权限变化立即作用于已授权用户', async () => {
+    const service = new IamService(undefined, () => 'role-id');
+    const created = await service.createRole({
+      code: 'safety_observer',
+      name: '安全观察员',
+      permissions: ['risk:read'],
+      dataScope: 'assigned_areas',
+    });
+    expect(created).toMatchObject({
+      id: 'role-custom-role-id',
+      code: 'safety_observer',
+      editable: true,
+      assignedUserCount: 0,
+    });
+    await service.updateUserAuthorization(
+      'user-operator',
+      {
+        ...operatorUpdate,
+        organizationId: 'org-fcc',
+        roleCodes: ['safety_observer'],
+        areaIds: ['area-02'],
+      },
+      'user-admin',
+    );
+    expect(service.createPrincipal(service.findUserById('user-operator')!).permissions).toEqual([
+      'risk:read',
+    ]);
+
+    const updated = await service.updateRole(created.id, {
+      name: '安全巡查员',
+      permissions: ['risk:read', 'hazard:read'],
+      dataScope: 'assigned_areas',
+    });
+    expect(updated).toMatchObject({ name: '安全巡查员', assignedUserCount: 1 });
+    expect(service.createPrincipal(service.findUserById('user-operator')!).permissions).toEqual([
+      'risk:read',
+      'hazard:read',
+    ]);
+    await expect(
+      service.updateRole(created.id, {
+        name: '安全巡查员',
+        permissions: ['risk:read'],
+        dataScope: 'all',
+      }),
+    ).rejects.toThrow(ConflictException);
+  });
+
+  test('拒绝重复角色编码和修改内置角色', async () => {
+    const service = new IamService();
+    await expect(
+      service.createRole({
+        code: 'operator',
+        name: '重复角色',
+        permissions: ['risk:read'],
+        dataScope: 'assigned_areas',
+      }),
+    ).rejects.toThrow(ConflictException);
+    await expect(
+      service.updateRole('role-admin', {
+        name: '管理员',
+        permissions: ['iam:read'],
+        dataScope: 'all',
+      }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
   test('创建用户时哈希初始密码且不向列表泄露摘要', async () => {
     const service = new IamService(undefined, () => 'user-created');
     const created = await service.createUser({

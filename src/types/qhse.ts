@@ -1150,6 +1150,8 @@ export interface IamRole {
   name: string;
   permissions: string[];
   dataScope: 'all' | 'assigned_areas';
+  editable?: boolean;
+  assignedUserCount?: number;
 }
 
 export interface IamUser {

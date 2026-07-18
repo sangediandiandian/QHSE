@@ -1,6 +1,7 @@
 /** @jest-environment node */
 
 import type { PrismaService } from '../../database/prisma.service';
+import type { Role } from './iam.types';
 import { InMemoryIamRepository } from './in-memory-iam.repository';
 import { IamVersionConflictError } from './iam.repository';
 import { IamService } from './iam.service';
@@ -23,6 +24,12 @@ describe('IAM repositories', () => {
       'user-admin',
     );
     await first.updatePassword('user-operator', 'ResetPass-2026', true);
+    await first.createRole({
+      code: 'safety_observer',
+      name: '安全观察员',
+      permissions: ['risk:read'],
+      dataScope: 'assigned_areas',
+    });
 
     const reloaded = new IamService(repository);
     await reloaded.onModuleInit();
@@ -32,6 +39,11 @@ describe('IAM repositories', () => {
       passwordChangeRequired: true,
       version: 3,
     });
+    expect(reloaded.listRoles()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'safety_observer', editable: true }),
+      ]),
+    );
   });
 
   test('Prisma 仓储加载关系并在单事务替换角色和区域', async () => {
@@ -78,6 +90,8 @@ describe('IAM repositories', () => {
             dataScope: 'assigned_areas',
           },
         ]),
+        create: jest.fn().mockResolvedValue({ id: 'role-custom' }),
+        update: jest.fn().mockResolvedValue({ id: 'role-custom' }),
       },
       user: {
         findMany: jest.fn().mockResolvedValue([
@@ -170,6 +184,24 @@ describe('IAM repositories', () => {
         tokenVersion: { increment: 1 },
       },
       select: { tokenVersion: true },
+    });
+    const customRole: Role = {
+      id: 'role-custom-1',
+      code: 'safety_observer',
+      name: '安全观察员',
+      permissions: ['risk:read'],
+      dataScope: 'assigned_areas',
+    };
+    await repository.createRole(customRole);
+    expect(prisma.role.create).toHaveBeenCalledWith({ data: customRole });
+    await repository.updateRole({ ...customRole, name: '安全巡查员' });
+    expect(prisma.role.update).toHaveBeenCalledWith({
+      where: { id: 'role-custom-1' },
+      data: {
+        name: '安全巡查员',
+        permissions: ['risk:read'],
+        dataScope: 'assigned_areas',
+      },
     });
   });
 

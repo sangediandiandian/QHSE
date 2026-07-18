@@ -25,6 +25,16 @@ export interface CreateIamUserInput {
   areaIds: string[];
 }
 
+export interface IamRoleInput {
+  name: string;
+  permissions: string[];
+  dataScope: IamRole['dataScope'];
+}
+
+export interface CreateIamRoleInput extends IamRoleInput {
+  code: string;
+}
+
 export async function getIamOverview() {
   const [organizations, roles, users] = await Promise.all([
     request<ApiResponse<IamOrganization[]>>('/api/v1/iam/organizations', { method: 'GET' }),
@@ -63,6 +73,22 @@ export async function resetIamUserPassword(userId: string, temporaryPassword: st
   >(`/api/v1/auth/users/${userId}/password-reset`, {
     method: 'PUT',
     data: { temporaryPassword },
+  });
+  return response.data;
+}
+
+export async function createIamRole(input: CreateIamRoleInput) {
+  const response = await request<ApiResponse<IamRole>>('/api/v1/iam/roles', {
+    method: 'POST',
+    data: input,
+  });
+  return response.data;
+}
+
+export async function updateIamRole(roleId: string, input: IamRoleInput) {
+  const response = await request<ApiResponse<IamRole>>(`/api/v1/iam/roles/${roleId}`, {
+    method: 'PUT',
+    data: input,
   });
   return response.data;
 }

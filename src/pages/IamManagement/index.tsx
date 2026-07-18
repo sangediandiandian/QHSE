@@ -1,8 +1,10 @@
-import type { UserAuthorizationInput } from '@/services/qhse/iam';
+import type { IamRoleInput, UserAuthorizationInput } from '@/services/qhse/iam';
 import {
+  createIamRole,
   createIamUser,
   getIamOverview,
   resetIamUserPassword,
+  updateIamRole,
   updateUserAuthorization,
 } from '@/services/qhse/iam';
 import type { IamOrganization, IamRole, IamUser } from '@/types/qhse';
@@ -29,6 +31,63 @@ interface UserForm extends UserAuthorizationInput {
   initialPassword?: string;
 }
 
+interface RoleForm extends IamRoleInput {
+  code?: string;
+}
+
+const domainLabels: Record<string, string> = {
+  risk: '风险',
+  hazard: '隐患',
+  permit: '作业许可',
+  warning: '预警',
+  emergency: '应急事件',
+  plan: '应急预案',
+  resource: '应急资源',
+  communication: '融合通信',
+  telemetry: '监测数据',
+  attachment: '附件',
+  report: '报表',
+  config: '平台配置',
+  monitor: '运行诊断',
+  iam: '权限管理',
+  audit: '审计',
+};
+
+const actionLabels: Record<string, string> = {
+  read: '查看',
+  assess: '评估',
+  'controls:update': '维护管控措施',
+  report: '上报',
+  rectify: '整改',
+  accept: '验收',
+  supervise: '督办',
+  apply: '申请',
+  approve: '审批',
+  confirm: '确认',
+  control: '作业控制',
+  edit: '编辑',
+  submit: '提交',
+  toggle: '启停',
+  evaluate: '评估',
+  handle: '处置',
+  close: '关闭',
+  manage: '管理',
+  evidence: '维护证据',
+  drill: '演练',
+  dispatch: '调度',
+  inspect: '巡检',
+  send: '发送',
+  ingest: '接入',
+  upload: '上传',
+  export: '导出',
+};
+
+const permissionLabel = (permission: string) => {
+  const [domain, ...actionParts] = permission.split(':');
+  const action = actionParts.join(':');
+  return `${domainLabels[domain] ?? domain} · ${actionLabels[action] ?? action}`;
+};
+
 export default function IamManagement() {
   const access = useAccess();
   const { initialState } = useModel('@@initialState');
@@ -38,12 +97,15 @@ export default function IamManagement() {
   const [editing, setEditing] = useState<IamUser>();
   const [creating, setCreating] = useState(false);
   const [resetting, setResetting] = useState<IamUser>();
+  const [editingRole, setEditingRole] = useState<IamRole>();
+  const [creatingRole, setCreatingRole] = useState(false);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<'all' | IamUser['status']>('all');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form] = Form.useForm<UserForm>();
   const [resetForm] = Form.useForm<{ temporaryPassword: string }>();
+  const [roleForm] = Form.useForm<RoleForm>();
   const selectedRoleCodes = Form.useWatch('roleCodes', form) ?? [];
   const allScope = roles.some(
     (role) => selectedRoleCodes.includes(role.code) && role.dataScope === 'all',
@@ -67,6 +129,13 @@ export default function IamManagement() {
   const areas = useMemo(
     () => organizations.flatMap((organization) => organization.areas),
     [organizations],
+  );
+  const permissionOptions = useMemo(
+    () =>
+      [...new Set(roles.flatMap((role) => role.permissions))]
+        .sort()
+        .map((permission) => ({ value: permission, label: permissionLabel(permission) })),
+    [roles],
   );
   const filtered = useMemo(() => {
     const keyword = query.trim().toLowerCase();
@@ -154,6 +223,62 @@ export default function IamManagement() {
     }
   };
 
+  const openRole = (role: IamRole) => {
+    setCreatingRole(false);
+    setEditingRole(role);
+    roleForm.setFieldsValue({
+      name: role.name,
+      permissions: role.permissions,
+      dataScope: role.dataScope,
+    });
+  };
+
+  const openCreateRole = () => {
+    setEditingRole(undefined);
+    setCreatingRole(true);
+    roleForm.resetFields();
+    roleForm.setFieldsValue({
+      permissions: [],
+      dataScope: 'assigned_areas',
+    });
+  };
+
+  const saveRole = async () => {
+    if (!creatingRole && !editingRole) return;
+    const values = await roleForm.validateFields();
+    setSaving(true);
+    try {
+      if (creatingRole) {
+        const created = await createIamRole({
+          code: values.code!,
+          name: values.name,
+          permissions: values.permissions,
+          dataScope: values.dataScope,
+        });
+        setRoles((current) => [...current, created]);
+        message.success('自定义角色已创建');
+      } else if (editingRole) {
+        const updated = await updateIamRole(editingRole.id, {
+          name: values.name,
+          permissions: values.permissions,
+          dataScope: values.dataScope,
+        });
+        setRoles((current) => current.map((role) => (role.id === updated.id ? updated : role)));
+        setUsers((current) =>
+          current.map((user) => ({
+            ...user,
+            roles: user.roles.map((role) => (role.id === updated.id ? updated : role)),
+          })),
+        );
+        message.success('角色权限已更新，现有会话将立即使用新权限');
+      }
+      setCreatingRole(false);
+      setEditingRole(undefined);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const columns: ColumnsType<IamUser> = [
     {
       title: '用户',
@@ -233,6 +358,67 @@ export default function IamManagement() {
     },
   ];
 
+  const roleColumns: ColumnsType<IamRole> = [
+    {
+      title: '角色',
+      render: (_, role) => (
+        <span className={styles.user}>
+          <strong>{role.name}</strong>
+          <small>{role.code}</small>
+        </span>
+      ),
+    },
+    {
+      title: '数据范围',
+      dataIndex: 'dataScope',
+      width: 110,
+      render: (value) => (
+        <Tag color={value === 'all' ? 'blue' : 'cyan'}>
+          {value === 'all' ? '全企业' : '授权区域'}
+        </Tag>
+      ),
+    },
+    {
+      title: '权限点',
+      dataIndex: 'permissions',
+      render: (values: string[]) => (
+        <Space size={[4, 4]} wrap>
+          {values.slice(0, 6).map((permission) => (
+            <Tag key={permission}>{permissionLabel(permission)}</Tag>
+          ))}
+          {values.length > 6 && <Tag>+{values.length - 6}</Tag>}
+        </Space>
+      ),
+    },
+    {
+      title: '用户',
+      width: 75,
+      render: (_, role) =>
+        `${users.filter((user) => user.roleCodes.includes(role.code)).length} 人`,
+    },
+    {
+      title: '类型',
+      width: 90,
+      render: (_, role) => (
+        <Tag color={role.editable ? 'gold' : 'default'}>{role.editable ? '自定义' : '内置'}</Tag>
+      ),
+    },
+    {
+      title: '操作',
+      width: 90,
+      render: (_, role) => (
+        <Button
+          type="link"
+          icon={<EditOutlined />}
+          disabled={!access.canAdmin || !role.editable}
+          onClick={() => openRole(role)}
+        >
+          编辑
+        </Button>
+      ),
+    },
+  ];
+
   const enabled = users.filter((user) => user.status === 'enabled').length;
   const assigned = users.filter((user) =>
     user.roles.every((role) => role.dataScope === 'assigned_areas'),
@@ -278,6 +464,31 @@ export default function IamManagement() {
             <small>按分配区域裁剪数据</small>
           </span>
         </article>
+      </section>
+
+      <section className={styles.panel}>
+        <header>
+          <div>
+            <h2>角色权限矩阵</h2>
+            <p>内置角色保持只读；自定义角色可维护权限点，已登录用户会立即获得最新权限。</p>
+          </div>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            disabled={!access.canAdmin}
+            onClick={openCreateRole}
+          >
+            新增角色
+          </Button>
+        </header>
+        <Table
+          rowKey="id"
+          loading={loading}
+          columns={roleColumns}
+          dataSource={roles}
+          pagination={false}
+          size="small"
+        />
       </section>
 
       <section className={styles.panel}>
@@ -431,6 +642,74 @@ export default function IamManagement() {
               }))}
             />
           </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title={creatingRole ? '新增自定义角色' : `编辑角色 · ${editingRole?.name ?? ''}`}
+        open={creatingRole || Boolean(editingRole)}
+        confirmLoading={saving}
+        okText={creatingRole ? '创建角色' : '保存角色'}
+        cancelText="取消"
+        width={720}
+        onOk={() => void saveRole()}
+        onCancel={() => {
+          if (!saving) {
+            setCreatingRole(false);
+            setEditingRole(undefined);
+          }
+        }}
+      >
+        <Form form={roleForm} layout="vertical">
+          {creatingRole && (
+            <Form.Item
+              name="code"
+              label="角色编码"
+              rules={[
+                { required: true },
+                {
+                  pattern: /^[a-z][a-z0-9_]{2,49}$/,
+                  message: '使用 3–50 位小写字母、数字或下划线，且以字母开头',
+                },
+              ]}
+              extra="角色编码创建后不可修改。"
+            >
+              <Input autoComplete="off" />
+            </Form.Item>
+          )}
+          <Form.Item name="name" label="角色名称" rules={[{ required: true, max: 80 }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="dataScope" label="数据范围" rules={[{ required: true }]}>
+            <Select
+              options={[
+                { value: 'assigned_areas', label: '授权区域' },
+                { value: 'all', label: '全企业' },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item
+            name="permissions"
+            label="权限点"
+            rules={[{ required: true, type: 'array', min: 1, message: '至少选择一个权限点' }]}
+          >
+            <Select
+              mode="multiple"
+              showSearch
+              optionFilterProp="label"
+              options={permissionOptions}
+              placeholder="选择该角色允许执行的操作"
+            />
+          </Form.Item>
+          {editingRole && users.some((user) => user.roleCodes.includes(editingRole.code)) && (
+            <Alert
+              type="info"
+              showIcon
+              message={`该角色已分配给 ${
+                users.filter((user) => user.roleCodes.includes(editingRole.code)).length
+              } 个用户；权限调整立即生效，数据范围类型需先移除用户授权后才能修改。`}
+            />
+          )}
         </Form>
       </Modal>
 

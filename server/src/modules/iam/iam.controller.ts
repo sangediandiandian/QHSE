@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '../audit/audit.decorator';
 import { CurrentPrincipal } from '../auth/current-principal.decorator';
 import { RequirePermissions } from '../auth/permissions.decorator';
-import { CreateUserDto, UpdateUserAuthorizationDto } from './iam.dto';
+import { CreateRoleDto, CreateUserDto, UpdateRoleDto, UpdateUserAuthorizationDto } from './iam.dto';
 import { IamService } from './iam.service';
 import type { AuthPrincipal } from './iam.types';
 
@@ -24,6 +24,26 @@ export class IamController {
   @ApiOperation({ summary: '查询角色权限矩阵' })
   listRoles() {
     return this.iamService.listRoles();
+  }
+
+  @Post('roles')
+  @RequirePermissions('iam:manage')
+  @AuditAction({ action: 'iam.role.create', resourceType: 'iam_role' })
+  @ApiOperation({ summary: '创建自定义角色' })
+  createRole(@Body() input: CreateRoleDto) {
+    return this.iamService.createRole(input);
+  }
+
+  @Put('roles/:id')
+  @RequirePermissions('iam:manage')
+  @AuditAction({
+    action: 'iam.role.update',
+    resourceType: 'iam_role',
+    resourceIdParam: 'id',
+  })
+  @ApiOperation({ summary: '更新自定义角色权限矩阵和数据范围' })
+  updateRole(@Param('id') id: string, @Body() input: UpdateRoleDto) {
+    return this.iamService.updateRole(id, input);
   }
 
   @Get('users')

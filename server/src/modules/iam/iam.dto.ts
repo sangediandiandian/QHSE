@@ -13,6 +13,53 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
+import { permissions } from './iam.types';
+
+const roleCodePattern = /^[a-z][a-z0-9_]{2,49}$/;
+
+export class CreateRoleDto {
+  @ApiProperty()
+  @Matches(roleCodePattern)
+  code!: string;
+
+  @ApiProperty()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(80)
+  name!: string;
+
+  @ApiProperty({ enum: permissions, isArray: true })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(permissions.length)
+  @ArrayUnique()
+  @IsIn(permissions, { each: true })
+  permissions!: (typeof permissions)[number][];
+
+  @ApiProperty({ enum: ['all', 'assigned_areas'] })
+  @IsIn(['all', 'assigned_areas'])
+  dataScope!: 'all' | 'assigned_areas';
+}
+
+export class UpdateRoleDto {
+  @ApiProperty()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(80)
+  name!: string;
+
+  @ApiProperty({ enum: permissions, isArray: true })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(permissions.length)
+  @ArrayUnique()
+  @IsIn(permissions, { each: true })
+  permissions!: (typeof permissions)[number][];
+
+  @ApiProperty({ enum: ['all', 'assigned_areas'] })
+  @IsIn(['all', 'assigned_areas'])
+  dataScope!: 'all' | 'assigned_areas';
+}
 
 export class CreateUserDto {
   @ApiProperty()

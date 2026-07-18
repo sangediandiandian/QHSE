@@ -4,6 +4,8 @@ import { PrismaService } from '../../database/prisma.service';
 import { requiresPasswordChange } from '../auth/password';
 import {
   type IamRepository,
+  IamRoleCodeConflictError,
+  IamRoleNotFoundError,
   IamUserNotFoundError,
   IamUsernameConflictError,
   IamVersionConflictError,
@@ -153,6 +155,43 @@ export class PrismaIamRepository implements IamRepository {
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
         throw new IamUserNotFoundError();
+      }
+      throw error;
+    }
+  }
+
+  async createRole(role: Role) {
+    try {
+      await this.prisma.role.create({
+        data: {
+          id: role.id,
+          code: role.code,
+          name: role.name,
+          permissions: role.permissions,
+          dataScope: role.dataScope,
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new IamRoleCodeConflictError();
+      }
+      throw error;
+    }
+  }
+
+  async updateRole(role: Role) {
+    try {
+      await this.prisma.role.update({
+        where: { id: role.id },
+        data: {
+          name: role.name,
+          permissions: role.permissions,
+          dataScope: role.dataScope,
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        throw new IamRoleNotFoundError();
       }
       throw error;
     }
