@@ -3,29 +3,55 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  type OnModuleInit,
 } from '@nestjs/common';
-import { areas, organizations, roles, users } from './iam.seed';
 import type { UpdateUserAuthorizationDto } from './iam.dto';
-import type { AuthPrincipal, Permission, UserAccount } from './iam.types';
+import { InMemoryIamRepository } from './in-memory-iam.repository';
+import {
+  type IamRepository,
+  IamUserNotFoundError,
+  IamVersionConflictError,
+} from './iam.repository';
+import { areas, organizations, roles, users } from './iam.seed';
+import type {
+  AreaAssignment,
+  AuthPrincipal,
+  Organization,
+  Permission,
+  Role,
+  UserAccount,
+} from './iam.types';
 
 @Injectable()
-export class IamService {
-  private readonly accounts = users.map((user) => ({
-    ...user,
-    roleCodes: [...user.roleCodes],
-    areaIds: [...user.areaIds],
-  }));
-  private readonly versions = new Map(this.accounts.map((user) => [user.id, 1]));
+export class IamService implements OnModuleInit {
+  private organizations: Organization[] = [];
+  private areas: AreaAssignment[] = [];
+  private roles: Role[] = [];
+  private accounts: UserAccount[] = [];
+  private readonly versions = new Map<string, number>();
+
+  constructor(private readonly repository: IamRepository = new InMemoryIamRepository()) {
+    this.replaceSnapshot({
+      organizations,
+      areas,
+      roles,
+      users: users.map((user) => ({ ...user, version: 1 })),
+    });
+  }
+
+  async onModuleInit() {
+    this.replaceSnapshot(await this.repository.loadSnapshot());
+  }
 
   listOrganizations() {
-    return organizations.map((organization) => ({
+    return this.organizations.map((organization) => ({
       ...organization,
-      areas: areas.filter((area) => area.organizationId === organization.id),
+      areas: this.areas.filter((area) => area.organizationId === organization.id),
     }));
   }
 
   listRoles() {
-    return roles.map((role) => ({ ...role, permissions: [...role.permissions] }));
+    return this.roles.map((role) => ({ ...role, permissions: [...role.permissions] }));
   }
 
   listUsers() {
@@ -40,30 +66,28 @@ export class IamService {
     return this.accounts.find((user) => user.id === id);
   }
 
-  updateUserAuthorization(id: string, input: UpdateUserAuthorizationDto, actorId: string) {
+  async updateUserAuthorization(id: string, input: UpdateUserAuthorizationDto, actorId: string) {
     const user = this.findUserById(id);
     if (!user) {
       throw new NotFoundException({ code: 'IAM_USER_NOT_FOUND', message: '用户不存在' });
     }
     const actualVersion = this.versions.get(id) ?? 1;
     if (input.expectedVersion !== actualVersion) {
-      throw new ConflictException({
-        code: 'VERSION_CONFLICT',
-        message: '用户授权已被其他管理员更新，请刷新后重试',
-        details: { expectedVersion: input.expectedVersion, actualVersion },
-      });
+      this.versionConflict(input.expectedVersion, actualVersion);
     }
-    if (!organizations.some((item) => item.id === input.organizationId)) {
+    if (!this.organizations.some((item) => item.id === input.organizationId)) {
       throw new BadRequestException({
         code: 'IAM_ORGANIZATION_INVALID',
         message: '所属组织不存在',
       });
     }
-    const assignedRoles = input.roleCodes.map((code) => roles.find((role) => role.code === code));
+    const assignedRoles = input.roleCodes.map((code) =>
+      this.roles.find((role) => role.code === code),
+    );
     if (assignedRoles.some((role) => !role)) {
       throw new BadRequestException({ code: 'IAM_ROLE_INVALID', message: '包含无效角色' });
     }
-    if (input.areaIds.some((areaId) => !areas.some((area) => area.id === areaId))) {
+    if (input.areaIds.some((areaId) => !this.areas.some((area) => area.id === areaId))) {
       throw new BadRequestException({ code: 'IAM_AREA_INVALID', message: '包含无效区域' });
     }
     const isAllScope = assignedRoles.some((role) => role?.dataScope === 'all');
@@ -83,16 +107,31 @@ export class IamService {
       });
     }
 
-    user.status = input.status;
-    user.organizationId = input.organizationId;
-    user.roleCodes = [...input.roleCodes];
-    user.areaIds = isAllScope ? [] : [...input.areaIds];
-    this.versions.set(id, actualVersion + 1);
-    return this.toManagedUser(user);
+    const updated: UserAccount = {
+      ...user,
+      status: input.status,
+      organizationId: input.organizationId,
+      roleCodes: [...input.roleCodes],
+      areaIds: isAllScope ? [] : [...input.areaIds],
+    };
+    try {
+      const version = await this.repository.updateUserAuthorization(updated, input.expectedVersion);
+      Object.assign(user, updated);
+      this.versions.set(id, version);
+      return this.toManagedUser(user);
+    } catch (error) {
+      if (error instanceof IamUserNotFoundError) {
+        throw new NotFoundException({ code: 'IAM_USER_NOT_FOUND', message: '用户不存在' });
+      }
+      if (error instanceof IamVersionConflictError) {
+        this.versionConflict(error.expectedVersion, error.actualVersion);
+      }
+      throw error;
+    }
   }
 
   createPrincipal(user: UserAccount): AuthPrincipal {
-    const assignedRoles = roles.filter((role) => user.roleCodes.includes(role.code));
+    const assignedRoles = this.roles.filter((role) => user.roleCodes.includes(role.code));
     const granted = new Set<Permission>(assignedRoles.flatMap((role) => role.permissions));
     return {
       userId: user.id,
@@ -112,10 +151,39 @@ export class IamService {
       roleCodes: [...user.roleCodes],
       areaIds: [...user.areaIds],
       version: this.versions.get(user.id) ?? 1,
-      organization: organizations.find((item) => item.id === user.organizationId),
-      roles: roles
+      organization: this.organizations.find((item) => item.id === user.organizationId),
+      roles: this.roles
         .filter((role) => user.roleCodes.includes(role.code))
         .map((role) => ({ ...role, permissions: [...role.permissions] })),
     };
+  }
+
+  private replaceSnapshot(snapshot: Awaited<ReturnType<IamRepository['loadSnapshot']>>) {
+    this.organizations = snapshot.organizations.map((item) => ({ ...item }));
+    this.areas = snapshot.areas.map((item) => ({ ...item }));
+    this.roles = snapshot.roles.map((item) => ({
+      ...item,
+      permissions: [...item.permissions],
+    }));
+    this.accounts = snapshot.users.map((user) => ({
+      id: user.id,
+      username: user.username,
+      name: user.name,
+      title: user.title,
+      organizationId: user.organizationId,
+      status: user.status,
+      roleCodes: [...user.roleCodes],
+      areaIds: [...user.areaIds],
+    }));
+    this.versions.clear();
+    snapshot.users.forEach((user) => this.versions.set(user.id, user.version));
+  }
+
+  private versionConflict(expectedVersion: number, actualVersion: number): never {
+    throw new ConflictException({
+      code: 'VERSION_CONFLICT',
+      message: '用户授权已被其他管理员更新，请刷新后重试',
+      details: { expectedVersion, actualVersion },
+    });
   }
 }

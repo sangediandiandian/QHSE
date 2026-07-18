@@ -12,9 +12,13 @@ const operatorUpdate = {
 };
 
 describe('IamService', () => {
-  test('更新用户组织、角色和区域授权并递增版本', () => {
+  test('更新用户组织、角色和区域授权并递增版本', async () => {
     const service = new IamService();
-    const updated = service.updateUserAuthorization('user-operator', operatorUpdate, 'user-admin');
+    const updated = await service.updateUserAuthorization(
+      'user-operator',
+      operatorUpdate,
+      'user-admin',
+    );
 
     expect(updated).toMatchObject({
       organizationId: 'org-storage',
@@ -28,42 +32,42 @@ describe('IamService', () => {
     });
   });
 
-  test('拒绝过期版本、无效用户、角色和区域', () => {
+  test('拒绝过期版本、无效用户、角色和区域', async () => {
     const service = new IamService();
-    service.updateUserAuthorization('user-operator', operatorUpdate, 'user-admin');
-    expect(() =>
+    await service.updateUserAuthorization('user-operator', operatorUpdate, 'user-admin');
+    await expect(
       service.updateUserAuthorization('user-operator', operatorUpdate, 'user-admin'),
-    ).toThrow(ConflictException);
-    expect(() => service.updateUserAuthorization('missing', operatorUpdate, 'user-admin')).toThrow(
-      NotFoundException,
-    );
-    expect(() =>
+    ).rejects.toThrow(ConflictException);
+    await expect(
+      service.updateUserAuthorization('missing', operatorUpdate, 'user-admin'),
+    ).rejects.toThrow(NotFoundException);
+    await expect(
       new IamService().updateUserAuthorization(
         'user-operator',
         { ...operatorUpdate, roleCodes: ['missing_role'] },
         'user-admin',
       ),
-    ).toThrow(BadRequestException);
-    expect(() =>
+    ).rejects.toThrow(BadRequestException);
+    await expect(
       new IamService().updateUserAuthorization(
         'user-operator',
         { ...operatorUpdate, areaIds: ['missing-area'] },
         'user-admin',
       ),
-    ).toThrow(BadRequestException);
+    ).rejects.toThrow(BadRequestException);
   });
 
-  test('区域角色必须授权区域，全局角色自动清空区域', () => {
+  test('区域角色必须授权区域，全局角色自动清空区域', async () => {
     const service = new IamService();
-    expect(() =>
+    await expect(
       service.updateUserAuthorization(
         'user-operator',
         { ...operatorUpdate, areaIds: [] },
         'user-admin',
       ),
-    ).toThrow(BadRequestException);
+    ).rejects.toThrow(BadRequestException);
 
-    const updated = service.updateUserAuthorization(
+    const updated = await service.updateUserAuthorization(
       'user-operator',
       { ...operatorUpdate, roleCodes: ['enterprise_leader'], areaIds: ['area-05'] },
       'user-admin',
@@ -71,9 +75,9 @@ describe('IamService', () => {
     expect(updated.areaIds).toEqual([]);
   });
 
-  test('禁止管理员停用自身或移除自身管理员角色', () => {
+  test('禁止管理员停用自身或移除自身管理员角色', async () => {
     const service = new IamService();
-    expect(() =>
+    await expect(
       service.updateUserAuthorization(
         'user-admin',
         {
@@ -85,8 +89,8 @@ describe('IamService', () => {
         },
         'user-admin',
       ),
-    ).toThrow(BadRequestException);
-    expect(() =>
+    ).rejects.toThrow(BadRequestException);
+    await expect(
       service.updateUserAuthorization(
         'user-admin',
         {
@@ -98,6 +102,6 @@ describe('IamService', () => {
         },
         'user-admin',
       ),
-    ).toThrow(BadRequestException);
+    ).rejects.toThrow(BadRequestException);
   });
 });

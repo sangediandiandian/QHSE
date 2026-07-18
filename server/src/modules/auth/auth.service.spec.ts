@@ -54,7 +54,7 @@ describe('AuthService', () => {
     const iam = new IamService();
     const service = new AuthService(iam);
     const result = await service.login('operator', 'ant.design');
-    iam.updateUserAuthorization(
+    await iam.updateUserAuthorization(
       'user-operator',
       {
         status: 'enabled',
@@ -68,7 +68,7 @@ describe('AuthService', () => {
     await expect(service.authenticate(result.accessToken)).resolves.toMatchObject({
       roles: ['unit_manager'],
     });
-    iam.updateUserAuthorization(
+    await iam.updateUserAuthorization(
       'user-operator',
       {
         status: 'disabled',

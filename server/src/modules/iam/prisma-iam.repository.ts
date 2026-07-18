@@ -1,0 +1,101 @@
+import { Injectable } from '@nestjs/common';
+import type { UserStatus } from '@prisma/client';
+import { PrismaService } from '../../database/prisma.service';
+import {
+  type IamRepository,
+  IamUserNotFoundError,
+  IamVersionConflictError,
+} from './iam.repository';
+import type { AreaAssignment, Organization, Permission, Role, UserAccount } from './iam.types';
+
+@Injectable()
+export class PrismaIamRepository implements IamRepository {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async loadSnapshot() {
+    const [organizationRecords, areaRecords, roleRecords, userRecords] = await Promise.all([
+      this.prisma.organization.findMany({ orderBy: { code: 'asc' } }),
+      this.prisma.area.findMany({ orderBy: { code: 'asc' } }),
+      this.prisma.role.findMany({ orderBy: { code: 'asc' } }),
+      this.prisma.user.findMany({
+        include: {
+          roles: { include: { role: true } },
+          areaAssignments: true,
+        },
+        orderBy: { username: 'asc' },
+      }),
+    ]);
+    return {
+      organizations: organizationRecords.map((item) => ({
+        id: item.id,
+        parentId: item.parentId ?? undefined,
+        code: item.code,
+        name: item.name,
+        type: item.type as Organization['type'],
+      })),
+      areas: areaRecords.map((item) => ({
+        id: item.id,
+        code: item.code,
+        name: item.name,
+        organizationId: item.organizationId,
+      })) satisfies AreaAssignment[],
+      roles: roleRecords.map((item) => ({
+        id: item.id,
+        code: item.code,
+        name: item.name,
+        permissions: item.permissions as Permission[],
+        dataScope: item.dataScope as Role['dataScope'],
+      })),
+      users: userRecords.map((item) => ({
+        id: item.id,
+        username: item.username,
+        name: item.name,
+        title: item.title,
+        organizationId: item.organizationId,
+        roleCodes: item.roles.map((assignment) => assignment.role.code),
+        areaIds: item.areaAssignments.map((assignment) => assignment.areaId),
+        status: item.status as UserAccount['status'],
+        version: item.tokenVersion,
+      })),
+    };
+  }
+
+  async updateUserAuthorization(user: UserAccount, expectedVersion: number) {
+    return this.prisma.$transaction(async (transaction) => {
+      const result = await transaction.user.updateMany({
+        where: { id: user.id, tokenVersion: expectedVersion },
+        data: {
+          organizationId: user.organizationId,
+          status: user.status as UserStatus,
+          tokenVersion: { increment: 1 },
+        },
+      });
+      if (!result.count) {
+        const current = await transaction.user.findUnique({
+          where: { id: user.id },
+          select: { tokenVersion: true },
+        });
+        if (!current) throw new IamUserNotFoundError();
+        throw new IamVersionConflictError(expectedVersion, current.tokenVersion);
+      }
+
+      const assignedRoles = await transaction.role.findMany({
+        where: { code: { in: user.roleCodes } },
+        select: { id: true },
+      });
+      await transaction.userRole.deleteMany({ where: { userId: user.id } });
+      if (assignedRoles.length) {
+        await transaction.userRole.createMany({
+          data: assignedRoles.map((role) => ({ userId: user.id, roleId: role.id })),
+        });
+      }
+      await transaction.userAreaAssignment.deleteMany({ where: { userId: user.id } });
+      if (user.areaIds.length) {
+        await transaction.userAreaAssignment.createMany({
+          data: user.areaIds.map((areaId) => ({ userId: user.id, areaId })),
+        });
+      }
+      return expectedVersion + 1;
+    });
+  }
+}
