@@ -1,9 +1,11 @@
 import { downloadAttachment, uploadAttachment } from '@/services/qhse/attachments';
 import { downloadEventReviewReport } from '@/services/qhse/eventReviews';
-import type { EventReview, EventReviewActionInput, EventReviewHazardLinkInput, ReviewAction } from '@/types/qhse';
+import { searchKnowledge } from '@/services/qhse/knowledge';
+import type { EventReview, EventReviewActionInput, EventReviewHazardLinkInput, KnowledgeSearchResult, KnowledgeSourceType, ReviewAction } from '@/types/qhse';
 import {
   AlertFilled,
   AuditOutlined,
+  BookOutlined,
   CheckCircleFilled,
   ClockCircleOutlined,
   DownloadOutlined,
@@ -19,12 +21,13 @@ import {
 } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
 import { history, useAccess, useModel } from '@umijs/max';
-import { Button, Empty, Form, Input, Modal, Progress, Select, Skeleton, Tag, Upload, message } from 'antd';
+import { Button, Empty, Form, Input, List, Modal, Progress, Select, Skeleton, Tag, Upload, message } from 'antd';
 import { useEffect, useState } from 'react';
 import styles from './index.less';
 
 const priorityColor: Record<ReviewAction['priority'], string> = { 一般: 'default', 重要: 'orange', 紧急: 'red' };
 const statusColor: Record<ReviewAction['status'], string> = { 待整改: 'default', 整改中: 'processing', 已完成: 'success' };
+const knowledgeTypeLabel: Record<KnowledgeSourceType, string> = { event_review: '事件复盘', hazard: '隐患案例', emergency_plan: '应急预案' };
 
 export default function EventReviews() {
   const access = useAccess();
@@ -40,6 +43,11 @@ export default function EventReviews() {
   const [actionForm] = Form.useForm<EventReviewActionInput>();
   const [linkingAction, setLinkingAction] = useState<ReviewAction>();
   const [linkForm] = Form.useForm<EventReviewHazardLinkInput>();
+  const [knowledgeOpen, setKnowledgeOpen] = useState(false);
+  const [knowledgeLoading, setKnowledgeLoading] = useState(false);
+  const [knowledgeKeyword, setKnowledgeKeyword] = useState('');
+  const [knowledgeType, setKnowledgeType] = useState<KnowledgeSourceType>();
+  const [knowledgeResult, setKnowledgeResult] = useState<KnowledgeSearchResult>();
   useEffect(() => { void loadEventReviews(); }, [loadEventReviews]);
 
   if (eventReviewLoading && !eventReviews.length) return <PageContainer><Skeleton active paragraph={{ rows: 14 }} /></PageContainer>;
@@ -90,9 +98,19 @@ export default function EventReviews() {
     URL.revokeObjectURL(url);
     message.success('复盘报告已导出');
   };
+  const runKnowledgeSearch = async () => {
+    const keyword = knowledgeKeyword.trim();
+    if (keyword.length < 2) { message.warning('请至少输入 2 个字的检索词'); return; }
+    setKnowledgeLoading(true);
+    try {
+      setKnowledgeResult(await searchKnowledge({ keyword, type: knowledgeType, limit: 10 }));
+    } finally {
+      setKnowledgeLoading(false);
+    }
+  };
 
   return (
-    <PageContainer title={false} className={styles.page} extra={[<Button key="analysis" disabled={review.status === '已复盘' || (eventReviewApiMode && !access.canManageEmergency)} icon={<EditOutlined />} onClick={openAnalysis}>编辑调查结论</Button>, eventReviewApiMode && <Button key="evidence" disabled={review.status === '已复盘' || !access.canAddEmergencyEvidence} icon={<UploadOutlined />} onClick={() => setEvidenceOpen(true)}>归档调查附件</Button>, eventReviewApiMode && <Button key="action" disabled={review.status === '已复盘' || !access.canManageEmergency} icon={<PlusOutlined />} onClick={() => openAction()}>新增整改措施</Button>, eventReviewApiMode && review.actions.some((item) => item.linkedHazardId) && <Button key="sync" disabled={!access.canManageEmergency || !access.canViewHazard} icon={<SyncOutlined />} onClick={() => { void syncEventReviewActionHazards(review.id).then(() => message.success('隐患治理状态已同步')); }}>同步隐患状态</Button>, eventReviewApiMode && <Button key="report" disabled={!access.canExportReport} icon={<DownloadOutlined />} onClick={() => void exportReviewReport()}>导出复盘报告</Button>, <Button key="close" type="primary" disabled={!canClose || review.status === '已复盘' || (eventReviewApiMode && !access.canApproveEmergencyClosure)} icon={<FileDoneOutlined />} onClick={() => { void closeEventReview(review.id).then(() => message.success('事件已关闭，复盘报告和整改证据已归档')); }}>{review.status === '已复盘' ? '已关闭归档' : '关闭事件并归档'}</Button>]}>
+    <PageContainer title={false} className={styles.page} extra={[<Button key="analysis" disabled={review.status === '已复盘' || (eventReviewApiMode && !access.canManageEmergency)} icon={<EditOutlined />} onClick={openAnalysis}>编辑调查结论</Button>, eventReviewApiMode && <Button key="evidence" disabled={review.status === '已复盘' || !access.canAddEmergencyEvidence} icon={<UploadOutlined />} onClick={() => setEvidenceOpen(true)}>归档调查附件</Button>, eventReviewApiMode && <Button key="action" disabled={review.status === '已复盘' || !access.canManageEmergency} icon={<PlusOutlined />} onClick={() => openAction()}>新增整改措施</Button>, eventReviewApiMode && review.actions.some((item) => item.linkedHazardId) && <Button key="sync" disabled={!access.canManageEmergency || !access.canViewHazard} icon={<SyncOutlined />} onClick={() => { void syncEventReviewActionHazards(review.id).then(() => message.success('隐患治理状态已同步')); }}>同步隐患状态</Button>, eventReviewApiMode && <Button key="knowledge" disabled={!access.canViewHazard || !access.canViewPlan} icon={<BookOutlined />} onClick={() => setKnowledgeOpen(true)}>查相似案例</Button>, eventReviewApiMode && <Button key="report" disabled={!access.canExportReport} icon={<DownloadOutlined />} onClick={() => void exportReviewReport()}>导出复盘报告</Button>, <Button key="close" type="primary" disabled={!canClose || review.status === '已复盘' || (eventReviewApiMode && !access.canApproveEmergencyClosure)} icon={<FileDoneOutlined />} onClick={() => { void closeEventReview(review.id).then(() => message.success('事件已关闭，复盘报告和整改证据已归档')); }}>{review.status === '已复盘' ? '已关闭归档' : '关闭事件并归档'}</Button>]}>
       <header className={styles.heading}>
         <div><span>INCIDENT REVIEW / {review.reviewCode}</span><h1>事件关闭与复盘</h1><p>{event?.code} · {event?.title} · {event?.areaName}</p></div>
         <div className={styles.closeState}><i /><span>当前状态<strong>{review.status}</strong><small>{canClose ? '关闭条件已满足' : completed < review.actions.length ? `仍有 ${review.actions.length - completed} 项整改未完成` : '调查结论待完善'}</small></span></div>
@@ -149,6 +167,7 @@ export default function EventReviews() {
       <Modal title="归档调查附件" open={evidenceOpen} onCancel={() => { setEvidenceOpen(false); setEvidenceFile(undefined); }} onOk={() => evidenceForm.validateFields().then(async (values) => { if (!evidenceFile || !review.areaId) { message.warning('请选择调查附件'); return; } const attachment = await uploadAttachment(evidenceFile, review.areaId); await addEventReviewEvidence(review.id, { ...values, objectId: attachment.id }); setEvidenceOpen(false); setEvidenceFile(undefined); evidenceForm.resetFields(); message.success('调查附件已归档'); })} okText="归档附件"><Form form={evidenceForm} layout="vertical"><Form.Item label="附件文件" required><Upload maxCount={1} fileList={evidenceFile ? [{ uid: 'review-evidence', name: evidenceFile.name, status: 'done' }] : []} beforeUpload={(file) => { setEvidenceFile(file); evidenceForm.setFieldValue('name', file.name); return false; }} onRemove={() => { setEvidenceFile(undefined); return true; }}><Button icon={<UploadOutlined />} disabled={!access.canUploadAttachment}>选择文件</Button></Upload></Form.Item><Form.Item name="name" label="附件名称" rules={[{ required: true, min: 2 }]}><Input /></Form.Item><Form.Item name="category" label="附件类别" rules={[{ required: true }]}><Select options={['调查报告', '现场照片', '检测报告', '培训记录'].map((value) => ({ value }))} /></Form.Item><Form.Item name="note" label="附件说明" rules={[{ required: true, min: 2 }]}><Input.TextArea rows={3} /></Form.Item></Form></Modal>
       <Modal title={editingAction ? '调整整改措施' : '新增整改措施'} open={actionOpen} onCancel={() => { setActionOpen(false); setEditingAction(undefined); actionForm.resetFields(); }} onOk={() => actionForm.validateFields().then(async (values) => { await saveEventReviewAction(review.id, editingAction?.id, values); setActionOpen(false); setEditingAction(undefined); actionForm.resetFields(); message.success(editingAction ? '整改措施已调整' : '整改措施已新增'); })} okText="保存措施"><Form form={actionForm} layout="vertical"><Form.Item name="title" label="整改措施" rules={[{ required: true, min: 2 }]}><Input /></Form.Item><Form.Item name="ownerDepartment" label="责任部门" rules={[{ required: true, min: 2 }]}><Input /></Form.Item><Form.Item name="owner" label="责任人" rules={[{ required: true }]}><Input /></Form.Item><Form.Item name="deadline" label="完成期限" rules={[{ required: true }]}><Input type="date" /></Form.Item><Form.Item name="priority" label="优先级" rules={[{ required: true }]}><Select options={['一般', '重要', '紧急'].map((value) => ({ value }))} /></Form.Item></Form></Modal>
       <Modal title={`转为隐患 · ${linkingAction?.title ?? ''}`} open={Boolean(linkingAction)} onCancel={() => { setLinkingAction(undefined); linkForm.resetFields(); }} onOk={() => linkForm.validateFields().then(async (values) => { if (!linkingAction) return; await linkEventReviewActionHazard(review.id, linkingAction.id, values); setLinkingAction(undefined); linkForm.resetFields(); message.success('整改措施已转为隐患治理任务'); })} okText="生成隐患"><Form form={linkForm} layout="vertical"><Form.Item name="riskUnitId" label="关联风险单元" rules={[{ required: true }]}><Select showSearch optionFilterProp="label" options={hazardRiskUnits.filter((item) => !review.areaId || item.areaId === review.areaId).map((item) => ({ value: item.id, label: `${item.areaName} / ${item.name}` }))} /></Form.Item><Form.Item name="level" label="隐患等级" rules={[{ required: true }]}><Select options={['一般', '较大', '重大'].map((value) => ({ value }))} /></Form.Item><Form.Item name="category" label="隐患类别" rules={[{ required: true, min: 2 }]}><Input placeholder="如：管理缺陷、设备设施" /></Form.Item></Form></Modal>
+      <Modal title="企业知识库 · 相似案例检索" width={820} open={knowledgeOpen} footer={null} onCancel={() => setKnowledgeOpen(false)}><div style={{ display: 'flex', gap: 12, marginBottom: 16 }}><Input.Search value={knowledgeKeyword} onChange={(event) => setKnowledgeKeyword(event.target.value)} onSearch={() => void runKnowledgeSearch()} enterButton="检索" placeholder="输入事故类型、设备、介质或原因，如：法兰泄漏" /><Select allowClear value={knowledgeType} onChange={setKnowledgeType} placeholder="全部知识类型" style={{ width: 180 }} options={(Object.entries(knowledgeTypeLabel) as Array<[KnowledgeSourceType, string]>).map(([value, label]) => ({ value, label }))} /></div><List loading={knowledgeLoading} dataSource={knowledgeResult?.items ?? []} locale={{ emptyText: knowledgeResult ? '未找到匹配的已归档知识' : '输入关键词检索已归档复盘、已关闭隐患和已发布预案' }} renderItem={(item) => <List.Item><div style={{ width: '100%' }}><div><Tag color={item.type === 'event_review' ? 'blue' : item.type === 'hazard' ? 'orange' : 'green'}>{knowledgeTypeLabel[item.type]}</Tag><strong>{item.title}</strong></div><p style={{ margin: '8px 0' }}>{item.summary}</p><small>{item.code} · {item.areaName ?? '企业级'} · {item.status} · 相关度 {item.score}</small>{item.highlights.map((text) => <div key={text} style={{ marginTop: 6, color: '#52656d' }}>· {text}</div>)}</div></List.Item>} /><div style={{ marginTop: 12, color: '#7b8a91' }}>{knowledgeResult ? `共找到 ${knowledgeResult.total} 条正式知识记录` : ''}</div></Modal>
     </PageContainer>
   );
 }

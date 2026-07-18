@@ -26,6 +26,7 @@ import { DiagnosticsModule } from './modules/diagnostics/diagnostics.module';
 import { RuntimeMetricsMiddleware } from './modules/diagnostics/runtime-metrics.middleware';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { EventReviewModule } from './modules/event-reviews/event-review.module';
+import { KnowledgeModule } from './modules/knowledge/knowledge.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { EventReviewModule } from './modules/event-reviews/event-review.module';
     WarningExecutionModule,
     EmergencyEventModule,
     EventReviewModule,
+    KnowledgeModule,
     EmergencyPlanModule,
     EmergencyResourceModule,
     CommunicationModule,

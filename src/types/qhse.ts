@@ -488,6 +488,34 @@ export interface EventReview {
   updatedAt?: string;
 }
 
+export type KnowledgeSourceType = 'event_review' | 'hazard' | 'emergency_plan';
+
+export interface KnowledgeSearchQuery {
+  keyword: string;
+  type?: KnowledgeSourceType;
+  limit?: number;
+}
+
+export interface KnowledgeSearchItem {
+  id: string;
+  type: KnowledgeSourceType;
+  code: string;
+  title: string;
+  summary: string;
+  highlights: string[];
+  areaId?: string;
+  areaName?: string;
+  status: string;
+  updatedAt: string;
+  score: number;
+}
+
+export interface KnowledgeSearchResult {
+  keyword: string;
+  total: number;
+  items: KnowledgeSearchItem[];
+}
+
 export type EmergencyEventStatus = '待研判' | '响应中' | '监控中' | '待关闭' | '已关闭';
 export type EmergencyResponseLevel = 'IV级' | 'III级' | 'II级' | 'I级';
 export type EmergencyEventAction = '研判启动' | '升级响应' | '降级响应' | '终止响应' | '申请关闭' | '审批关闭';
