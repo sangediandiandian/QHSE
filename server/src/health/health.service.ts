@@ -4,6 +4,7 @@ import type { CacheService } from '../infrastructure/cache/cache.service';
 import type { SessionStoreService } from '../infrastructure/session/session-store.service';
 import type { ReportExportQueueService } from '../modules/reporting/report-export-queue.service';
 import type { IamChangeBusService } from '../modules/iam/iam-change-bus.service';
+import type { OidcService } from '../modules/auth/oidc/oidc.service';
 
 interface DependencyCheck {
   name: string;
@@ -21,6 +22,7 @@ export class HealthService {
     private readonly sessions: SessionStoreService,
     private readonly queue: ReportExportQueueService,
     private readonly iamChanges: IamChangeBusService,
+    private readonly oidc: OidcService,
   ) {
     const configured = Number(process.env.QHSE_READINESS_TIMEOUT_MS || 1_500);
     this.timeoutMs =
@@ -51,6 +53,7 @@ export class HealthService {
       this.check('sessions', this.sessions.snapshot().backend, () => this.sessions.check()),
       this.check('queue', this.queue.snapshot().backend, () => this.queue.check()),
       this.check('iam-events', this.iamChanges.snapshot().backend, () => this.iamChanges.check()),
+      this.check('identity', this.oidc.snapshot().flowStore, () => this.oidc.check()),
     ]);
     const ready = checks.every((item) => item.status === 'ready');
     if (!ready) {

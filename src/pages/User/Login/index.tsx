@@ -1,5 +1,5 @@
 import { Footer } from '@/components';
-import { login } from '@/services/ant-design-pro/api';
+import { exchangeOidcCompletion, getOidcLoginConfig, login } from '@/services/ant-design-pro/api';
 import { getFakeCaptcha } from '@/services/ant-design-pro/login';
 import {
   AlipayCircleOutlined,
@@ -16,9 +16,9 @@ import {
   ProFormText,
 } from '@ant-design/pro-components';
 import { FormattedMessage, Helmet, history, SelectLang, useIntl, useModel } from '@umijs/max';
-import { Alert, message, Tabs } from 'antd';
+import { Alert, Button, Divider, message, Tabs } from 'antd';
 import { createStyles } from 'antd-style';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { flushSync } from 'react-dom';
 import Settings from '../../../../config/defaultSettings';
 
@@ -96,9 +96,18 @@ const LoginMessage: React.FC<{
   );
 };
 
+const safeInternalRedirect = (value: string | null) =>
+  value?.startsWith('/') && !value.startsWith('//') ? value : '/';
+
 const Login: React.FC = () => {
   const [userLoginState, setUserLoginState] = useState<API.LoginResult>({});
   const [type, setType] = useState<string>('account');
+  const [oidcConfig, setOidcConfig] = useState({
+    enabled: false,
+    label: '企业统一认证',
+    localLoginEnabled: true,
+  });
+  const [oidcLoading, setOidcLoading] = useState(false);
   const { initialState, setInitialState } = useModel('@@initialState');
   const { styles } = useStyles();
   const intl = useIntl();
@@ -114,6 +123,41 @@ const Login: React.FC = () => {
       });
     }
   };
+
+  useEffect(() => {
+    void getOidcLoginConfig()
+      .then((config) => {
+        if (config) setOidcConfig(config);
+      })
+      .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    const parameters = new URL(window.location.href).searchParams;
+    const completionCode = parameters.get('oidc_code');
+    const errorCode = parameters.get('oidc_error');
+    if (errorCode) {
+      message.error('企业统一认证失败，请重新登录或联系管理员');
+      history.replace('/user/login');
+      return;
+    }
+    if (!completionCode) return;
+    setOidcLoading(true);
+    void exchangeOidcCompletion(completionCode)
+      .then(async (result) => {
+        if (result.status !== 'ok') throw new Error('OIDC login failed');
+        message.success('企业统一认证登录成功');
+        await fetchUserInfo();
+        const redirect = safeInternalRedirect(sessionStorage.getItem('qhse_oidc_redirect'));
+        sessionStorage.removeItem('qhse_oidc_redirect');
+        history.replace(redirect);
+      })
+      .catch(() => {
+        message.error('统一认证登录结果已失效，请重新登录');
+        history.replace('/user/login');
+      })
+      .finally(() => setOidcLoading(false));
+  }, []);
 
   const handleSubmit = async (values: API.LoginParams) => {
     try {
@@ -132,7 +176,7 @@ const Login: React.FC = () => {
         message.success(defaultLoginSuccessMessage);
         await fetchUserInfo();
         const urlParams = new URL(window.location.href).searchParams;
-        history.push(urlParams.get('redirect') || '/');
+        history.push(safeInternalRedirect(urlParams.get('redirect')));
         return;
       }
       console.log(msg);
@@ -178,6 +222,7 @@ const Login: React.FC = () => {
           initialValues={{
             autoLogin: true,
           }}
+          submitter={oidcConfig.localLoginEnabled ? undefined : false}
           actions={[
             <FormattedMessage
               key="loginWith"
@@ -190,183 +235,217 @@ const Login: React.FC = () => {
             await handleSubmit(values as API.LoginParams);
           }}
         >
-          <Tabs
-            activeKey={type}
-            onChange={setType}
-            centered
-            items={[
-              {
-                key: 'account',
-                label: intl.formatMessage({
-                  id: 'pages.login.accountLogin.tab',
-                  defaultMessage: '账户密码登录',
-                }),
-              },
-              {
-                key: 'mobile',
-                label: intl.formatMessage({
-                  id: 'pages.login.phoneLogin.tab',
-                  defaultMessage: '手机号登录',
-                }),
-              },
-            ]}
-          />
-
-          {status === 'error' && loginType === 'account' && (
-            <LoginMessage
-              content={intl.formatMessage({
-                id: 'pages.login.accountLogin.errorMessage',
-                defaultMessage: '账户或密码错误(admin/ant.design)',
-              })}
+          {oidcConfig.enabled && (
+            <>
+              <Button
+                type="primary"
+                size="large"
+                block
+                loading={oidcLoading}
+                onClick={() => {
+                  const redirect = safeInternalRedirect(
+                    new URL(window.location.href).searchParams.get('redirect'),
+                  );
+                  sessionStorage.setItem('qhse_oidc_redirect', redirect);
+                  window.location.assign('/api/v1/auth/oidc/start');
+                }}
+              >
+                {oidcConfig.label}
+              </Button>
+              {oidcConfig.localLoginEnabled && <Divider plain>或使用本地账号</Divider>}
+            </>
+          )}
+          {!oidcConfig.localLoginEnabled && (
+            <Alert
+              type="info"
+              showIcon
+              message="本系统仅允许通过企业统一身份认证登录"
+              style={{ marginBottom: 24 }}
             />
           )}
-          {type === 'account' && (
+          {oidcConfig.localLoginEnabled && (
             <>
-              <ProFormText
-                name="username"
-                fieldProps={{
-                  size: 'large',
-                  prefix: <UserOutlined />,
-                }}
-                placeholder={intl.formatMessage({
-                  id: 'pages.login.username.placeholder',
-                  defaultMessage: '用户名: admin or user',
-                })}
-                rules={[
+              <Tabs
+                activeKey={type}
+                onChange={setType}
+                centered
+                items={[
                   {
-                    required: true,
-                    message: (
-                      <FormattedMessage
-                        id="pages.login.username.required"
-                        defaultMessage="请输入用户名!"
-                      />
-                    ),
+                    key: 'account',
+                    label: intl.formatMessage({
+                      id: 'pages.login.accountLogin.tab',
+                      defaultMessage: '账户密码登录',
+                    }),
+                  },
+                  {
+                    key: 'mobile',
+                    label: intl.formatMessage({
+                      id: 'pages.login.phoneLogin.tab',
+                      defaultMessage: '手机号登录',
+                    }),
                   },
                 ]}
               />
-              <ProFormText.Password
-                name="password"
-                fieldProps={{
-                  size: 'large',
-                  prefix: <LockOutlined />,
-                }}
-                placeholder={intl.formatMessage({
-                  id: 'pages.login.password.placeholder',
-                  defaultMessage: '密码: ant.design',
-                })}
-                rules={[
-                  {
-                    required: true,
-                    message: (
-                      <FormattedMessage
-                        id="pages.login.password.required"
-                        defaultMessage="请输入密码！"
-                      />
-                    ),
-                  },
-                ]}
-              />
-            </>
-          )}
 
-          {status === 'error' && loginType === 'mobile' && <LoginMessage content="验证码错误" />}
-          {type === 'mobile' && (
-            <>
-              <ProFormText
-                fieldProps={{
-                  size: 'large',
-                  prefix: <MobileOutlined />,
+              {status === 'error' && loginType === 'account' && (
+                <LoginMessage
+                  content={intl.formatMessage({
+                    id: 'pages.login.accountLogin.errorMessage',
+                    defaultMessage: '账户或密码错误(admin/ant.design)',
+                  })}
+                />
+              )}
+              {type === 'account' && (
+                <>
+                  <ProFormText
+                    name="username"
+                    fieldProps={{
+                      size: 'large',
+                      prefix: <UserOutlined />,
+                    }}
+                    placeholder={intl.formatMessage({
+                      id: 'pages.login.username.placeholder',
+                      defaultMessage: '用户名: admin or user',
+                    })}
+                    rules={[
+                      {
+                        required: true,
+                        message: (
+                          <FormattedMessage
+                            id="pages.login.username.required"
+                            defaultMessage="请输入用户名!"
+                          />
+                        ),
+                      },
+                    ]}
+                  />
+                  <ProFormText.Password
+                    name="password"
+                    fieldProps={{
+                      size: 'large',
+                      prefix: <LockOutlined />,
+                    }}
+                    placeholder={intl.formatMessage({
+                      id: 'pages.login.password.placeholder',
+                      defaultMessage: '密码: ant.design',
+                    })}
+                    rules={[
+                      {
+                        required: true,
+                        message: (
+                          <FormattedMessage
+                            id="pages.login.password.required"
+                            defaultMessage="请输入密码！"
+                          />
+                        ),
+                      },
+                    ]}
+                  />
+                </>
+              )}
+
+              {status === 'error' && loginType === 'mobile' && (
+                <LoginMessage content="验证码错误" />
+              )}
+              {type === 'mobile' && (
+                <>
+                  <ProFormText
+                    fieldProps={{
+                      size: 'large',
+                      prefix: <MobileOutlined />,
+                    }}
+                    name="mobile"
+                    placeholder={intl.formatMessage({
+                      id: 'pages.login.phoneNumber.placeholder',
+                      defaultMessage: '手机号',
+                    })}
+                    rules={[
+                      {
+                        required: true,
+                        message: (
+                          <FormattedMessage
+                            id="pages.login.phoneNumber.required"
+                            defaultMessage="请输入手机号！"
+                          />
+                        ),
+                      },
+                      {
+                        pattern: /^1\d{10}$/,
+                        message: (
+                          <FormattedMessage
+                            id="pages.login.phoneNumber.invalid"
+                            defaultMessage="手机号格式错误！"
+                          />
+                        ),
+                      },
+                    ]}
+                  />
+                  <ProFormCaptcha
+                    fieldProps={{
+                      size: 'large',
+                      prefix: <LockOutlined />,
+                    }}
+                    captchaProps={{
+                      size: 'large',
+                    }}
+                    placeholder={intl.formatMessage({
+                      id: 'pages.login.captcha.placeholder',
+                      defaultMessage: '请输入验证码',
+                    })}
+                    captchaTextRender={(timing, count) => {
+                      if (timing) {
+                        return `${count} ${intl.formatMessage({
+                          id: 'pages.getCaptchaSecondText',
+                          defaultMessage: '获取验证码',
+                        })}`;
+                      }
+                      return intl.formatMessage({
+                        id: 'pages.login.phoneLogin.getVerificationCode',
+                        defaultMessage: '获取验证码',
+                      });
+                    }}
+                    name="captcha"
+                    rules={[
+                      {
+                        required: true,
+                        message: (
+                          <FormattedMessage
+                            id="pages.login.captcha.required"
+                            defaultMessage="请输入验证码！"
+                          />
+                        ),
+                      },
+                    ]}
+                    onGetCaptcha={async (phone) => {
+                      const result = await getFakeCaptcha({
+                        phone,
+                      });
+                      if (!result) {
+                        return;
+                      }
+                      message.success('获取验证码成功！验证码为：1234');
+                    }}
+                  />
+                </>
+              )}
+              <div
+                style={{
+                  marginBottom: 24,
                 }}
-                name="mobile"
-                placeholder={intl.formatMessage({
-                  id: 'pages.login.phoneNumber.placeholder',
-                  defaultMessage: '手机号',
-                })}
-                rules={[
-                  {
-                    required: true,
-                    message: (
-                      <FormattedMessage
-                        id="pages.login.phoneNumber.required"
-                        defaultMessage="请输入手机号！"
-                      />
-                    ),
-                  },
-                  {
-                    pattern: /^1\d{10}$/,
-                    message: (
-                      <FormattedMessage
-                        id="pages.login.phoneNumber.invalid"
-                        defaultMessage="手机号格式错误！"
-                      />
-                    ),
-                  },
-                ]}
-              />
-              <ProFormCaptcha
-                fieldProps={{
-                  size: 'large',
-                  prefix: <LockOutlined />,
-                }}
-                captchaProps={{
-                  size: 'large',
-                }}
-                placeholder={intl.formatMessage({
-                  id: 'pages.login.captcha.placeholder',
-                  defaultMessage: '请输入验证码',
-                })}
-                captchaTextRender={(timing, count) => {
-                  if (timing) {
-                    return `${count} ${intl.formatMessage({
-                      id: 'pages.getCaptchaSecondText',
-                      defaultMessage: '获取验证码',
-                    })}`;
-                  }
-                  return intl.formatMessage({
-                    id: 'pages.login.phoneLogin.getVerificationCode',
-                    defaultMessage: '获取验证码',
-                  });
-                }}
-                name="captcha"
-                rules={[
-                  {
-                    required: true,
-                    message: (
-                      <FormattedMessage
-                        id="pages.login.captcha.required"
-                        defaultMessage="请输入验证码！"
-                      />
-                    ),
-                  },
-                ]}
-                onGetCaptcha={async (phone) => {
-                  const result = await getFakeCaptcha({
-                    phone,
-                  });
-                  if (!result) {
-                    return;
-                  }
-                  message.success('获取验证码成功！验证码为：1234');
-                }}
-              />
+              >
+                <ProFormCheckbox noStyle name="autoLogin">
+                  <FormattedMessage id="pages.login.rememberMe" defaultMessage="自动登录" />
+                </ProFormCheckbox>
+                <a
+                  style={{
+                    float: 'right',
+                  }}
+                >
+                  <FormattedMessage id="pages.login.forgotPassword" defaultMessage="忘记密码" />
+                </a>
+              </div>
             </>
           )}
-          <div
-            style={{
-              marginBottom: 24,
-            }}
-          >
-            <ProFormCheckbox noStyle name="autoLogin">
-              <FormattedMessage id="pages.login.rememberMe" defaultMessage="自动登录" />
-            </ProFormCheckbox>
-            <a
-              style={{
-                float: 'right',
-              }}
-            >
-              <FormattedMessage id="pages.login.forgotPassword" defaultMessage="忘记密码" />
-            </a>
-          </div>
         </LoginForm>
       </div>
       <Footer />

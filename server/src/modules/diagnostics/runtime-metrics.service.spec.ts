@@ -8,6 +8,7 @@ import type { ReportExportQueueService } from '../reporting/report-export-queue.
 import type { SessionStoreService } from '../../infrastructure/session/session-store.service';
 import type { TracingService } from '../../infrastructure/tracing/tracing.service';
 import type { IamChangeBusService } from '../iam/iam-change-bus.service';
+import type { OidcService } from '../auth/oidc/oidc.service';
 
 describe('RuntimeMetricsService', () => {
   test('按方法和路由模板聚合请求量、错误率与耗时', () => {
@@ -72,6 +73,14 @@ describe('DiagnosticsService', () => {
     const iamChanges = {
       snapshot: () => ({ backend: 'memory', status: 'ready', published: 0, received: 0 }),
     } as unknown as IamChangeBusService;
+    const oidc = {
+      snapshot: () => ({
+        enabled: false,
+        status: 'disabled',
+        flowStore: 'memory',
+        localLoginEnabled: true,
+      }),
+    } as unknown as OidcService;
     const value = await new DiagnosticsService(
       metrics,
       config,
@@ -80,6 +89,7 @@ describe('DiagnosticsService', () => {
       sessions,
       tracing,
       iamChanges,
+      oidc,
     ).snapshot();
     expect(value.integrations).toMatchObject({ total: 1, enabled: 1, unhealthy: 1 });
     expect(value.integrations.items[0]).not.toHaveProperty('endpoint');
@@ -89,6 +99,7 @@ describe('DiagnosticsService', () => {
     expect(value.queue).toMatchObject({ backend: 'memory', retainedJobs: 2 });
     expect(value.sessions).toMatchObject({ backend: 'memory', operations: 3 });
     expect(value.iamEvents).toMatchObject({ backend: 'memory', status: 'ready' });
+    expect(value.identity).toMatchObject({ enabled: false, status: 'disabled' });
     expect(value.tracing).toMatchObject({ exporter: 'disabled', spansStarted: 4, spansEnded: 3 });
   });
 });

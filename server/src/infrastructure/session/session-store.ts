@@ -2,6 +2,7 @@ import type { AuthPrincipal } from '../../modules/iam/iam.types';
 
 export interface StoredSession {
   principal: AuthPrincipal;
+  authenticationMethod?: 'local' | 'oidc';
   credentialVersion?: string;
   createdAt: number;
   expiresAt: number;

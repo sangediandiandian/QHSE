@@ -8,6 +8,9 @@ export class SecurityHeadersMiddleware implements NestMiddleware {
     response.setHeader('x-frame-options', 'DENY');
     response.setHeader('referrer-policy', 'no-referrer');
     response.setHeader('permissions-policy', 'camera=(), microphone=(), geolocation=()');
+    if (request.path.startsWith('/api/v1/auth') || request.path.startsWith('/api/login')) {
+      response.setHeader('cache-control', 'no-store');
+    }
     if (request.secure) response.setHeader('strict-transport-security', 'max-age=31536000');
     next();
   }

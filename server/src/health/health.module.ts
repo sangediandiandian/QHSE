@@ -9,11 +9,13 @@ import { ReportingModule } from '../modules/reporting/reporting.module';
 import { ReportExportQueueService } from '../modules/reporting/report-export-queue.service';
 import { IamModule } from '../modules/iam/iam.module';
 import { IamChangeBusService } from '../modules/iam/iam-change-bus.service';
+import { AuthModule } from '../modules/auth/auth.module';
+import { OidcService } from '../modules/auth/oidc/oidc.service';
 import { HealthController } from './health.controller';
 import { HealthService } from './health.service';
 
 @Module({
-  imports: [DatabaseModule, CacheModule, SessionModule, ReportingModule, IamModule],
+  imports: [DatabaseModule, CacheModule, SessionModule, ReportingModule, IamModule, AuthModule],
   controllers: [HealthController],
   providers: [
     {
@@ -24,6 +26,7 @@ import { HealthService } from './health.service';
         SessionStoreService,
         ReportExportQueueService,
         IamChangeBusService,
+        OidcService,
       ],
       useFactory: (
         prisma: PrismaService,
@@ -31,7 +34,8 @@ import { HealthService } from './health.service';
         sessions: SessionStoreService,
         queue: ReportExportQueueService,
         iamChanges: IamChangeBusService,
-      ) => new HealthService(prisma, cache, sessions, queue, iamChanges),
+        oidc: OidcService,
+      ) => new HealthService(prisma, cache, sessions, queue, iamChanges, oidc),
     },
   ],
 })

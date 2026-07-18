@@ -767,6 +767,13 @@ export interface SystemDiagnostics {
     lastErrorAt?: string;
     lastSuccessAt?: string;
   };
+  identity: {
+    enabled: boolean;
+    status: 'ready' | 'disabled' | 'degraded';
+    flowStore: 'memory' | 'redis';
+    localLoginEnabled: boolean;
+    usernameClaim: string;
+  };
   tracing: {
     exporter: 'disabled' | 'otlp-http';
     spansStarted: number;

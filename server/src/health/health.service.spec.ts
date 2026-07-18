@@ -6,6 +6,7 @@ import type { CacheService } from '../infrastructure/cache/cache.service';
 import type { SessionStoreService } from '../infrastructure/session/session-store.service';
 import type { ReportExportQueueService } from '../modules/reporting/report-export-queue.service';
 import type { IamChangeBusService } from '../modules/iam/iam-change-bus.service';
+import type { OidcService } from '../modules/auth/oidc/oidc.service';
 import { HealthService } from './health.service';
 
 const dependency = (backend = 'memory') => ({
@@ -20,6 +21,7 @@ function createService(cache = dependency()) {
     dependency() as unknown as SessionStoreService,
     dependency() as unknown as ReportExportQueueService,
     dependency() as unknown as IamChangeBusService,
+    dependency() as unknown as OidcService,
   );
 }
 
@@ -46,6 +48,7 @@ describe('HealthService', () => {
         { name: 'sessions', status: 'ready' },
         { name: 'queue', status: 'ready' },
         { name: 'iam-events', status: 'ready' },
+        { name: 'identity', status: 'ready' },
       ],
     });
   });

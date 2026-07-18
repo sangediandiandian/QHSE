@@ -7,6 +7,19 @@ import { SessionStoreService } from '../../infrastructure/session/session-store.
 import type { SessionStore } from '../../infrastructure/session/session-store';
 
 describe('AuthService', () => {
+  test('关闭本地登录后拒绝账号密码认证', async () => {
+    const original = process.env.QHSE_LOCAL_LOGIN_ENABLED;
+    process.env.QHSE_LOCAL_LOGIN_ENABLED = 'false';
+    try {
+      await expect(new AuthService(new IamService()).login('admin', 'ant.design')).rejects.toThrow(
+        UnauthorizedException,
+      );
+    } finally {
+      if (original === undefined) delete process.env.QHSE_LOCAL_LOGIN_ENABLED;
+      else process.env.QHSE_LOCAL_LOGIN_ENABLED = original;
+    }
+  });
+
   test('登录后返回随机会话和 QHSE 权限', async () => {
     const service = new AuthService(new IamService());
     const result = await service.login('qhse', 'ant.design');

@@ -42,6 +42,38 @@ export async function login(body: API.LoginParams, options?: { [key: string]: an
   return result;
 }
 
+export async function getOidcLoginConfig() {
+  type OidcLoginConfig = { enabled: boolean; label: string; localLoginEnabled: boolean };
+  const response = await request<{
+    data?: OidcLoginConfig;
+    enabled?: boolean;
+    label?: string;
+    localLoginEnabled?: boolean;
+  }>('/api/v1/auth/oidc/config', {
+    method: 'GET',
+    skipErrorHandler: true,
+  });
+  if (response.data) return response.data;
+  return {
+    enabled: response.enabled ?? false,
+    label: response.label ?? '企业统一认证',
+    localLoginEnabled: response.localLoginEnabled ?? true,
+  };
+}
+
+export async function exchangeOidcCompletion(completionCode: string) {
+  const response = await request<API.LoginResult & { data?: API.LoginResult }>(
+    '/api/v1/auth/oidc/exchange',
+    {
+      method: 'POST',
+      data: { completionCode },
+    },
+  );
+  const result = response.data?.status ? response.data : response;
+  if (result.accessToken) localStorage.setItem('qhse_access_token', result.accessToken);
+  return result;
+}
+
 export async function changePassword(body: { currentPassword: string; newPassword: string }) {
   return request<{ data: { passwordChanged: boolean; reauthenticationRequired: boolean } }>(
     '/api/v1/auth/password',

@@ -25,6 +25,12 @@ export class AuthService {
   ) {}
 
   async login(username: string, password: string, clientKey = 'local') {
+    if (process.env.QHSE_LOCAL_LOGIN_ENABLED === 'false') {
+      throw new UnauthorizedException({
+        code: 'LOCAL_LOGIN_DISABLED',
+        message: '本地账号密码登录已关闭，请使用企业统一认证',
+      });
+    }
     const normalizedUsername = username.trim();
     const attemptKey = `${clientKey}:${normalizedUsername.toLowerCase()}`;
     this.loginLimiter.assertAllowed(attemptKey);
@@ -35,15 +41,40 @@ export class AuthService {
     }
 
     this.loginLimiter.clear(attemptKey);
+    return this.createSession(user, 'local');
+  }
+
+  async loginFederated(username: string) {
+    const user = this.iamService.findUserByUsername(username);
+    if (!user || user.status !== 'enabled') {
+      throw new UnauthorizedException({
+        code: 'OIDC_ACCOUNT_NOT_MAPPED',
+        message: '统一身份未映射到可用的 QHSE 账号',
+      });
+    }
+    return this.createSession(user, 'oidc');
+  }
+
+  private async createSession(
+    user: NonNullable<ReturnType<IamService['findUserByUsername']>>,
+    authenticationMethod: 'local' | 'oidc',
+  ) {
     const now = Date.now();
     const accessToken = randomBytes(32).toString('hex');
-    const principal = this.iamService.createPrincipal(user);
+    const principal = {
+      ...this.iamService.createPrincipal(user),
+      passwordChangeRequired: authenticationMethod === 'oidc' ? false : user.passwordChangeRequired,
+    };
     try {
       await this.sessions.create(
         accessToken,
         {
           principal,
-          credentialVersion: this.credentialVersion(user.passwordHash),
+          authenticationMethod,
+          credentialVersion:
+            authenticationMethod === 'local'
+              ? this.credentialVersion(user.passwordHash)
+              : undefined,
           expiresAt: now + this.sessionTtlMs,
           createdAt: now,
         },
@@ -108,7 +139,8 @@ export class AuthService {
     if (
       !user ||
       user.status !== 'enabled' ||
-      session.credentialVersion !== this.credentialVersion(user.passwordHash)
+      (session.authenticationMethod !== 'oidc' &&
+        session.credentialVersion !== this.credentialVersion(user.passwordHash))
     ) {
       await this.sessions.delete(accessToken).catch(() => undefined);
       throw new UnauthorizedException({
@@ -116,7 +148,10 @@ export class AuthService {
         message: '登录状态已失效，请重新登录',
       });
     }
-    return this.iamService.createPrincipal(user);
+    const principal = this.iamService.createPrincipal(user);
+    return session.authenticationMethod === 'oidc'
+      ? { ...principal, passwordChangeRequired: false }
+      : principal;
   }
 
   async logout(accessToken: string) {

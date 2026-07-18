@@ -12,10 +12,12 @@ import { SessionStoreService } from '../../infrastructure/session/session-store.
 import { TracingService } from '../../infrastructure/tracing/tracing.service';
 import { IamModule } from '../iam/iam.module';
 import { IamChangeBusService } from '../iam/iam-change-bus.service';
+import { AuthModule } from '../auth/auth.module';
+import { OidcService } from '../auth/oidc/oidc.service';
 
 @Global()
 @Module({
-  imports: [PlatformConfigModule, ReportingModule, IamModule],
+  imports: [PlatformConfigModule, ReportingModule, IamModule, AuthModule],
   controllers: [DiagnosticsController],
   providers: [
     RuntimeMetricsService,
@@ -30,6 +32,7 @@ import { IamChangeBusService } from '../iam/iam-change-bus.service';
         SessionStoreService,
         TracingService,
         IamChangeBusService,
+        OidcService,
       ],
       useFactory: (
         metrics: RuntimeMetricsService,
@@ -39,7 +42,9 @@ import { IamChangeBusService } from '../iam/iam-change-bus.service';
         sessions: SessionStoreService,
         tracing: TracingService,
         iamChanges: IamChangeBusService,
-      ) => new DiagnosticsService(metrics, config, cache, queue, sessions, tracing, iamChanges),
+        oidc: OidcService,
+      ) =>
+        new DiagnosticsService(metrics, config, cache, queue, sessions, tracing, iamChanges, oidc),
     },
   ],
   exports: [RuntimeMetricsService, RuntimeMetricsMiddleware],

@@ -109,6 +109,12 @@ export default function DiagnosticsPage() {
               {' · '}会话 {data.sessions.backend}
               {' · '}IAM 广播 {data.iamEvents.backend}/
               {data.iamEvents.status === 'ready' ? '正常' : '降级'}
+              {' · '}统一身份{' '}
+              {data.identity.enabled
+                ? data.identity.status === 'ready'
+                  ? '正常'
+                  : '降级'
+                : '未启用'}
             </small>
           </span>
         </article>
@@ -191,6 +197,11 @@ export default function DiagnosticsPage() {
           <p>
             IAM 广播发送 {data.iamEvents.published} / 接收 {data.iamEvents.received} / 重连校准{' '}
             {data.iamEvents.reconciliations} / 失败 {data.iamEvents.failures}
+          </p>
+          <p>
+            统一身份 {data.identity.enabled ? '启用' : '关闭'} / 流程存储 {data.identity.flowStore}{' '}
+            / 本地登录
+            {data.identity.localLoginEnabled ? '保留' : '关闭'}
           </p>
         </div>
       </section>

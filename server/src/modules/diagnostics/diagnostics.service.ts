@@ -4,6 +4,7 @@ import type { ReportExportQueueService } from '../reporting/report-export-queue.
 import type { SessionStoreService } from '../../infrastructure/session/session-store.service';
 import type { TracingService } from '../../infrastructure/tracing/tracing.service';
 import type { IamChangeBusService } from '../iam/iam-change-bus.service';
+import type { OidcService } from '../auth/oidc/oidc.service';
 import { RuntimeMetricsService } from './runtime-metrics.service';
 
 export class DiagnosticsService {
@@ -15,6 +16,7 @@ export class DiagnosticsService {
     private readonly sessions: SessionStoreService,
     private readonly tracing: TracingService,
     private readonly iamChanges: IamChangeBusService,
+    private readonly oidc: OidcService,
   ) {}
 
   async snapshot() {
@@ -57,6 +59,7 @@ export class DiagnosticsService {
       queue: this.queue.snapshot(),
       sessions: this.sessions.snapshot(),
       iamEvents: this.iamChanges.snapshot(),
+      identity: this.oidc.snapshot(),
       tracing: this.tracing.snapshot(),
       generatedAt: new Date().toISOString(),
     };
