@@ -1,17 +1,9 @@
 ﻿import { TestBrowser } from '@@/testBrowser';
-import { fireEvent, render } from '@testing-library/react';
+import { fireEvent, render, waitFor } from '@testing-library/react';
 import React, { act } from 'react';
 
 // @ts-ignore
 import { startMock } from '@@/requestRecordMock';
-
-const waitTime = (time: number = 100) => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve(true);
-    }, time);
-  });
-};
 
 let server: {
   close: () => void;
@@ -82,14 +74,18 @@ describe('Login Page', () => {
 
     await (await rootContainer.findByText('Login')).click();
 
-    // 等待接口返回结果
-    await waitTime(5000);
-
-    await rootContainer.findAllByText('炼化 QHSE');
-
-    expect(rootContainer.asFragment()).toMatchSnapshot();
-
-    await waitTime(2000);
+    await waitFor(
+      () => {
+        expect(historyRef.current?.location.pathname).toBe('/dashboard');
+      },
+      { timeout: 7000 },
+    );
+    expect(await rootContainer.findAllByText('炼化 QHSE')).not.toHaveLength(0);
+    fireEvent.click(await rootContainer.findByText('QHSE 管理'));
+    expect(await rootContainer.findByText('风险分级')).toBeTruthy();
+    expect(await rootContainer.findByText('隐患治理')).toBeTruthy();
+    expect(await rootContainer.findByText('作业许可')).toBeTruthy();
+    expect(await rootContainer.findAllByText('监测中心')).not.toHaveLength(0);
 
     rootContainer.unmount();
   });
