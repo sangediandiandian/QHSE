@@ -125,4 +125,84 @@ describe('EventReviewService', () => {
       version: 2,
     });
   });
+
+  test('绑定真实调查附件并固化服务端上传人和哈希', async () => {
+    const attachments = {
+      bind: jest.fn(async () => ({
+        id: 'object-review-1',
+        originalName: '调查报告.pdf',
+        contentType: 'application/pdf',
+        size: 2048,
+        sha256: 'review-sha256',
+      })),
+    };
+    const instance = new EventReviewService(
+      new InMemoryEventReviewRepository(),
+      () => new Date('2026-07-18T12:00:00.000Z'),
+      () => 'review-part',
+      attachments as never,
+    );
+    const updated = await instance.addEvidence(
+      'review-001',
+      {
+        objectId: 'object-review-1',
+        name: '泵法兰失效调查报告',
+        category: '调查报告',
+        note: '包含材料检验和原因分析。',
+        expectedVersion: 1,
+      },
+      manager,
+    );
+    expect(attachments.bind).toHaveBeenCalledWith(
+      'object-review-1',
+      { businessType: 'event_review', businessId: 'review-001', areaId: 'area-02' },
+      manager,
+    );
+    expect(updated.evidence).toEqual([
+      expect.objectContaining({
+        objectId: 'object-review-1',
+        uploaderId: 'user-unit',
+        uploader: '李建国',
+        hash: 'review-sha256',
+      }),
+    ]);
+  });
+
+  test('新增整改措施并在完成前调整责任人和期限', async () => {
+    const instance = service();
+    const added = await instance.addAction(
+      'review-001',
+      {
+        title: '更新高温泵法兰检查标准',
+        ownerDepartment: '设备管理部',
+        owner: '孙工',
+        deadline: '2026-07-25',
+        priority: '重要',
+        expectedVersion: 1,
+      },
+      manager,
+    );
+    const action = added.actions.at(-1)!;
+    expect(action).toMatchObject({ title: '更新高温泵法兰检查标准', status: '待整改' });
+
+    const adjusted = await instance.updateAction(
+      added.id,
+      action.id,
+      {
+        title: action.title,
+        ownerDepartment: '生产运行部',
+        owner: '陈涛',
+        deadline: '2026-07-28',
+        priority: '紧急',
+        expectedVersion: 2,
+      },
+      manager,
+    );
+    expect(adjusted.actions.at(-1)).toMatchObject({
+      ownerDepartment: '生产运行部',
+      owner: '陈涛',
+      deadline: '2026-07-28',
+      priority: '紧急',
+    });
+  });
 });

@@ -1,7 +1,12 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import type { AttachmentService } from '../attachments/attachment.service';
 import type { EmergencyEvent } from '../emergency-events/emergency-event.types';
-import type { UpdateEventReviewAnalysisDto } from './event-review.dto';
+import type {
+  AddEventReviewEvidenceDto,
+  SaveEventReviewActionDto,
+  UpdateEventReviewAnalysisDto,
+} from './event-review.dto';
 import {
   EventReviewNotFoundError,
   type EventReviewRepository,
@@ -14,6 +19,7 @@ export class EventReviewService {
     private readonly repository: EventReviewRepository,
     private readonly now: () => Date = () => new Date(),
     private readonly createId: () => string = randomUUID,
+    private readonly attachments?: AttachmentService,
   ) {}
 
   list(allowedAreaIds?: string[]) {
@@ -79,6 +85,7 @@ export class EventReviewService {
           status: '待整改',
         },
       ],
+      evidence: [],
       version: 1,
       createdAt: timestamp,
       updatedAt: timestamp,
@@ -101,6 +108,123 @@ export class EventReviewService {
         directCause: input.directCause.trim(),
         rootCause: input.rootCause.trim(),
         lesson: input.lesson.trim(),
+        version: review.version + 1,
+        updatedAt: timestamp,
+      },
+      input.expectedVersion,
+      access.allowedAreaIds,
+    );
+  }
+
+  async addEvidence(id: string, input: AddEventReviewEvidenceDto, access: EventReviewAccess) {
+    const review = await this.get(id, access.allowedAreaIds);
+    this.ensureOpen(review.status);
+    if (!this.attachments)
+      throw new BadRequestException({
+        code: 'ATTACHMENT_SERVICE_UNAVAILABLE',
+        message: '附件服务不可用',
+      });
+    const attachment = await this.attachments.bind(
+      input.objectId,
+      { businessType: 'event_review', businessId: review.id, areaId: review.areaId },
+      access,
+    );
+    const timestamp = this.now().toISOString();
+    return this.update(
+      {
+        ...review,
+        evidence: [
+          ...review.evidence,
+          {
+            id: this.createId(),
+            objectId: attachment.id,
+            name: input.name.trim(),
+            category: input.category,
+            note: input.note.trim(),
+            uploaderId: access.actorId,
+            uploader: access.actorName,
+            uploadedAt: timestamp,
+            hash: attachment.sha256,
+            contentType: attachment.contentType,
+            size: attachment.size,
+          },
+        ],
+        version: review.version + 1,
+        updatedAt: timestamp,
+      },
+      input.expectedVersion,
+      access.allowedAreaIds,
+    );
+  }
+
+  async addAction(id: string, input: SaveEventReviewActionDto, access: EventReviewAccess) {
+    const review = await this.get(id, access.allowedAreaIds);
+    this.ensureOpen(review.status);
+    const timestamp = this.now().toISOString();
+    return this.update(
+      {
+        ...review,
+        actions: [
+          ...review.actions,
+          {
+            id: this.createId(),
+            title: input.title.trim(),
+            ownerDepartment: input.ownerDepartment.trim(),
+            owner: input.owner.trim(),
+            deadline: input.deadline.slice(0, 10),
+            priority: input.priority,
+            status: '待整改',
+            updatedById: access.actorId,
+            updatedBy: access.actorName,
+            updatedAt: timestamp,
+          },
+        ],
+        version: review.version + 1,
+        updatedAt: timestamp,
+      },
+      input.expectedVersion,
+      access.allowedAreaIds,
+    );
+  }
+
+  async updateAction(
+    id: string,
+    actionId: string,
+    input: SaveEventReviewActionDto,
+    access: EventReviewAccess,
+  ) {
+    const review = await this.get(id, access.allowedAreaIds);
+    this.ensureOpen(review.status);
+    const action = review.actions.find((item) => item.id === actionId);
+    if (!action)
+      throw new NotFoundException({
+        code: 'EVENT_REVIEW_ACTION_NOT_FOUND',
+        message: '整改措施不存在',
+      });
+    if (action.status === '已完成')
+      throw new ConflictException({
+        code: 'EVENT_REVIEW_ACTION_COMPLETED',
+        message: '已完成整改措施不能调整',
+      });
+    const timestamp = this.now().toISOString();
+    return this.update(
+      {
+        ...review,
+        actions: review.actions.map((item) =>
+          item.id === actionId
+            ? {
+                ...item,
+                title: input.title.trim(),
+                ownerDepartment: input.ownerDepartment.trim(),
+                owner: input.owner.trim(),
+                deadline: input.deadline.slice(0, 10),
+                priority: input.priority,
+                updatedById: access.actorId,
+                updatedBy: access.actorName,
+                updatedAt: timestamp,
+              }
+            : item,
+        ),
         version: review.version + 1,
         updatedAt: timestamp,
       },
@@ -217,6 +341,14 @@ export class EventReviewService {
         });
       throw error;
     }
+  }
+
+  private ensureOpen(status: Awaited<ReturnType<EventReviewService['get']>>['status']) {
+    if (status === '已复盘')
+      throw new ConflictException({
+        code: 'EVENT_REVIEW_ALREADY_CLOSED',
+        message: '已归档复盘不能继续修改',
+      });
   }
 
   private notFound(): never {

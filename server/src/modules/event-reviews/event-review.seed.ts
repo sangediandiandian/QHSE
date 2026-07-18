@@ -100,6 +100,7 @@ export const eventReviewSeed: EventReview[] = [
         status: '待整改',
       },
     ],
+    evidence: [],
     version: 1,
     createdAt: '2026-07-11T09:00:00.000Z',
     updatedAt: '2026-07-11T09:00:00.000Z',

@@ -5,8 +5,10 @@ import { CurrentPrincipal } from '../auth/current-principal.decorator';
 import { RequirePermissions } from '../auth/permissions.decorator';
 import type { AuthPrincipal } from '../iam/iam.types';
 import {
+  AddEventReviewEvidenceDto,
   AdvanceReviewActionDto,
   EventReviewVersionDto,
+  SaveEventReviewActionDto,
   UpdateEventReviewAnalysisDto,
 } from './event-review.dto';
 import { EventReviewService } from './event-review.service';
@@ -54,6 +56,52 @@ export class EventReviewController {
     @CurrentPrincipal() principal: AuthPrincipal,
   ) {
     return this.service.updateAnalysis(id, input, access(principal));
+  }
+
+  @Post(':id/evidence')
+  @RequirePermissions('emergency:evidence')
+  @AuditAction({
+    action: 'event_review.evidence.add',
+    resourceType: 'event_review',
+    resourceIdParam: 'id',
+  })
+  addEvidence(
+    @Param('id') id: string,
+    @Body() input: AddEventReviewEvidenceDto,
+    @CurrentPrincipal() principal: AuthPrincipal,
+  ) {
+    return this.service.addEvidence(id, input, access(principal));
+  }
+
+  @Post(':id/actions')
+  @RequirePermissions('emergency:manage')
+  @AuditAction({
+    action: 'event_review.action.create',
+    resourceType: 'event_review',
+    resourceIdParam: 'id',
+  })
+  addAction(
+    @Param('id') id: string,
+    @Body() input: SaveEventReviewActionDto,
+    @CurrentPrincipal() principal: AuthPrincipal,
+  ) {
+    return this.service.addAction(id, input, access(principal));
+  }
+
+  @Put(':id/actions/:actionId')
+  @RequirePermissions('emergency:manage')
+  @AuditAction({
+    action: 'event_review.action.update',
+    resourceType: 'event_review',
+    resourceIdParam: 'id',
+  })
+  updateAction(
+    @Param('id') id: string,
+    @Param('actionId') actionId: string,
+    @Body() input: SaveEventReviewActionDto,
+    @CurrentPrincipal() principal: AuthPrincipal,
+  ) {
+    return this.service.updateAction(id, actionId, input, access(principal));
   }
 
   @Post(':id/actions/advance')

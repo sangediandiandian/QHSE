@@ -435,6 +435,25 @@ export interface ReviewAction {
   completedAt?: string;
 }
 
+export interface EventReviewEvidence {
+  id: string;
+  objectId: string;
+  name: string;
+  category: '调查报告' | '现场照片' | '检测报告' | '培训记录';
+  note: string;
+  uploaderId: string;
+  uploader: string;
+  uploadedAt: string;
+  hash: string;
+  contentType?: string;
+  size?: number;
+}
+
+export type EventReviewActionInput = Pick<
+  ReviewAction,
+  'title' | 'ownerDepartment' | 'owner' | 'deadline' | 'priority'
+>;
+
 export interface EventReview {
   id: string;
   eventId: string;
@@ -453,6 +472,7 @@ export interface EventReview {
   closedAt?: string;
   timeline: Array<{ time: string; title: string; detail: string; status: 'done' | 'active' | 'pending' }>;
   actions: ReviewAction[];
+  evidence?: EventReviewEvidence[];
   version?: number;
   createdAt?: string;
   updatedAt?: string;

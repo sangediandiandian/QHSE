@@ -77,6 +77,8 @@
 - `POST /api/v1/emergency-events/:id/closure-request|closure-reminder|closure-approval`：关闭申请、催办和异人审批。
 - `GET /api/v1/event-reviews`、`GET /api/v1/event-reviews/:id`：按区域数据范围查询事件调查复盘。
 - `PUT /api/v1/event-reviews/:id/analysis`：维护事件摘要、直接原因、根本原因和经验教训。
+- `POST /api/v1/event-reviews/:id/evidence`：绑定统一对象存储附件并归档调查证据。
+- `POST /api/v1/event-reviews/:id/actions`、`PUT /api/v1/event-reviews/:id/actions/:actionId`：新增或调整未完成整改措施。
 - `POST /api/v1/event-reviews/:id/actions/advance|close`：推进整改措施或在全部完成后关闭归档复盘。
 - `GET /api/v1/emergency-plans`、`GET /api/v1/emergency-plans/:id`：查询预案、运行版本、草稿、评审和演练。
 - `POST /api/v1/emergency-plans`、`PUT /api/v1/emergency-plans/:id/draft`：创建或维护独立预案草稿。

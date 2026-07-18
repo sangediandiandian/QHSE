@@ -1,5 +1,6 @@
 export type StorageProvider = 'local' | 's3';
-export type AttachmentBusinessType = 'hazard' | 'emergency_event' | 'emergency_plan' | 'drill';
+export type AttachmentBusinessType =
+  'hazard' | 'emergency_event' | 'emergency_plan' | 'event_review' | 'drill';
 
 export interface StoredObject {
   id: string;

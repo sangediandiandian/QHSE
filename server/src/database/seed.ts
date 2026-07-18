@@ -413,6 +413,7 @@ async function main() {
       closedAt: review.closedAt ? new Date(review.closedAt) : null,
       timeline: review.timeline as unknown as Prisma.InputJsonValue,
       actions: review.actions as unknown as Prisma.InputJsonValue,
+      evidence: review.evidence as unknown as Prisma.InputJsonValue,
       version: review.version,
       updatedAt: new Date(review.updatedAt),
     };

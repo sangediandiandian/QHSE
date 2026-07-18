@@ -6,7 +6,12 @@ import {
   type EventReviewRepository,
   EventReviewVersionConflictError,
 } from './event-review.repository';
-import type { EventReview, EventReviewTimelineItem, ReviewAction } from './event-review.types';
+import type {
+  EventReview,
+  EventReviewEvidence,
+  EventReviewTimelineItem,
+  ReviewAction,
+} from './event-review.types';
 
 type EventReviewRecord = Awaited<ReturnType<PrismaService['eventReview']['findFirstOrThrow']>>;
 
@@ -17,6 +22,7 @@ const mapRecord = (record: EventReviewRecord): EventReview => ({
   closedAt: record.closedAt?.toISOString(),
   timeline: record.timeline as unknown as EventReviewTimelineItem[],
   actions: record.actions as unknown as ReviewAction[],
+  evidence: record.evidence as unknown as EventReviewEvidence[],
   createdAt: record.createdAt.toISOString(),
   updatedAt: record.updatedAt.toISOString(),
 });
@@ -67,6 +73,7 @@ export class PrismaEventReviewRepository implements EventReviewRepository {
             controlledAt: new Date(review.controlledAt),
             timeline: review.timeline as unknown as Prisma.InputJsonValue,
             actions: review.actions as unknown as Prisma.InputJsonValue,
+            evidence: review.evidence as unknown as Prisma.InputJsonValue,
             version: review.version,
             createdAt: new Date(review.createdAt),
             updatedAt: new Date(review.updatedAt),
@@ -99,6 +106,7 @@ export class PrismaEventReviewRepository implements EventReviewRepository {
         closedAt: review.closedAt ? new Date(review.closedAt) : null,
         timeline: review.timeline as unknown as Prisma.InputJsonValue,
         actions: review.actions as unknown as Prisma.InputJsonValue,
+        evidence: review.evidence as unknown as Prisma.InputJsonValue,
         version: { increment: 1 },
         updatedAt: new Date(review.updatedAt),
       },

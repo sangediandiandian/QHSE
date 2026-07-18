@@ -13,6 +13,8 @@ import type {
   EmergencyEventAction,
   EmergencyEventEvidence,
   EventReview,
+  EventReviewActionInput,
+  EventReviewEvidence,
   EmergencyPlanDraftInput,
   EmergencyPlanTemplate,
   EmergencyResource,
@@ -83,10 +85,13 @@ import {
   transitionEmergencyEvent as transitionEmergencyEventByApi,
 } from '@/services/qhse/emergencyEvents';
 import {
+  addEventReviewEvidence as addEventReviewEvidenceByApi,
   advanceEventReviewAction as advanceEventReviewActionByApi,
   closeEventReviewByApi,
+  createEventReviewAction as createEventReviewActionByApi,
   getEventReviews,
   updateEventReviewAnalysis as updateEventReviewAnalysisByApi,
+  updateEventReviewAction as updateEventReviewActionByApi,
 } from '@/services/qhse/eventReviews';
 import {
   addEmergencyDrill as addEmergencyDrillByApi,
@@ -779,6 +784,33 @@ export default function useQhseModel() {
     return undefined;
   }, [eventReviewRecords]);
 
+  const addEventReviewEvidence = useCallback(async (
+    reviewId: string,
+    input: Pick<EventReviewEvidence, 'objectId' | 'name' | 'category' | 'note'>,
+  ) => {
+    if (!hazardApiMode) return undefined;
+    const review = eventReviewRecords.find((item) => item.id === reviewId);
+    if (!review) throw new Error('事件复盘不存在');
+    const updated = await addEventReviewEvidenceByApi(reviewId, input, review.version ?? 1);
+    setEventReviewRecords((items) => items.map((item) => item.id === reviewId ? updated : item));
+    return updated;
+  }, [eventReviewRecords]);
+
+  const saveEventReviewAction = useCallback(async (
+    reviewId: string,
+    actionId: string | undefined,
+    input: EventReviewActionInput,
+  ) => {
+    if (!hazardApiMode) return undefined;
+    const review = eventReviewRecords.find((item) => item.id === reviewId);
+    if (!review) throw new Error('事件复盘不存在');
+    const updated = actionId
+      ? await updateEventReviewActionByApi(reviewId, actionId, input, review.version ?? 1)
+      : await createEventReviewActionByApi(reviewId, input, review.version ?? 1);
+    setEventReviewRecords((items) => items.map((item) => item.id === reviewId ? updated : item));
+    return updated;
+  }, [eventReviewRecords]);
+
   const closeEventReview = useCallback(async (reviewId: string) => {
     if (hazardApiMode) {
       const review = eventReviewRecords.find((item) => item.id === reviewId);
@@ -1333,6 +1365,8 @@ export default function useQhseModel() {
     recordEmergencyDrill,
     advanceReviewAction,
     saveEventReviewAnalysis,
+    addEventReviewEvidence,
+    saveEventReviewAction,
     closeEventReview,
     transitionEvent,
     addEmergencyEventEvidence,

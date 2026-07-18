@@ -470,6 +470,7 @@ model EventReview {
   closedAt     DateTime?
   timeline     Json
   actions      Json
+  evidence     Json      @default("[]")
   version      Int       @default(1)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
