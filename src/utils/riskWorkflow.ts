@@ -17,15 +17,45 @@ export function assessRiskUnit(
   const level = getLecRiskLevel(score);
   return {
     ...unit,
-    currentLevel: level,
-    assessments: [...(unit.assessments ?? []), {
-      id,
-      method: 'LEC',
-      ...input,
-      score,
-      level,
-      assessedAt,
-    }],
+    assessments: [
+      ...(unit.assessments ?? []),
+      {
+        id,
+        method: 'LEC',
+        ...input,
+        score,
+        level,
+        assessedAt,
+        status: 'pending',
+      },
+    ],
+  };
+}
+
+export function reviewRiskAssessment(
+  unit: RiskUnit,
+  assessmentId: string,
+  decision: 'approve' | 'reject',
+  reviewer: string,
+  opinion: string,
+  reviewedAt: string,
+): RiskUnit {
+  const target = unit.assessments?.find((item) => item.id === assessmentId);
+  if (!target || target.status !== 'pending') return unit;
+  return {
+    ...unit,
+    currentLevel: decision === 'approve' ? target.level : unit.currentLevel,
+    assessments: unit.assessments?.map((item) =>
+      item.id === assessmentId
+        ? {
+            ...item,
+            status: decision === 'approve' ? 'approved' : 'rejected',
+            reviewer,
+            reviewedAt,
+            opinion: opinion.trim() || undefined,
+          }
+        : item,
+    ),
   };
 }
 

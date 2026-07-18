@@ -1,7 +1,7 @@
 /** @jest-environment node */
 
 import { request } from '@umijs/max';
-import { assessRiskUnit, saveRiskControls } from './risks';
+import { assessRiskUnit, reviewRiskAssessment, saveRiskControls } from './risks';
 
 jest.mock('@umijs/max', () => ({ request: jest.fn() }));
 
@@ -37,6 +37,26 @@ describe('risk API client', () => {
         expectedVersion: 1,
       },
     });
+  });
+
+  test('审批请求携带评估、决策和风险版本', async () => {
+    const risk = { id: 'risk-001', version: 3 };
+    requestMock.mockResolvedValue({ data: risk });
+
+    await expect(
+      reviewRiskAssessment('risk-001', 'assessment-1', 'reject', '依据不足', 2),
+    ).resolves.toBe(risk);
+    expect(requestMock).toHaveBeenCalledWith(
+      '/api/v1/risks/risk-001/assessments/assessment-1/review',
+      {
+        method: 'PUT',
+        data: {
+          decision: 'reject',
+          opinion: '依据不足',
+          expectedVersion: 2,
+        },
+      },
+    );
   });
 
   test('措施请求保留责任分工并携带当前版本', async () => {

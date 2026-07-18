@@ -26,6 +26,23 @@ export async function assessRiskUnit(
   return response.data;
 }
 
+export async function reviewRiskAssessment(
+  id: string,
+  assessmentId: string,
+  decision: 'approve' | 'reject',
+  opinion: string,
+  expectedVersion: number,
+) {
+  const response = await request<ApiResponse<RiskUnit>>(
+    `/api/v1/risks/${id}/assessments/${assessmentId}/review`,
+    {
+      method: 'PUT',
+      data: { decision, opinion, expectedVersion },
+    },
+  );
+  return response.data;
+}
+
 export async function saveRiskControls(
   id: string,
   controls: Array<Pick<RiskControlRecord, 'content' | 'owner' | 'status'>>,

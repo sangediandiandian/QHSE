@@ -13,16 +13,14 @@ import { RiskService } from './risk.service';
     {
       provide: RISK_REPOSITORY,
       inject: [InMemoryRiskRepository, PrismaRiskRepository],
-      useFactory: (memory: InMemoryRiskRepository, prisma: PrismaRiskRepository) => (
-        process.env.QHSE_REPOSITORY === 'prisma' ? prisma : memory
-      ),
+      useFactory: (memory: InMemoryRiskRepository, prisma: PrismaRiskRepository) =>
+        process.env.QHSE_REPOSITORY === 'prisma' ? prisma : memory,
     },
     {
       provide: RiskService,
       inject: [RISK_REPOSITORY],
-      useFactory: (repository: InMemoryRiskRepository | PrismaRiskRepository) => (
-        new RiskService(repository)
-      ),
+      useFactory: (repository: InMemoryRiskRepository | PrismaRiskRepository) =>
+        new RiskService(repository),
     },
   ],
   exports: [RiskService],

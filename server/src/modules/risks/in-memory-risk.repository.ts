@@ -1,13 +1,16 @@
 import {
   type RiskRepository,
+  RiskAssessmentNotFoundError,
+  RiskAssessmentPendingError,
+  RiskAssessmentStateConflictError,
   RiskNotFoundError,
   RiskVersionConflictError,
 } from './risk.repository';
 import { riskSeed } from './risk.seed';
 import type {
   RiskAssessment,
+  RiskAssessmentReview,
   RiskControl,
-  RiskLevel,
   RiskQuery,
   RiskUnit,
 } from './risk.types';
@@ -25,29 +28,69 @@ export class InMemoryRiskRepository implements RiskRepository {
       .filter((item) => !query.areaId || item.areaId === query.areaId)
       .filter((item) => !query.areaIds || query.areaIds.includes(item.areaId))
       .filter((item) => !query.level || item.currentLevel === query.level)
-      .filter((item) => !keyword || [item.code, item.name, item.owner, item.areaName]
-        .some((value) => value.toLocaleLowerCase().includes(keyword)))
+      .filter(
+        (item) =>
+          !keyword ||
+          [item.code, item.name, item.owner, item.areaName].some((value) =>
+            value.toLocaleLowerCase().includes(keyword),
+          ),
+      )
       .map(clone);
   }
 
   async findById(id: string, allowedAreaIds?: string[]) {
     const risk = this.records.get(id);
-    return risk && (!allowedAreaIds || allowedAreaIds.includes(risk.areaId)) ? clone(risk) : undefined;
+    return risk && (!allowedAreaIds || allowedAreaIds.includes(risk.areaId))
+      ? clone(risk)
+      : undefined;
   }
 
   async addAssessment(
     id: string,
     assessment: RiskAssessment,
-    nextLevel: RiskLevel,
     expectedVersion?: number,
     allowedAreaIds?: string[],
   ) {
-    return this.update(id, expectedVersion, allowedAreaIds, (risk) => ({
-      ...risk,
-      currentLevel: nextLevel,
-      assessments: [...risk.assessments, assessment],
-      updatedAt: assessment.assessedAt,
-    }));
+    return this.update(id, expectedVersion, allowedAreaIds, (risk) => {
+      if (risk.assessments.some((item) => item.status === 'pending')) {
+        throw new RiskAssessmentPendingError();
+      }
+      return {
+        ...risk,
+        assessments: [...risk.assessments, assessment],
+        updatedAt: assessment.assessedAt,
+      };
+    });
+  }
+
+  async reviewAssessment(
+    id: string,
+    assessmentId: string,
+    review: RiskAssessmentReview,
+    expectedVersion?: number,
+    allowedAreaIds?: string[],
+  ) {
+    return this.update(id, expectedVersion, allowedAreaIds, (risk) => {
+      const index = risk.assessments.findIndex((item) => item.id === assessmentId);
+      if (index < 0) throw new RiskAssessmentNotFoundError();
+      const assessment = risk.assessments[index];
+      if (assessment.status !== 'pending') throw new RiskAssessmentStateConflictError();
+      const assessments = [...risk.assessments];
+      assessments[index] = {
+        ...assessment,
+        status: review.decision === 'approve' ? 'approved' : 'rejected',
+        reviewerId: review.reviewerId,
+        reviewer: review.reviewer,
+        reviewedAt: review.reviewedAt,
+        opinion: review.opinion,
+      };
+      return {
+        ...risk,
+        currentLevel: review.decision === 'approve' ? assessment.level : risk.currentLevel,
+        assessments,
+        updatedAt: review.reviewedAt,
+      };
+    });
   }
 
   async replaceControls(

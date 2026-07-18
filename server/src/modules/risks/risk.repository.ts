@@ -1,7 +1,7 @@
 import type {
   RiskAssessment,
+  RiskAssessmentReview,
   RiskControl,
-  RiskLevel,
   RiskQuery,
   RiskUnit,
 } from './risk.types';
@@ -17,6 +17,9 @@ export class RiskVersionConflictError extends Error {
     super('Risk version conflict');
   }
 }
+export class RiskAssessmentNotFoundError extends Error {}
+export class RiskAssessmentPendingError extends Error {}
+export class RiskAssessmentStateConflictError extends Error {}
 
 export interface RiskRepository {
   findAll(query: RiskQuery): Promise<RiskUnit[]>;
@@ -24,7 +27,13 @@ export interface RiskRepository {
   addAssessment(
     id: string,
     assessment: RiskAssessment,
-    nextLevel: RiskLevel,
+    expectedVersion?: number,
+    allowedAreaIds?: string[],
+  ): Promise<RiskUnit>;
+  reviewAssessment(
+    id: string,
+    assessmentId: string,
+    review: RiskAssessmentReview,
     expectedVersion?: number,
     allowedAreaIds?: string[],
   ): Promise<RiskUnit>;

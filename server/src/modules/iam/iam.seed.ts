@@ -56,6 +56,7 @@ export const roles: Role[] = [
     name: '企业领导',
     permissions: [
       'risk:read',
+      'risk:approve',
       'hazard:read',
       'permit:read',
       'permit:approve',
@@ -80,6 +81,7 @@ export const roles: Role[] = [
     permissions: [
       'risk:read',
       'risk:assess',
+      'risk:approve',
       'risk:controls:update',
       'hazard:read',
       'hazard:report',
@@ -290,6 +292,7 @@ export const roles: Role[] = [
     permissions: [
       'risk:read',
       'risk:assess',
+      'risk:approve',
       'risk:controls:update',
       'hazard:read',
       'hazard:report',

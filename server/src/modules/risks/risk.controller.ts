@@ -13,6 +13,7 @@ import { RequirePermissions } from '../auth/permissions.decorator';
 import type { AuthPrincipal } from '../iam/iam.types';
 import { CreateRiskAssessmentDto } from './dto/create-risk-assessment.dto';
 import { RiskQueryDto } from './dto/risk-query.dto';
+import { ReviewRiskAssessmentDto } from './dto/review-risk-assessment.dto';
 import { UpdateRiskControlsDto } from './dto/update-risk-controls.dto';
 import { RiskService } from './risk.service';
 
@@ -35,6 +36,29 @@ export class RiskController {
   @ApiOkResponse({ description: '风险单元列表' })
   list(@Query() query: RiskQueryDto, @CurrentPrincipal() principal: AuthPrincipal) {
     return this.riskService.list(query, getAllowedAreaIds(principal));
+  }
+
+  @Put(':id/assessments/:assessmentId/review')
+  @RequirePermissions('risk:approve')
+  @AuditAction({
+    action: 'risk.assessment.review',
+    resourceType: 'risk',
+    resourceIdParam: 'id',
+  })
+  @ApiOperation({ summary: '异人批准或驳回 LEC 风险评估' })
+  async reviewAssessment(
+    @Param('id') id: string,
+    @Param('assessmentId') assessmentId: string,
+    @Body() input: ReviewRiskAssessmentDto,
+    @CurrentPrincipal() principal: AuthPrincipal,
+  ) {
+    const risk = await this.riskService.reviewAssessment(id, assessmentId, input, {
+      actorId: principal.userId,
+      actorName: principal.name,
+      allowedAreaIds: getAllowedAreaIds(principal),
+    });
+    await this.cache.invalidate('dashboard');
+    return risk;
   }
 
   @Get(':id')

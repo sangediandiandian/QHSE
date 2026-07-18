@@ -842,6 +842,11 @@ export interface RiskAssessment {
   assessor: string;
   assessedAt: string;
   basis: string;
+  status: 'pending' | 'approved' | 'rejected';
+  reviewerId?: string;
+  reviewer?: string;
+  reviewedAt?: string;
+  opinion?: string;
 }
 
 export interface RiskAssessmentInput {

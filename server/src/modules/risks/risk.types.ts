@@ -1,5 +1,6 @@
 export const riskLevels = ['low', 'medium', 'high', 'critical'] as const;
-export type RiskLevel = typeof riskLevels[number];
+export type RiskLevel = (typeof riskLevels)[number];
+export type RiskAssessmentStatus = 'pending' | 'approved' | 'rejected';
 
 export interface RiskDynamicFactor {
   source: 'GDS' | 'VOC' | 'MES' | '作业许可' | '隐患';
@@ -20,6 +21,19 @@ export interface RiskAssessment {
   assessor: string;
   assessedAt: Date;
   basis: string;
+  status: RiskAssessmentStatus;
+  reviewerId?: string;
+  reviewer?: string;
+  reviewedAt?: Date;
+  opinion?: string;
+}
+
+export interface RiskAssessmentReview {
+  decision: 'approve' | 'reject';
+  reviewerId: string;
+  reviewer: string;
+  reviewedAt: Date;
+  opinion?: string;
 }
 
 export interface RiskControl {

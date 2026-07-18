@@ -1,6 +1,7 @@
 export const permissions = [
   'risk:read',
   'risk:assess',
+  'risk:approve',
   'risk:controls:update',
   'hazard:read',
   'hazard:report',

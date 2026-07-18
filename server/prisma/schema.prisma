@@ -630,9 +630,15 @@ model RiskAssessment {
   assessor    String
   assessedAt  DateTime  @default(now())
   basis       String
+  status      String    @default("approved")
+  reviewerId  String?
+  reviewer    String?
+  reviewedAt  DateTime?
+  opinion     String?
   riskUnit    RiskUnit  @relation(fields: [riskUnitId], references: [id], onDelete: Cascade)
 
   @@index([riskUnitId, assessedAt])
+  @@index([riskUnitId, status])
   @@map("risk_assessments")
 }
 
