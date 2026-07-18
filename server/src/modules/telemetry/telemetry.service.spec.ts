@@ -38,6 +38,7 @@ describe('TelemetryService', () => {
         metrics: expect.objectContaining({
           gasConcentration: 42,
           'GDS.currentValue': 42,
+          'GDS.trend': 'up',
         }),
       }),
     );
@@ -68,7 +69,7 @@ describe('TelemetryService', () => {
   it('将 MES 主指标和上下限转换为规则指标', async () => {
     await service().ingest({
       sampleId: 'sample-mes-rule',
-      pointId: 'mes-pt-101',
+      pointId: 'mes-pt-201',
       source: 'MES',
       occurredAt: '2026-07-15T08:59:00.000Z',
       metrics: { value: 1.35 },
@@ -76,6 +77,7 @@ describe('TelemetryService', () => {
     });
     expect(warnings.evaluate).toHaveBeenCalledWith(
       expect.objectContaining({
+        areaId: 'area-02',
         metrics: expect.objectContaining({
           value: 1.35,
           'MES.pressure': 1.35,

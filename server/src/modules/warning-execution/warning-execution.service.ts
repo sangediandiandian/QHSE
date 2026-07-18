@@ -145,17 +145,25 @@ export class WarningExecutionService {
     const suppressedRuleIds: string[] = [];
 
     for (const rule of rules) {
-      if (!isInRollout(rule, sample.subjectId)) continue;
-      const state = await this.nextState(rule, sample, occurredAt);
+      const ruleSample =
+        rule.source === '联合预警' && sample.areaId
+          ? {
+              ...sample,
+              source: '联合预警' as const,
+              subjectId: `area:${sample.areaId}`,
+            }
+          : sample;
+      if (!isInRollout(rule, ruleSample.subjectId)) continue;
+      const state = await this.nextState(rule, ruleSample, occurredAt);
       await this.repository.saveState(state);
       if (!isRuleReady(rule, state, occurredAt)) continue;
       const since = new Date(new Date(occurredAt).getTime() - this.suppressionMs).toISOString();
-      if (await this.repository.findRecentActiveSignal(rule.id, sample.subjectId, since)) {
+      if (await this.repository.findRecentActiveSignal(rule.id, ruleSample.subjectId, since)) {
         suppressedRuleIds.push(rule.id);
         continue;
       }
       const signal = await this.repository.createSignal(
-        this.createSignal(rule, sample, occurredAt),
+        this.createSignal(rule, ruleSample, occurredAt),
       );
       await this.ruleService.recordTrigger(rule.id, occurredAt);
       triggeredSignals.push(signal);

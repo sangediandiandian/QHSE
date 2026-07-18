@@ -117,6 +117,33 @@ describe('WarningExecutionService', () => {
     expect(result.triggeredSignals[0]).toMatchObject({ ruleId: 'rule-003', level: 'critical' });
   });
 
+  test('同一区域不同点位的 GDS 与 MES 指标可在时间窗口内联合触发', async () => {
+    const { execution } = createFixture();
+    const mesResult = await execution.evaluate({
+      source: 'MES',
+      subjectId: 'mes-pt-201',
+      areaId: 'area-02',
+      occurredAt: '2026-07-15T08:00:00.000Z',
+      metrics: { 'MES.pressure': 1.35, high: 1.2 },
+    });
+    expect(mesResult.triggeredSignals).toHaveLength(0);
+
+    const gdsResult = await execution.evaluate({
+      source: 'GDS',
+      subjectId: 'gds-101',
+      areaId: 'area-02',
+      occurredAt: '2026-07-15T08:02:00.000Z',
+      metrics: { 'GDS.currentValue': 42, 'GDS.trend': 'up' },
+    });
+    expect(gdsResult.triggeredSignals).toEqual([
+      expect.objectContaining({
+        ruleId: 'rule-003',
+        subjectId: 'area:area-02',
+        source: '联合预警',
+      }),
+    ]);
+  });
+
   test('规则触发统计独立更新且不改变配置修订号', async () => {
     const { execution, rules } = createFixture();
     await execution.evaluate({

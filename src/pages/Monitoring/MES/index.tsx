@@ -46,7 +46,7 @@ function ParameterCard({ tag }: { tag: MesTag }) {
 
 export default function MesMonitoring() {
   const access = useAccess();
-  const { dashboard, mesTags, gdsPoints, telemetryLoading, telemetryApiMode, telemetryRealtimeStatus, loadTelemetry, ingestTelemetrySample, simulateJointAlarm } = useModel('qhse');
+  const { dashboard, warningSignals, mesTags, gdsPoints, telemetryLoading, telemetryApiMode, telemetryRealtimeStatus, loadTelemetry, ingestTelemetrySample, simulateJointAlarm } = useModel('qhse');
   const [step, setStep] = useState('全部');
   useEffect(() => { void loadTelemetry(); }, [loadTelemetry]);
 
@@ -59,12 +59,12 @@ export default function MesMonitoring() {
   const anomalies = mesTags.filter((tag) => tag.status === 'alarm').length;
   const warnings = mesTags.filter((tag) => tag.status === 'warning').length;
   const gdsPoint = gdsPoints.find((point) => point.id === 'gds-101');
-  const jointEvent = dashboard?.alarms.find((event) => event.id === 'evt-joint-simulated');
+  const jointEvent = telemetryApiMode ? warningSignals.find((event) => event.source === '联合预警') : dashboard?.alarms.find((event) => event.source === '联合预警');
   const jointTriggered = Boolean(jointEvent) || (telemetryApiMode && anomalies > 0 && ['level1', 'level2'].includes(gdsPoint?.alarmStatus ?? ''));
   const handleSimulation = async () => {
     if (telemetryApiMode) {
       const occurredAt = new Date().toISOString();
-      await ingestTelemetrySample({ sampleId: `ui-mes-${Date.now()}`, pointId: 'mes-pt-101', source: 'MES', occurredAt, metrics: { value: 1.35 }, quality: 'good' });
+      await ingestTelemetrySample({ sampleId: `ui-mes-${Date.now()}`, pointId: 'mes-pt-201', source: 'MES', occurredAt, metrics: { value: 1.35 }, quality: 'good' });
       await ingestTelemetrySample({ sampleId: `ui-joint-gds-${Date.now()}`, pointId: 'gds-101', source: 'GDS', occurredAt, metrics: { gasConcentration: 42 }, quality: 'good' });
       message.warning('MES 与 GDS 样本已写入服务端并执行联合预警规则');
       return;

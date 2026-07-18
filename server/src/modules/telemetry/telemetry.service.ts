@@ -49,11 +49,16 @@ function toWarningMetrics(
   metrics: Record<string, string | number | boolean>,
 ) {
   const primaryValue = metrics[point.metricKey];
-  if (point.source === 'GDS')
+  if (point.source === 'GDS') {
+    const previousValue = Number(point.currentMetrics[point.metricKey]);
+    const currentValue = Number(primaryValue);
     return {
       ...metrics,
       'GDS.currentValue': primaryValue,
+      'GDS.trend':
+        currentValue > previousValue ? 'up' : currentValue < previousValue ? 'down' : 'stable',
     };
+  }
   if (point.source === 'VOC')
     return {
       ...metrics,
