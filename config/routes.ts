@@ -161,6 +161,13 @@ export default [
     access: 'canViewConfig',
   },
   {
+    name: '权限管理',
+    icon: 'team',
+    path: '/iam',
+    component: './IamManagement',
+    access: 'canAdmin',
+  },
+  {
     name: '运行诊断',
     icon: 'fundProjectionScreen',
     path: '/diagnostics',

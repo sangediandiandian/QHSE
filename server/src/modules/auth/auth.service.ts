@@ -70,9 +70,20 @@ export class AuthService {
     }
     if (!session || session.expiresAt <= Date.now()) {
       if (session) await this.sessions.delete(accessToken).catch(() => undefined);
-      throw new UnauthorizedException({ code: 'SESSION_INVALID', message: '登录状态已失效，请重新登录' });
+      throw new UnauthorizedException({
+        code: 'SESSION_INVALID',
+        message: '登录状态已失效，请重新登录',
+      });
     }
-    return structuredClone(session.principal);
+    const user = this.iamService.findUserById(session.principal.userId);
+    if (!user || user.status !== 'enabled') {
+      await this.sessions.delete(accessToken).catch(() => undefined);
+      throw new UnauthorizedException({
+        code: 'SESSION_INVALID',
+        message: '登录状态已失效，请重新登录',
+      });
+    }
+    return this.iamService.createPrincipal(user);
   }
 
   async logout(accessToken: string) {

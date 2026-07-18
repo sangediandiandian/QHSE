@@ -1127,3 +1127,41 @@ export interface DashboardData {
   warningRules: WarningRule[];
   emergencyEvents: EmergencyEvent[];
 }
+
+export interface IamArea {
+  id: string;
+  code: string;
+  name: string;
+  organizationId: string;
+}
+
+export interface IamOrganization {
+  id: string;
+  parentId?: string;
+  code: string;
+  name: string;
+  type: '企业' | '职能部门' | '生产单位';
+  areas: IamArea[];
+}
+
+export interface IamRole {
+  id: string;
+  code: string;
+  name: string;
+  permissions: string[];
+  dataScope: 'all' | 'assigned_areas';
+}
+
+export interface IamUser {
+  id: string;
+  username: string;
+  name: string;
+  title: string;
+  organizationId: string;
+  roleCodes: string[];
+  areaIds: string[];
+  status: 'enabled' | 'disabled';
+  version: number;
+  organization?: Omit<IamOrganization, 'areas'>;
+  roles: IamRole[];
+}

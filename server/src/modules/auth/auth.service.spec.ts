@@ -15,12 +15,9 @@ describe('AuthService', () => {
       username: 'qhse',
       dataScope: 'all',
     });
-    expect(result.user.permissions).toEqual(expect.arrayContaining([
-      'risk:read',
-      'risk:assess',
-      'risk:controls:update',
-      'audit:read',
-    ]));
+    expect(result.user.permissions).toEqual(
+      expect.arrayContaining(['risk:read', 'risk:assess', 'risk:controls:update', 'audit:read']),
+    );
     await expect(service.authenticate(result.accessToken)).resolves.toMatchObject({
       userId: 'user-qhse',
     });
@@ -41,14 +38,47 @@ describe('AuthService', () => {
   });
 
   test('错误密码被拒绝且不会返回用户信息', async () => {
-    await expect(new AuthService(new IamService()).login('admin', 'wrong'))
-      .rejects.toThrow(UnauthorizedException);
+    await expect(new AuthService(new IamService()).login('admin', 'wrong')).rejects.toThrow(
+      UnauthorizedException,
+    );
   });
 
   test('退出后会话立即失效', async () => {
     const service = new AuthService(new IamService());
     const result = await service.login('leader', 'ant.design');
     await service.logout(result.accessToken);
+    await expect(service.authenticate(result.accessToken)).rejects.toThrow(UnauthorizedException);
+  });
+
+  test('授权变更立即作用于现有会话，停用后会话失效', async () => {
+    const iam = new IamService();
+    const service = new AuthService(iam);
+    const result = await service.login('operator', 'ant.design');
+    iam.updateUserAuthorization(
+      'user-operator',
+      {
+        status: 'enabled',
+        organizationId: 'org-fcc',
+        roleCodes: ['unit_manager'],
+        areaIds: ['area-02'],
+        expectedVersion: 1,
+      },
+      'user-admin',
+    );
+    await expect(service.authenticate(result.accessToken)).resolves.toMatchObject({
+      roles: ['unit_manager'],
+    });
+    iam.updateUserAuthorization(
+      'user-operator',
+      {
+        status: 'disabled',
+        organizationId: 'org-fcc',
+        roleCodes: ['unit_manager'],
+        areaIds: ['area-02'],
+        expectedVersion: 2,
+      },
+      'user-admin',
+    );
     await expect(service.authenticate(result.accessToken)).rejects.toThrow(UnauthorizedException);
   });
 
@@ -71,11 +101,7 @@ describe('AuthService', () => {
       ping: jest.fn(),
       close: jest.fn(),
     } as unknown as SessionStore;
-    const service = new AuthService(
-      new IamService(),
-      undefined,
-      new SessionStoreService(store),
-    );
+    const service = new AuthService(new IamService(), undefined, new SessionStoreService(store));
     await expect(service.login('admin', 'ant.design')).rejects.toThrow(ServiceUnavailableException);
   });
 });
