@@ -7,6 +7,8 @@ import {
   closeEventReviewByApi,
   createEventReviewAction,
   getEventReviews,
+  linkEventReviewActionHazard,
+  syncEventReviewActionHazards,
   updateEventReviewAnalysis,
   updateEventReviewAction,
 } from './eventReviews';
@@ -84,6 +86,40 @@ describe('event review API client', () => {
     expect(requestMock).toHaveBeenLastCalledWith(
       '/api/v1/event-reviews/review-001/actions/action-1',
       { method: 'PUT', data: { ...action, expectedVersion: 3 } },
+    );
+  });
+
+  test('整改转隐患和状态同步携带当前复盘版本', async () => {
+    requestMock.mockResolvedValue({
+      data: {
+        review: { id: 'review-001', version: 2 },
+        hazard: { id: 'hazard-001', code: 'YH001' },
+      },
+    });
+    await linkEventReviewActionHazard(
+      'review-001',
+      'action-1',
+      { riskUnitId: 'risk-001', level: '较大', category: '管理缺陷' },
+      1,
+    );
+    expect(requestMock).toHaveBeenLastCalledWith(
+      '/api/v1/event-reviews/review-001/actions/action-1/hazard',
+      {
+        method: 'POST',
+        data: {
+          riskUnitId: 'risk-001',
+          level: '较大',
+          category: '管理缺陷',
+          expectedVersion: 1,
+        },
+      },
+    );
+
+    requestMock.mockResolvedValue({ data: { id: 'review-001', version: 3 } });
+    await syncEventReviewActionHazards('review-001', 2);
+    expect(requestMock).toHaveBeenLastCalledWith(
+      '/api/v1/event-reviews/review-001/actions/hazards/sync',
+      { method: 'POST', data: { expectedVersion: 2 } },
     );
   });
 });

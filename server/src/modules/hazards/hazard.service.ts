@@ -26,6 +26,15 @@ export interface HazardAccessContext {
   allowedAreaIds?: string[];
 }
 
+function isDateOnly(value: string) {
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
+function formatDate(value: Date) {
+  return value.toISOString().slice(0, 10);
+}
+
 export class HazardService {
   private readonly now: () => Date;
   private readonly createId: () => string;
@@ -54,9 +63,15 @@ export class HazardService {
     return hazard;
   }
 
-  async create(input: CreateHazardDto, access: HazardAccessContext) {
+  async create(input: CreateHazardDto, access: HazardAccessContext, expectedAreaId?: string) {
     this.validateDates(input.discoveredAt, input.deadline);
     const risk = await this.riskService.get(input.riskUnitId, access.allowedAreaIds);
+    if (expectedAreaId && risk.areaId !== expectedAreaId) {
+      throw new BadRequestException({
+        code: 'HAZARD_AREA_MISMATCH',
+        message: '风险单元与复盘事件所属区域不一致',
+      });
+    }
     const now = this.now();
     const timestamp = now.toISOString();
     const id = this.createId();
@@ -298,13 +313,4 @@ export class HazardService {
     }
     throw error;
   }
-}
-
-function isDateOnly(value: string) {
-  const parsed = new Date(`${value}T00:00:00.000Z`);
-  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
-}
-
-function formatDate(value: Date) {
-  return value.toISOString().slice(0, 10);
 }

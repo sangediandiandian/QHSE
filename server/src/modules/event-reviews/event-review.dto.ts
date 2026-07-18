@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsISO8601, IsIn, IsInt, IsString, Min, MinLength } from 'class-validator';
+import { hazardLevels, type HazardLevel } from '../hazards/hazard.types';
 
 export class EventReviewVersionDto {
   @ApiProperty({ minimum: 1 })
@@ -81,4 +82,20 @@ export class SaveEventReviewActionDto extends EventReviewVersionDto {
   @ApiProperty({ enum: ['一般', '重要', '紧急'] })
   @IsIn(['一般', '重要', '紧急'])
   priority!: '一般' | '重要' | '紧急';
+}
+
+export class LinkReviewActionHazardDto extends EventReviewVersionDto {
+  @ApiProperty()
+  @IsString()
+  @MinLength(1)
+  riskUnitId!: string;
+
+  @ApiProperty({ enum: hazardLevels })
+  @IsIn(hazardLevels)
+  level!: HazardLevel;
+
+  @ApiProperty()
+  @IsString()
+  @MinLength(2)
+  category!: string;
 }

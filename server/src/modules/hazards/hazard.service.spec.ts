@@ -168,5 +168,14 @@ describe('HazardService', () => {
         },
       ),
     ).rejects.toMatchObject({ status: 404 });
+    await expect(
+      createService().create(
+        { ...input, discoveredAt: '2026-07-15', deadline: '2026-07-16' },
+        qhseAccess,
+        'area-04',
+      ),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'HAZARD_AREA_MISMATCH' }),
+    });
   });
 });

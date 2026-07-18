@@ -13,6 +13,10 @@ export interface ReviewAction {
   updatedBy?: string;
   updatedAt?: string;
   completedAt?: string;
+  linkedHazardId?: string;
+  linkedHazardCode?: string;
+  linkedHazardStatus?: '待整改' | '整改中' | '待验收' | '已关闭';
+  linkedAt?: string;
 }
 
 export interface EventReviewTimelineItem {

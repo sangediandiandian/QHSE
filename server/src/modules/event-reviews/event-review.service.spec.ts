@@ -205,4 +205,80 @@ describe('EventReviewService', () => {
       priority: '紧急',
     });
   });
+
+  test('整改措施幂等转为隐患并同步隐患关闭状态', async () => {
+    const hazards = {
+      create: jest.fn(async () => ({
+        id: 'hazard-review-action-003',
+        code: 'YH20260718001',
+        status: '待整改',
+        updatedAt: '2026-07-18T12:00:00.000Z',
+      })),
+      get: jest.fn(async () => ({
+        id: 'hazard-review-action-003',
+        code: 'YH20260718001',
+        status: '已关闭',
+        updatedAt: '2026-07-19T08:30:00.000Z',
+      })),
+    };
+    const instance = new EventReviewService(
+      new InMemoryEventReviewRepository(),
+      () => new Date('2026-07-18T12:00:00.000Z'),
+      undefined,
+      undefined,
+      hazards as never,
+    );
+
+    const linked = await instance.linkActionToHazard(
+      'review-001',
+      'action-003',
+      {
+        riskUnitId: 'risk-001',
+        level: '较大',
+        category: '管理缺陷',
+        expectedVersion: 1,
+      },
+      manager,
+    );
+    expect(hazards.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: '修订开停车后法兰专项检查清单',
+        source: '复盘整改',
+        riskUnitId: 'risk-001',
+        discoveredAt: '2026-07-18',
+        deadline: '2026-07-18',
+        measures: ['修订开停车后法兰专项检查清单'],
+      }),
+      manager,
+      'area-02',
+    );
+    expect(linked.review.actions.find((item) => item.id === 'action-003')).toMatchObject({
+      linkedHazardId: 'hazard-review-action-003',
+      linkedHazardCode: 'YH20260718001',
+      linkedHazardStatus: '待整改',
+      linkedAt: '2026-07-18T12:00:00.000Z',
+    });
+
+    const repeated = await instance.linkActionToHazard(
+      'review-001',
+      'action-003',
+      {
+        riskUnitId: 'risk-001',
+        level: '较大',
+        category: '管理缺陷',
+        expectedVersion: 1,
+      },
+      manager,
+    );
+    expect(hazards.create).toHaveBeenCalledTimes(1);
+    expect(repeated.review.version).toBe(2);
+
+    const synced = await instance.syncActionHazards('review-001', 2, manager);
+    expect(synced.actions.find((item) => item.id === 'action-003')).toMatchObject({
+      status: '已完成',
+      linkedHazardStatus: '已关闭',
+      completedAt: '2026-07-19T08:30:00.000Z',
+    });
+    expect(synced.version).toBe(3);
+  });
 });

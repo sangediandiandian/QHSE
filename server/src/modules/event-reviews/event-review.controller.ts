@@ -8,6 +8,7 @@ import {
   AddEventReviewEvidenceDto,
   AdvanceReviewActionDto,
   EventReviewVersionDto,
+  LinkReviewActionHazardDto,
   SaveEventReviewActionDto,
   UpdateEventReviewAnalysisDto,
 } from './event-review.dto';
@@ -102,6 +103,38 @@ export class EventReviewController {
     @CurrentPrincipal() principal: AuthPrincipal,
   ) {
     return this.service.updateAction(id, actionId, input, access(principal));
+  }
+
+  @Post(':id/actions/:actionId/hazard')
+  @RequirePermissions('emergency:manage', 'hazard:report')
+  @AuditAction({
+    action: 'event_review.action.hazard.link',
+    resourceType: 'event_review',
+    resourceIdParam: 'id',
+  })
+  linkActionHazard(
+    @Param('id') id: string,
+    @Param('actionId') actionId: string,
+    @Body() input: LinkReviewActionHazardDto,
+    @CurrentPrincipal() principal: AuthPrincipal,
+  ) {
+    return this.service.linkActionToHazard(id, actionId, input, access(principal));
+  }
+
+  @Post(':id/actions/hazards/sync')
+  @HttpCode(200)
+  @RequirePermissions('emergency:manage', 'hazard:read')
+  @AuditAction({
+    action: 'event_review.action.hazard.sync',
+    resourceType: 'event_review',
+    resourceIdParam: 'id',
+  })
+  syncActionHazards(
+    @Param('id') id: string,
+    @Body() input: EventReviewVersionDto,
+    @CurrentPrincipal() principal: AuthPrincipal,
+  ) {
+    return this.service.syncActionHazards(id, input.expectedVersion, access(principal));
   }
 
   @Post(':id/actions/advance')

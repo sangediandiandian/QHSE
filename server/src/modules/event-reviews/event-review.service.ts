@@ -2,8 +2,11 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import { randomUUID } from 'node:crypto';
 import type { AttachmentService } from '../attachments/attachment.service';
 import type { EmergencyEvent } from '../emergency-events/emergency-event.types';
+import type { HazardService } from '../hazards/hazard.service';
+import type { HazardStatus } from '../hazards/hazard.types';
 import type {
   AddEventReviewEvidenceDto,
+  LinkReviewActionHazardDto,
   SaveEventReviewActionDto,
   UpdateEventReviewAnalysisDto,
 } from './event-review.dto';
@@ -20,6 +23,7 @@ export class EventReviewService {
     private readonly now: () => Date = () => new Date(),
     private readonly createId: () => string = randomUUID,
     private readonly attachments?: AttachmentService,
+    private readonly hazards?: HazardService,
   ) {}
 
   list(allowedAreaIds?: string[]) {
@@ -206,6 +210,11 @@ export class EventReviewService {
         code: 'EVENT_REVIEW_ACTION_COMPLETED',
         message: '已完成整改措施不能调整',
       });
+    if (action.linkedHazardId)
+      throw new ConflictException({
+        code: 'EVENT_REVIEW_ACTION_LINKED',
+        message: '已转为隐患的整改措施请在隐患治理中维护',
+      });
     const timestamp = this.now().toISOString();
     return this.update(
       {
@@ -251,6 +260,11 @@ export class EventReviewService {
         code: 'EVENT_REVIEW_ACTION_COMPLETED',
         message: '整改措施已经完成',
       });
+    if (action.linkedHazardId)
+      throw new ConflictException({
+        code: 'EVENT_REVIEW_ACTION_LINKED',
+        message: '已转为隐患的整改措施请同步隐患治理状态',
+      });
     const timestamp = this.now().toISOString();
     return this.update(
       {
@@ -267,6 +281,124 @@ export class EventReviewService {
               }
             : item,
         ),
+        version: review.version + 1,
+        updatedAt: timestamp,
+      },
+      expectedVersion,
+      access.allowedAreaIds,
+    );
+  }
+
+  async linkActionToHazard(
+    id: string,
+    actionId: string,
+    input: LinkReviewActionHazardDto,
+    access: EventReviewAccess,
+  ) {
+    const review = await this.get(id, access.allowedAreaIds);
+    this.ensureOpen(review.status);
+    const action = review.actions.find((item) => item.id === actionId);
+    if (!action)
+      throw new NotFoundException({
+        code: 'EVENT_REVIEW_ACTION_NOT_FOUND',
+        message: '整改措施不存在',
+      });
+    if (action.status === '已完成')
+      throw new ConflictException({
+        code: 'EVENT_REVIEW_ACTION_COMPLETED',
+        message: '已完成整改措施无需转为隐患',
+      });
+    const hazards = this.requireHazards();
+    if (action.linkedHazardId) {
+      return {
+        review,
+        hazard: await hazards.get(action.linkedHazardId, access.allowedAreaIds),
+      };
+    }
+    this.ensureExpectedVersion(review.version, input.expectedVersion);
+    const timestamp = this.now().toISOString();
+    const today = timestamp.slice(0, 10);
+    const hazard = await hazards.create(
+      {
+        title: action.title,
+        riskUnitId: input.riskUnitId,
+        level: input.level,
+        source: '复盘整改',
+        category: input.category.trim(),
+        ownerDepartment: action.ownerDepartment,
+        owner: action.owner,
+        discoveredAt: action.deadline < today ? action.deadline : today,
+        deadline: action.deadline,
+        description: `${review.reviewCode} 事件复盘整改：${review.rootCause || review.summary}`,
+        measures: [action.title],
+      },
+      access,
+      review.areaId,
+    );
+    const updated = await this.update(
+      {
+        ...review,
+        actions: review.actions.map((item) =>
+          item.id === actionId
+            ? {
+                ...item,
+                linkedHazardId: hazard.id,
+                linkedHazardCode: hazard.code,
+                linkedHazardStatus: hazard.status,
+                linkedAt: timestamp,
+                updatedById: access.actorId,
+                updatedBy: access.actorName,
+                updatedAt: timestamp,
+              }
+            : item,
+        ),
+        version: review.version + 1,
+        updatedAt: timestamp,
+      },
+      input.expectedVersion,
+      access.allowedAreaIds,
+    );
+    return { review: updated, hazard };
+  }
+
+  async syncActionHazards(id: string, expectedVersion: number, access: EventReviewAccess) {
+    const review = await this.get(id, access.allowedAreaIds);
+    const linkedActions = review.actions.filter((item) => item.linkedHazardId);
+    if (!linkedActions.length) return review;
+    this.ensureExpectedVersion(review.version, expectedVersion);
+    const hazards = this.requireHazards();
+    const linkedHazards = await Promise.all(
+      linkedActions.map((item) => hazards.get(item.linkedHazardId!, access.allowedAreaIds)),
+    );
+    const byId = new Map(linkedHazards.map((hazard) => [hazard.id, hazard]));
+    const changed = linkedActions.some((action) => {
+      const hazard = byId.get(action.linkedHazardId!);
+      return (
+        hazard &&
+        (action.linkedHazardStatus !== hazard.status ||
+          action.status !== this.reviewActionStatus(hazard.status))
+      );
+    });
+    if (!changed) return review;
+    const timestamp = this.now().toISOString();
+    return this.update(
+      {
+        ...review,
+        actions: review.actions.map((action) => {
+          if (!action.linkedHazardId) return action;
+          const hazard = byId.get(action.linkedHazardId);
+          if (!hazard) return action;
+          const status = this.reviewActionStatus(hazard.status);
+          return {
+            ...action,
+            status,
+            linkedHazardStatus: hazard.status,
+            completedAt: status === '已完成' ? hazard.updatedAt : undefined,
+            updatedById: access.actorId,
+            updatedBy: access.actorName,
+            updatedAt: timestamp,
+          };
+        }),
         version: review.version + 1,
         updatedAt: timestamp,
       },
@@ -349,6 +481,30 @@ export class EventReviewService {
         code: 'EVENT_REVIEW_ALREADY_CLOSED',
         message: '已归档复盘不能继续修改',
       });
+  }
+
+  private ensureExpectedVersion(actualVersion: number, expectedVersion: number) {
+    if (actualVersion !== expectedVersion)
+      throw new ConflictException({
+        code: 'VERSION_CONFLICT',
+        message: '复盘记录已被其他用户更新，请刷新后重试',
+        details: { expectedVersion, actualVersion },
+      });
+  }
+
+  private requireHazards() {
+    if (!this.hazards)
+      throw new BadRequestException({
+        code: 'HAZARD_SERVICE_UNAVAILABLE',
+        message: '隐患服务不可用',
+      });
+    return this.hazards;
+  }
+
+  private reviewActionStatus(status: HazardStatus) {
+    if (status === '待整改') return '待整改' as const;
+    if (status === '已关闭') return '已完成' as const;
+    return '整改中' as const;
   }
 
   private notFound(): never {

@@ -1,4 +1,10 @@
-import type { EventReview, EventReviewActionInput, EventReviewEvidence } from '@/types/qhse';
+import type {
+  EventReview,
+  EventReviewActionInput,
+  EventReviewEvidence,
+  EventReviewHazardLinkInput,
+  Hazard,
+} from '@/types/qhse';
 import { request } from '@umijs/max';
 
 interface ApiResponse<T> {
@@ -70,6 +76,27 @@ export async function updateEventReviewAction(
   const response = await request<ApiResponse<EventReview>>(
     `/api/v1/event-reviews/${id}/actions/${actionId}`,
     { method: 'PUT', data: { ...input, expectedVersion } },
+  );
+  return response.data;
+}
+
+export async function linkEventReviewActionHazard(
+  id: string,
+  actionId: string,
+  input: EventReviewHazardLinkInput,
+  expectedVersion: number,
+) {
+  const response = await request<ApiResponse<{ review: EventReview; hazard: Hazard }>>(
+    `/api/v1/event-reviews/${id}/actions/${actionId}/hazard`,
+    { method: 'POST', data: { ...input, expectedVersion } },
+  );
+  return response.data;
+}
+
+export async function syncEventReviewActionHazards(id: string, expectedVersion: number) {
+  const response = await request<ApiResponse<EventReview>>(
+    `/api/v1/event-reviews/${id}/actions/hazards/sync`,
+    { method: 'POST', data: { expectedVersion } },
   );
   return response.data;
 }

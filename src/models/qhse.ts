@@ -15,6 +15,7 @@ import type {
   EventReview,
   EventReviewActionInput,
   EventReviewEvidence,
+  EventReviewHazardLinkInput,
   EmergencyPlanDraftInput,
   EmergencyPlanTemplate,
   EmergencyResource,
@@ -90,6 +91,8 @@ import {
   closeEventReviewByApi,
   createEventReviewAction as createEventReviewActionByApi,
   getEventReviews,
+  linkEventReviewActionHazard as linkEventReviewActionHazardByApi,
+  syncEventReviewActionHazards as syncEventReviewActionHazardsByApi,
   updateEventReviewAnalysis as updateEventReviewAnalysisByApi,
   updateEventReviewAction as updateEventReviewActionByApi,
 } from '@/services/qhse/eventReviews';
@@ -363,7 +366,11 @@ export default function useQhseModel() {
   const loadEventReviews = useCallback(async () => {
     if (!hazardApiMode) { if (!dashboard) await loadDashboard(); return; }
     setEventReviewLoading(true);
-    try { setEventReviewRecords(await getEventReviews()); } finally { setEventReviewLoading(false); }
+    try {
+      const [reviews, risks] = await Promise.all([getEventReviews(), getHazardRiskUnits()]);
+      setEventReviewRecords(reviews);
+      setHazardRiskUnits(risks);
+    } finally { setEventReviewLoading(false); }
   }, [dashboard, loadDashboard]);
 
   const loadEmergencyPlans = useCallback(async () => {
@@ -807,6 +814,40 @@ export default function useQhseModel() {
     const updated = actionId
       ? await updateEventReviewActionByApi(reviewId, actionId, input, review.version ?? 1)
       : await createEventReviewActionByApi(reviewId, input, review.version ?? 1);
+    setEventReviewRecords((items) => items.map((item) => item.id === reviewId ? updated : item));
+    return updated;
+  }, [eventReviewRecords]);
+
+  const linkEventReviewActionHazard = useCallback(async (
+    reviewId: string,
+    actionId: string,
+    input: EventReviewHazardLinkInput,
+  ) => {
+    if (!hazardApiMode) return undefined;
+    const review = eventReviewRecords.find((item) => item.id === reviewId);
+    if (!review) throw new Error('事件复盘不存在');
+    const result = await linkEventReviewActionHazardByApi(
+      reviewId,
+      actionId,
+      input,
+      review.version ?? 1,
+    );
+    setEventReviewRecords((items) =>
+      items.map((item) => item.id === reviewId ? result.review : item),
+    );
+    setHazardRecords((items) =>
+      items.some((item) => item.id === result.hazard.id)
+        ? items.map((item) => item.id === result.hazard.id ? result.hazard : item)
+        : [result.hazard, ...items],
+    );
+    return result;
+  }, [eventReviewRecords]);
+
+  const syncEventReviewActionHazards = useCallback(async (reviewId: string) => {
+    if (!hazardApiMode) return undefined;
+    const review = eventReviewRecords.find((item) => item.id === reviewId);
+    if (!review) throw new Error('事件复盘不存在');
+    const updated = await syncEventReviewActionHazardsByApi(reviewId, review.version ?? 1);
     setEventReviewRecords((items) => items.map((item) => item.id === reviewId ? updated : item));
     return updated;
   }, [eventReviewRecords]);
@@ -1367,6 +1408,8 @@ export default function useQhseModel() {
     saveEventReviewAnalysis,
     addEventReviewEvidence,
     saveEventReviewAction,
+    linkEventReviewActionHazard,
+    syncEventReviewActionHazards,
     closeEventReview,
     transitionEvent,
     addEmergencyEventEvidence,

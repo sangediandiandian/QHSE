@@ -433,6 +433,10 @@ export interface ReviewAction {
   updatedBy?: string;
   updatedAt?: string;
   completedAt?: string;
+  linkedHazardId?: string;
+  linkedHazardCode?: string;
+  linkedHazardStatus?: HazardStatus;
+  linkedAt?: string;
 }
 
 export interface EventReviewEvidence {
@@ -453,6 +457,12 @@ export type EventReviewActionInput = Pick<
   ReviewAction,
   'title' | 'ownerDepartment' | 'owner' | 'deadline' | 'priority'
 >;
+
+export interface EventReviewHazardLinkInput {
+  riskUnitId: string;
+  level: Hazard['level'];
+  category: string;
+}
 
 export interface EventReview {
   id: string;
