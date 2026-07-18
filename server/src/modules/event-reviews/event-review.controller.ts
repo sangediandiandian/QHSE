@@ -1,5 +1,16 @@
-import { Body, Controller, Get, HttpCode, Param, Post, Put } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  Post,
+  Put,
+  Res,
+  StreamableFile,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiProduces, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { AuditAction } from '../audit/audit.decorator';
 import { CurrentPrincipal } from '../auth/current-principal.decorator';
 import { RequirePermissions } from '../auth/permissions.decorator';
@@ -42,6 +53,30 @@ export class EventReviewController {
   @RequirePermissions('emergency:read')
   get(@Param('id') id: string, @CurrentPrincipal() principal: AuthPrincipal) {
     return this.service.get(id, allowedAreas(principal));
+  }
+
+  @Get(':id/report')
+  @RequirePermissions('emergency:read', 'report:export')
+  @AuditAction({
+    action: 'event_review.report.download',
+    resourceType: 'event_review',
+    resourceIdParam: 'id',
+  })
+  @ApiProduces('text/html')
+  async report(
+    @Param('id') id: string,
+    @CurrentPrincipal() principal: AuthPrincipal,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const report = await this.service.report(id, principal.name, allowedAreas(principal));
+    response.setHeader('Content-Type', report.contentType);
+    response.setHeader('Content-Length', String(report.body.length));
+    response.setHeader('X-Content-Type-Options', 'nosniff');
+    response.setHeader(
+      'Content-Disposition',
+      `attachment; filename="event-review.html"; filename*=UTF-8''${encodeURIComponent(report.filename)}`,
+    );
+    return new StreamableFile(report.body);
   }
 
   @Put(':id/analysis')

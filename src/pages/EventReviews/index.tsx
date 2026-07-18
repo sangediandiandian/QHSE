@@ -1,4 +1,5 @@
 import { downloadAttachment, uploadAttachment } from '@/services/qhse/attachments';
+import { downloadEventReviewReport } from '@/services/qhse/eventReviews';
 import type { EventReview, EventReviewActionInput, EventReviewHazardLinkInput, ReviewAction } from '@/types/qhse';
 import {
   AlertFilled,
@@ -79,9 +80,19 @@ export default function EventReviews() {
       category: '管理缺陷',
     });
   };
+  const exportReviewReport = async () => {
+    const blob = await downloadEventReviewReport(review.id);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${review.reviewCode}-事件复盘报告.html`;
+    link.click();
+    URL.revokeObjectURL(url);
+    message.success('复盘报告已导出');
+  };
 
   return (
-    <PageContainer title={false} className={styles.page} extra={[<Button key="analysis" disabled={review.status === '已复盘' || (eventReviewApiMode && !access.canManageEmergency)} icon={<EditOutlined />} onClick={openAnalysis}>编辑调查结论</Button>, eventReviewApiMode && <Button key="evidence" disabled={review.status === '已复盘' || !access.canAddEmergencyEvidence} icon={<UploadOutlined />} onClick={() => setEvidenceOpen(true)}>归档调查附件</Button>, eventReviewApiMode && <Button key="action" disabled={review.status === '已复盘' || !access.canManageEmergency} icon={<PlusOutlined />} onClick={() => openAction()}>新增整改措施</Button>, eventReviewApiMode && review.actions.some((item) => item.linkedHazardId) && <Button key="sync" disabled={!access.canManageEmergency || !access.canViewHazard} icon={<SyncOutlined />} onClick={() => { void syncEventReviewActionHazards(review.id).then(() => message.success('隐患治理状态已同步')); }}>同步隐患状态</Button>, <Button key="close" type="primary" disabled={!canClose || review.status === '已复盘' || (eventReviewApiMode && !access.canApproveEmergencyClosure)} icon={<FileDoneOutlined />} onClick={() => { void closeEventReview(review.id).then(() => message.success('事件已关闭，复盘报告和整改证据已归档')); }}>{review.status === '已复盘' ? '已关闭归档' : '关闭事件并归档'}</Button>]}>
+    <PageContainer title={false} className={styles.page} extra={[<Button key="analysis" disabled={review.status === '已复盘' || (eventReviewApiMode && !access.canManageEmergency)} icon={<EditOutlined />} onClick={openAnalysis}>编辑调查结论</Button>, eventReviewApiMode && <Button key="evidence" disabled={review.status === '已复盘' || !access.canAddEmergencyEvidence} icon={<UploadOutlined />} onClick={() => setEvidenceOpen(true)}>归档调查附件</Button>, eventReviewApiMode && <Button key="action" disabled={review.status === '已复盘' || !access.canManageEmergency} icon={<PlusOutlined />} onClick={() => openAction()}>新增整改措施</Button>, eventReviewApiMode && review.actions.some((item) => item.linkedHazardId) && <Button key="sync" disabled={!access.canManageEmergency || !access.canViewHazard} icon={<SyncOutlined />} onClick={() => { void syncEventReviewActionHazards(review.id).then(() => message.success('隐患治理状态已同步')); }}>同步隐患状态</Button>, eventReviewApiMode && <Button key="report" disabled={!access.canExportReport} icon={<DownloadOutlined />} onClick={() => void exportReviewReport()}>导出复盘报告</Button>, <Button key="close" type="primary" disabled={!canClose || review.status === '已复盘' || (eventReviewApiMode && !access.canApproveEmergencyClosure)} icon={<FileDoneOutlined />} onClick={() => { void closeEventReview(review.id).then(() => message.success('事件已关闭，复盘报告和整改证据已归档')); }}>{review.status === '已复盘' ? '已关闭归档' : '关闭事件并归档'}</Button>]}>
       <header className={styles.heading}>
         <div><span>INCIDENT REVIEW / {review.reviewCode}</span><h1>事件关闭与复盘</h1><p>{event?.code} · {event?.title} · {event?.areaName}</p></div>
         <div className={styles.closeState}><i /><span>当前状态<strong>{review.status}</strong><small>{canClose ? '关闭条件已满足' : completed < review.actions.length ? `仍有 ${review.actions.length - completed} 项整改未完成` : '调查结论待完善'}</small></span></div>

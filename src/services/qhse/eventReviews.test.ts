@@ -6,6 +6,7 @@ import {
   advanceEventReviewAction,
   closeEventReviewByApi,
   createEventReviewAction,
+  downloadEventReviewReport,
   getEventReviews,
   linkEventReviewActionHazard,
   syncEventReviewActionHazards,
@@ -121,5 +122,15 @@ describe('event review API client', () => {
       '/api/v1/event-reviews/review-001/actions/hazards/sync',
       { method: 'POST', data: { expectedVersion: 2 } },
     );
+  });
+
+  test('复盘报告从服务端下载，不在浏览器拼装业务内容', async () => {
+    const blob = { size: 1024 } as Blob;
+    requestMock.mockResolvedValue(blob);
+    await expect(downloadEventReviewReport('review-001')).resolves.toBe(blob);
+    expect(requestMock).toHaveBeenLastCalledWith('/api/v1/event-reviews/review-001/report', {
+      method: 'GET',
+      responseType: 'blob',
+    });
   });
 });

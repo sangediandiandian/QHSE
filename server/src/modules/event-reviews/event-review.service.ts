@@ -15,6 +15,7 @@ import {
   type EventReviewRepository,
   EventReviewVersionConflictError,
 } from './event-review.repository';
+import { renderEventReviewReport } from './event-review-report';
 import type { EventReviewAccess } from './event-review.types';
 
 export class EventReviewService {
@@ -34,6 +35,14 @@ export class EventReviewService {
     const review = await this.repository.findById(id, allowedAreaIds);
     if (!review) this.notFound();
     return review;
+  }
+
+  async report(id: string, generatedBy: string, allowedAreaIds?: string[]) {
+    const review = await this.get(id, allowedAreaIds);
+    return renderEventReviewReport(review, {
+      generatedAt: this.now().toISOString(),
+      generatedBy,
+    });
   }
 
   async ensureForEmergencyEvent(event: EmergencyEvent, access: EventReviewAccess) {

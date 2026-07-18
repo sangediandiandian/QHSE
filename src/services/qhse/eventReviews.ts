@@ -101,6 +101,13 @@ export async function syncEventReviewActionHazards(id: string, expectedVersion: 
   return response.data;
 }
 
+export async function downloadEventReviewReport(id: string) {
+  return request<Blob>(`/api/v1/event-reviews/${id}/report`, {
+    method: 'GET',
+    responseType: 'blob',
+  });
+}
+
 export async function closeEventReviewByApi(id: string, expectedVersion: number) {
   const response = await request<ApiResponse<EventReview>>(`/api/v1/event-reviews/${id}/close`, {
     method: 'POST',
