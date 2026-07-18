@@ -31,7 +31,15 @@ describe('TelemetryService', () => {
       version: 2,
     });
     expect(warnings.evaluate).toHaveBeenCalledWith(
-      expect.objectContaining({ source: 'GDS', subjectId: 'gds-101', areaId: 'area-02' }),
+      expect.objectContaining({
+        source: 'GDS',
+        subjectId: 'gds-101',
+        areaId: 'area-02',
+        metrics: expect.objectContaining({
+          gasConcentration: 42,
+          'GDS.currentValue': 42,
+        }),
+      }),
     );
   });
   it('按 sampleId 幂等且不重复执行规则', async () => {
@@ -47,6 +55,35 @@ describe('TelemetryService', () => {
     expect((await instance.ingest(input)).created).toBe(true);
     expect((await instance.ingest(input)).created).toBe(false);
     expect(warnings.evaluate).toHaveBeenCalledTimes(1);
+    expect(warnings.evaluate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metrics: expect.objectContaining({
+          concentration: 61,
+          'VOC.outletValue': 61,
+          limit: 60,
+        }),
+      }),
+    );
+  });
+  it('将 MES 主指标和上下限转换为规则指标', async () => {
+    await service().ingest({
+      sampleId: 'sample-mes-rule',
+      pointId: 'mes-pt-101',
+      source: 'MES',
+      occurredAt: '2026-07-15T08:59:00.000Z',
+      metrics: { value: 1.35 },
+      quality: 'good',
+    });
+    expect(warnings.evaluate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metrics: expect.objectContaining({
+          value: 1.35,
+          'MES.pressure': 1.35,
+          high: 1.2,
+          low: 0.5,
+        }),
+      }),
+    );
   });
   it('坏质量样本标记故障且不执行规则', async () => {
     const result = await service().ingest({

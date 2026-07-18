@@ -35,7 +35,7 @@ function PermitDetail({ permit, gdsPoints, canApprove, canConfirm, canControl, m
 
 export default function WorkPermit() {
   const access = useAccess();
-  const { workPermits: permitRecords, workPermitAreas, workPermitGdsPoints, workPermitAlarms, workPermitLinkageAvailable, workPermitLoading, loadWorkPermits, triggerPermitLinkage, advanceWorkPermit, addWorkPermit, approveWorkPermit, confirmWorkPermitSite } = useModel('qhse');
+  const { workPermits: permitRecords, workPermitAreas, workPermitGdsPoints, workPermitAlarms, workPermitLinkageAvailable, workPermitApiMode, workPermitLoading, loadWorkPermits, triggerPermitLinkage, advanceWorkPermit, addWorkPermit, approveWorkPermit, confirmWorkPermitSite } = useModel('qhse');
   const [status, setStatus] = useState('全部');
   const [selectedId, setSelectedId] = useState('permit-001');
   const [createOpen, setCreateOpen] = useState(false);
@@ -57,17 +57,32 @@ export default function WorkPermit() {
   const paused = permitRecords.filter((item) => ['建议暂停', '已暂停'].includes(item.status)).length;
   const linkageEnabled = workPermitLinkageAvailable;
 
-  const runLinkage = () => {
+  const runLinkage = async () => {
     if (!linkageEnabled) {
-      message.info('实时告警自动判定将在预警执行引擎阶段接入，当前可通过服务端暂停建议接口联动');
+      message.info('作业许可联动规则未发布或未启用，请先在预警规则页面完成配置');
       return;
     }
-    triggerPermitLinkage();
-    message[candidates ? 'warning' : 'success'](candidates ? `发现 ${candidates} 张在办票证命中较大及以上告警，已生成暂停建议` : '联动检查完成，暂无需暂停的作业');
+    setMutating(true);
+    try {
+      const summary = await triggerPermitLinkage();
+      if (!workPermitApiMode) {
+        message[candidates ? 'warning' : 'success'](candidates ? `发现 ${candidates} 张在办票证命中较大及以上告警，已生成暂停建议` : '联动检查完成，暂无需暂停的作业');
+        return;
+      }
+      if (summary?.recommendedPermitIds.length) {
+        message.warning(`已同步 ${summary.recommendedPermitIds.length} 张待确认暂停票证`);
+      } else if (summary?.candidatePermitIds.length) {
+        message.warning(`发现 ${summary.candidatePermitIds.length} 张作业中票证处于活动较大及以上预警区域，请核对信号触发时间`);
+      } else {
+        message.success('服务端联动结果已刷新，暂无待确认暂停票证');
+      }
+    } finally {
+      setMutating(false);
+    }
   };
 
   return (
-    <PageContainer title={false} className={styles.page} extra={<Space><Button icon={<FileAddFilled />} disabled={!access.canApplyPermit} onClick={() => { createForm.setFieldsValue({ type: '动火作业', riskLevel: '较大', startAt: '2026-07-15 09:00', endAt: '2026-07-15 17:00', gasTest: '可燃气体 0%LEL，氧含量 20.9%VOL', linkedGdsCodes: [], safetyMeasures: [], workX: 50, workY: 50 }); setCreateOpen(true); }}>申请作业票</Button><Button type="primary" icon={<ThunderboltFilled />} disabled={!linkageEnabled || !access.canControlPermit} onClick={runLinkage}>运行告警联动检查</Button></Space>}>
+    <PageContainer title={false} className={styles.page} extra={<Space><Button icon={<FileAddFilled />} disabled={!access.canApplyPermit} onClick={() => { createForm.setFieldsValue({ type: '动火作业', riskLevel: '较大', startAt: '2026-07-15 09:00', endAt: '2026-07-15 17:00', gasTest: '可燃气体 0%LEL，氧含量 20.9%VOL', linkedGdsCodes: [], safetyMeasures: [], workX: 50, workY: 50 }); setCreateOpen(true); }}>申请作业票</Button><Button type="primary" icon={<ThunderboltFilled />} loading={mutating} disabled={!linkageEnabled || !access.canControlPermit} onClick={() => void runLinkage()}>{workPermitApiMode ? '刷新联动结果' : '运行告警联动检查'}</Button></Space>}>
       <header className={styles.heading}><div><span>WORK PERMIT CONTROL</span><h1>作业许可与联动管控</h1><p>集中管理高风险作业审批、气体检测、现场监护，并接收实时告警联动建议。</p></div><div className={paused ? styles.alertState : styles.safeState}><i /><span>联动管控状态<strong>{paused ? `${paused} 张票证需处置` : '规则已启用'}</strong><small>同区域较大及以上告警自动检查</small></span></div></header>
 
       <section className={styles.metrics}>
@@ -77,7 +92,7 @@ export default function WorkPermit() {
         <div className={paused ? styles.warningMetric : ''}><PauseCircleFilled /><span>暂停处置<strong>{paused}</strong><small>建议或已确认暂停</small></span></div>
       </section>
 
-      <section className={styles.linkage}><div><ThunderboltFilled /><span><strong>告警联动规则</strong><small>较大及以上 GDS / VOC / MES 告警 + 同区域“作业中”票证 → 生成暂停建议，由现场负责人确认。</small></span></div><Tag color={linkageEnabled ? 'success' : 'default'}>{linkageEnabled ? '运行中' : '已停用'}</Tag><Button onClick={runLinkage}>立即检查</Button></section>
+      <section className={styles.linkage}><div><ThunderboltFilled /><span><strong>告警联动规则</strong><small>较大及以上 GDS / VOC / MES 告警 + 同区域“作业中”票证 → 生成暂停建议，由现场负责人确认。</small></span></div><Tag color={linkageEnabled ? 'success' : 'default'}>{linkageEnabled ? (workPermitApiMode ? '服务端运行中' : '运行中') : '已停用'}</Tag><Button loading={mutating} onClick={() => void runLinkage()}>{workPermitApiMode ? '刷新结果' : '立即检查'}</Button></section>
       <section className={styles.toolbar}><Segmented value={status} onChange={(value) => setStatus(String(value))} options={['全部', '待审批', '作业中', '建议暂停', '已暂停', '已关闭']} /><span>显示 {permits.length} / {permitRecords.length} 张票证</span></section>
 
       <main className={styles.layout}>

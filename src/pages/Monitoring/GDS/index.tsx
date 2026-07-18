@@ -76,7 +76,7 @@ export default function GdsMonitoring() {
   const areas = Array.from(new Map(gdsPoints.map((point) => [point.areaId, point.areaName])).entries());
   const handleSimulation = async () => {
     if (telemetryApiMode) {
-      await ingestTelemetrySample({ sampleId: `ui-gds-${Date.now()}`, pointId: 'gds-101', source: 'GDS', occurredAt: new Date().toISOString(), metrics: { gasConcentration: 42 }, quality: 'good' });
+      await ingestTelemetrySample({ sampleId: `ui-gds-${Date.now()}`, pointId: 'gds-101', source: 'GDS', occurredAt: new Date().toISOString(), metrics: { gasConcentration: 55 }, quality: 'good' });
       message.warning('GDS-101 样本已写入服务端并执行预警规则');
       return;
     }

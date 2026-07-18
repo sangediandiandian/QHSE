@@ -44,6 +44,32 @@ function deriveState(
   };
 }
 
+function toWarningMetrics(
+  point: TelemetryPoint,
+  metrics: Record<string, string | number | boolean>,
+) {
+  const primaryValue = metrics[point.metricKey];
+  if (point.source === 'GDS')
+    return {
+      ...metrics,
+      'GDS.currentValue': primaryValue,
+    };
+  if (point.source === 'VOC')
+    return {
+      ...metrics,
+      'VOC.outletValue': primaryValue,
+      limit: Number(point.configuration.limitValue),
+    };
+  const parameterType = String(point.configuration.parameterType ?? '').trim();
+  return {
+    ...metrics,
+    'MES.value': primaryValue,
+    ...(parameterType === '压力' ? { 'MES.pressure': primaryValue } : {}),
+    high: Number(point.configuration.upperLimit),
+    low: Number(point.configuration.lowerLimit),
+  };
+}
+
 export class TelemetryService {
   constructor(
     private readonly repo: TelemetryRepository,
@@ -120,7 +146,7 @@ export class TelemetryService {
             subjectId: current.id,
             areaId: current.areaId,
             occurredAt,
-            metrics: input.metrics,
+            metrics: toWarningMetrics(current, input.metrics),
           })
         : undefined;
     const outcome = { ...result, evaluation, outOfOrder, clockDriftMs };

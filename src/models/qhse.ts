@@ -54,10 +54,10 @@ import {
   applyWorkPermit,
   approveWorkPermit as approveWorkPermitByApi,
   confirmWorkPermitSite as confirmWorkPermitSiteByApi,
-  getWorkPermits,
   pauseWorkPermit,
   resumeWorkPermit,
 } from '@/services/qhse/workPermits';
+import { getWorkPermitLinkageSnapshot } from '@/services/qhse/workPermitLinkage';
 import {
   approveWarningRule as approveWarningRuleByApi,
   acknowledgeWarningSignal,
@@ -127,6 +127,7 @@ import {
   loadPersistedDashboard,
   persistDashboard,
 } from '@/utils/dashboardPersistence';
+import { getWorkPermitLinkageSummary, isWorkPermitLinkageEnabled } from '@/utils/workPermitLinkage';
 import { isWarningScenarioEnabled, withWarningRuleTriggered } from '@/utils/warningRules';
 import { assessRiskUnit as withAssessedRiskUnit, saveRiskControls as withSavedRiskControls } from '@/utils/riskWorkflow';
 import {
@@ -294,6 +295,16 @@ export default function useQhseModel() {
     }
   }, [dashboard, loadDashboard]);
 
+  const refreshWorkPermitLinkageRecords = useCallback(async () => {
+    const snapshot = await getWorkPermitLinkageSnapshot();
+    setWorkPermitRecords(snapshot.permits);
+    setWorkPermitAreas(snapshot.areas);
+    setGdsPointRecords(snapshot.gdsPoints);
+    setWarningRuleRecords(snapshot.rules);
+    setWarningSignals(snapshot.signals);
+    return { permits: snapshot.permits, signals: snapshot.signals };
+  }, []);
+
   const loadWorkPermits = useCallback(async () => {
     if (!hazardApiMode) {
       if (!dashboard) await loadDashboard();
@@ -301,16 +312,11 @@ export default function useQhseModel() {
     }
     setWorkPermitLoading(true);
     try {
-      const [permits, risks] = await Promise.all([getWorkPermits(), getHazardRiskUnits()]);
-      setWorkPermitRecords(permits);
-      setWorkPermitAreas(Array.from(new Map(risks.map((risk) => [risk.areaId, {
-        id: risk.areaId,
-        name: risk.areaName,
-      }])).values()));
+      await refreshWorkPermitLinkageRecords();
     } finally {
       setWorkPermitLoading(false);
     }
-  }, [dashboard, loadDashboard]);
+  }, [dashboard, loadDashboard, refreshWorkPermitLinkageRecords]);
 
   const loadWarningRules = useCallback(async () => {
     if (!hazardApiMode) {
@@ -381,8 +387,9 @@ export default function useQhseModel() {
     if (!hazardApiMode) return undefined;
     const result = await ingestTelemetrySampleByApi(input);
     applyTelemetryPoint(result.point);
+    await refreshWorkPermitLinkageRecords();
     return result;
-  }, [applyTelemetryPoint]);
+  }, [applyTelemetryPoint, refreshWorkPermitLinkageRecords]);
 
   useEffect(() => {
     if (!hazardApiMode) return undefined;
@@ -985,12 +992,17 @@ export default function useQhseModel() {
     } : current);
   }, [hazardRecords]);
 
-  const triggerPermitLinkage = useCallback(() => {
+  const triggerPermitLinkage = useCallback(async () => {
+    if (hazardApiMode) {
+      const { permits, signals } = await refreshWorkPermitLinkageRecords();
+      return getWorkPermitLinkageSummary(permits, signals);
+    }
     setDashboard((current) => current && isWarningScenarioEnabled(current, 'permit-linkage') ? {
       ...current,
       workPermits: applyPermitAlarmLinkage(current.workPermits, current.alarms),
     } : current);
-  }, []);
+    return undefined;
+  }, [refreshWorkPermitLinkageRecords]);
 
   const toggleWarningRule = useCallback(async (ruleId: string) => {
     if (hazardApiMode) {
@@ -1202,9 +1214,12 @@ export default function useQhseModel() {
     loadHazards,
     workPermits: hazardApiMode ? workPermitRecords : (dashboard?.workPermits ?? []),
     workPermitAreas: hazardApiMode ? workPermitAreas : (dashboard?.areas ?? []),
-    workPermitGdsPoints: hazardApiMode ? [] : (dashboard?.gdsPoints ?? []),
-    workPermitAlarms: hazardApiMode ? [] : (dashboard?.alarms ?? []),
-    workPermitLinkageAvailable: !hazardApiMode,
+    workPermitGdsPoints: hazardApiMode ? gdsPointRecords : (dashboard?.gdsPoints ?? []),
+    workPermitAlarms: hazardApiMode ? warningSignals : (dashboard?.alarms ?? []),
+    workPermitLinkageAvailable: hazardApiMode
+      ? isWorkPermitLinkageEnabled(warningRuleRecords)
+      : true,
+    workPermitApiMode: hazardApiMode,
     workPermitLoading: hazardApiMode ? workPermitLoading : loading,
     loadWorkPermits,
     warningRules: hazardApiMode ? warningRuleRecords : (dashboard?.warningRules ?? []),

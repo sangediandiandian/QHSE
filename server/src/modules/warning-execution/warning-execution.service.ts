@@ -46,6 +46,77 @@ function toEmergencyResponseLevel(level: WarningSignal['level']): EmergencyRespo
   return 'IV级';
 }
 
+function comparable(value: MetricValue) {
+  const ranks: Record<string, number> = {
+    low: 1,
+    medium: 2,
+    high: 3,
+    critical: 4,
+    一般: 2,
+    较大: 3,
+    重大: 4,
+  };
+  if (String(value) in ranks) return ranks[String(value)];
+  const numeric = Number(value);
+  return Number.isNaN(numeric) ? String(value) : numeric;
+}
+
+function compare(
+  actual: MetricValue | undefined,
+  operator: WarningRuleExpressionItem['operator'],
+  threshold: MetricValue,
+) {
+  if (actual === undefined) return false;
+  const left = comparable(actual);
+  const right = comparable(threshold);
+  if (operator === '=') return left === right;
+  if (operator === '>') return left > right;
+  if (operator === '>=') return left >= right;
+  if (operator === '<') return left < right;
+  return left <= right;
+}
+
+function evaluateExpression(
+  expression: WarningRuleExpressionItem[],
+  metrics: Record<string, MetricValue>,
+) {
+  if (!expression.length) return false;
+  return expression.reduce<boolean>((result, item, index) => {
+    const current = compare(
+      metrics[item.metric],
+      item.operator,
+      metrics[item.threshold] ?? item.threshold,
+    );
+    if (index === 0) return current;
+    return item.connector === 'OR' ? result || current : result && current;
+  }, false);
+}
+
+function isRuleReady(rule: WarningRule, state: WarningEvaluationState, occurredAt: string) {
+  if (!state.conditionSince) return false;
+  const minutes = Number(rule.duration.match(/(\d+)\s*分钟/)?.[1] ?? 0);
+  if (rule.duration.includes('时间窗口')) {
+    const times = rule.expression
+      .map((item) => state.metricTimes[item.metric])
+      .filter(Boolean)
+      .map(Date.parse);
+    return (
+      times.length === rule.expression.length &&
+      Math.max(...times) - Math.min(...times) <= minutes * 60_000
+    );
+  }
+  return (
+    new Date(occurredAt).getTime() - new Date(state.conditionSince).getTime() >= minutes * 60_000
+  );
+}
+
+function isInRollout(rule: WarningRule, subjectId: string) {
+  let hash = 0;
+  for (const character of `${rule.id}:${subjectId}`)
+    hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+  return hash % 100 < (rule.rolloutPercentage ?? 100);
+}
+
 export class WarningExecutionService {
   private readonly createId: () => string;
   private readonly suppressionMs: number;
@@ -345,71 +416,4 @@ export class WarningExecutionService {
     }
     return linked;
   }
-}
-
-function evaluateExpression(
-  expression: WarningRuleExpressionItem[],
-  metrics: Record<string, MetricValue>,
-) {
-  if (!expression.length) return false;
-  return expression.reduce<boolean>((result, item, index) => {
-    const current = compare(metrics[item.metric], item.operator, item.threshold);
-    if (index === 0) return current;
-    return item.connector === 'OR' ? result || current : result && current;
-  }, false);
-}
-
-function compare(
-  actual: MetricValue | undefined,
-  operator: WarningRuleExpressionItem['operator'],
-  threshold: string,
-) {
-  if (actual === undefined) return false;
-  const left = comparable(actual);
-  const right = comparable(threshold);
-  if (operator === '=') return left === right;
-  if (operator === '>') return left > right;
-  if (operator === '>=') return left >= right;
-  if (operator === '<') return left < right;
-  return left <= right;
-}
-
-function comparable(value: MetricValue) {
-  const ranks: Record<string, number> = {
-    low: 1,
-    medium: 2,
-    high: 3,
-    critical: 4,
-    一般: 2,
-    较大: 3,
-    重大: 4,
-  };
-  if (String(value) in ranks) return ranks[String(value)];
-  const numeric = Number(value);
-  return Number.isNaN(numeric) ? String(value) : numeric;
-}
-
-function isRuleReady(rule: WarningRule, state: WarningEvaluationState, occurredAt: string) {
-  if (!state.conditionSince) return false;
-  const minutes = Number(rule.duration.match(/(\d+)\s*分钟/)?.[1] ?? 0);
-  if (rule.duration.includes('时间窗口')) {
-    const times = rule.expression
-      .map((item) => state.metricTimes[item.metric])
-      .filter(Boolean)
-      .map(Date.parse);
-    return (
-      times.length === rule.expression.length &&
-      Math.max(...times) - Math.min(...times) <= minutes * 60_000
-    );
-  }
-  return (
-    new Date(occurredAt).getTime() - new Date(state.conditionSince).getTime() >= minutes * 60_000
-  );
-}
-
-function isInRollout(rule: WarningRule, subjectId: string) {
-  let hash = 0;
-  for (const character of `${rule.id}:${subjectId}`)
-    hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
-  return hash % 100 < (rule.rolloutPercentage ?? 100);
 }

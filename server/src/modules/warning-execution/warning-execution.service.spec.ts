@@ -86,6 +86,24 @@ describe('WarningExecutionService', () => {
     expect(ready.triggeredSignals.map((signal) => signal.ruleId)).toEqual(['rule-004']);
   });
 
+  test('表达式阈值可以引用同一样本中的动态限值', async () => {
+    const { execution } = createFixture();
+    const sample = {
+      source: 'VOC' as const,
+      subjectId: 'VOC-001',
+      areaId: 'area-04',
+      metrics: { 'VOC.outletValue': 66, limit: 60 },
+    };
+    await execution.evaluate({ ...sample, occurredAt: '2026-07-15T08:00:00.000Z' });
+    const ready = await execution.evaluate({
+      ...sample,
+      occurredAt: '2026-07-15T08:10:00.000Z',
+    });
+    expect(ready.triggeredSignals).toEqual([
+      expect.objectContaining({ ruleId: 'rule-002', level: 'high' }),
+    ]);
+  });
+
   test('联合指标在时间窗口内满足时触发联合预警', async () => {
     const { execution } = createFixture();
     const result = await execution.evaluate({
