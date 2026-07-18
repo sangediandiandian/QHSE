@@ -56,22 +56,55 @@ model Area {
 }
 
 model User {
-  id              String               @id @default(uuid())
-  username        String               @unique
-  passwordHash    String
-  name            String
-  title           String
-  organizationId  String
-  status          UserStatus           @default(enabled)
-  tokenVersion    Int                  @default(1)
-  organization    Organization         @relation(fields: [organizationId], references: [id])
-  roles           UserRole[]
-  areaAssignments UserAreaAssignment[]
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
+  id                    String                    @id @default(uuid())
+  username              String                    @unique
+  passwordHash          String
+  name                  String
+  title                 String
+  organizationId        String
+  status                UserStatus                @default(enabled)
+  tokenVersion          Int                       @default(1)
+  organization          Organization              @relation(fields: [organizationId], references: [id])
+  roles                 UserRole[]
+  areaAssignments       UserAreaAssignment[]
+  authorizationRequests IamAuthorizationRequest[]
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
 
   @@index([organizationId, status])
   @@map("users")
+}
+
+enum IamAuthorizationRequestStatus {
+  pending
+  approved
+  rejected
+
+  @@map("iam_authorization_request_status")
+}
+
+model IamAuthorizationRequest {
+  id                    String                        @id @default(uuid())
+  targetUserId          String
+  activeTargetKey       String?                       @unique
+  targetUser            User                          @relation(fields: [targetUserId], references: [id], onDelete: Cascade)
+  requestedById         String
+  requestedByName       String
+  proposedAuthorization Json
+  expectedUserVersion   Int
+  reason                String
+  status                IamAuthorizationRequestStatus @default(pending)
+  reviewedById          String?
+  reviewedByName        String?
+  opinion               String?
+  reviewedAt            DateTime?
+  version               Int                           @default(1)
+  createdAt             DateTime                      @default(now())
+  updatedAt             DateTime                      @updatedAt
+
+  @@index([targetUserId, status])
+  @@index([status, createdAt])
+  @@map("iam_authorization_requests")
 }
 
 model Role {

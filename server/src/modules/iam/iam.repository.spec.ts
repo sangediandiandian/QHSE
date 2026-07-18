@@ -1,7 +1,7 @@
 /** @jest-environment node */
 
 import type { PrismaService } from '../../database/prisma.service';
-import type { Role } from './iam.types';
+import type { IamAuthorizationRequest, Role } from './iam.types';
 import { InMemoryIamRepository } from './in-memory-iam.repository';
 import { IamVersionConflictError } from './iam.repository';
 import { IamService } from './iam.service';
@@ -30,6 +30,19 @@ describe('IAM repositories', () => {
       permissions: ['risk:read'],
       dataScope: 'assigned_areas',
     });
+    const actor = first.createPrincipal(first.findUserById('user-admin')!);
+    await first.submitAuthorizationRequest(
+      'user-operator',
+      {
+        status: 'enabled',
+        organizationId: 'org-storage',
+        roleCodes: ['operator'],
+        areaIds: ['area-05'],
+        expectedVersion: 3,
+        reason: '验证申请重载',
+      },
+      actor,
+    );
 
     const reloaded = new IamService(repository);
     await reloaded.onModuleInit();
@@ -44,6 +57,9 @@ describe('IAM repositories', () => {
         expect.objectContaining({ code: 'safety_observer', editable: true }),
       ]),
     );
+    await expect(reloaded.listAuthorizationRequests()).resolves.toEqual(
+      expect.arrayContaining([expect.objectContaining({ status: 'pending' })]),
+    );
   });
 
   test('Prisma 仓储加载关系并在单事务替换角色和区域', async () => {
@@ -52,6 +68,10 @@ describe('IAM repositories', () => {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         findUnique: jest.fn(),
         create: jest.fn().mockResolvedValue({ id: 'user-2' }),
+      },
+      iamAuthorizationRequest: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        findUnique: jest.fn().mockResolvedValue({ id: 'request-1' }),
       },
       role: {
         findMany: jest.fn().mockResolvedValue([{ id: 'role-unit' }]),
@@ -111,6 +131,10 @@ describe('IAM repositories', () => {
         update: jest.fn().mockResolvedValue({ tokenVersion: 5 }),
       },
       $transaction: jest.fn((callback) => callback(transaction)),
+      iamAuthorizationRequest: {
+        findMany: jest.fn().mockResolvedValue([]),
+        create: jest.fn().mockResolvedValue({ id: 'request-1' }),
+      },
     };
     const repository = new PrismaIamRepository(prisma as unknown as PrismaService);
 
@@ -202,6 +226,63 @@ describe('IAM repositories', () => {
         permissions: ['risk:read'],
         dataScope: 'assigned_areas',
       },
+    });
+    const timestamp = '2026-07-18T12:00:00.000Z';
+    const authorizationRequest: IamAuthorizationRequest = {
+      id: 'request-1',
+      targetUserId: 'user-1',
+      requestedById: 'user-admin',
+      requestedByName: '管理员',
+      proposedAuthorization: {
+        status: 'enabled',
+        organizationId: 'org-1',
+        roleCodes: ['unit_manager'],
+        areaIds: ['area-1'],
+      },
+      expectedUserVersion: 3,
+      reason: '岗位调整',
+      status: 'pending',
+      version: 1,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    await repository.createAuthorizationRequest(authorizationRequest);
+    expect(prisma.iamAuthorizationRequest.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        id: 'request-1',
+        targetUserId: 'user-1',
+        status: 'pending',
+      }),
+    });
+    const reviewed = {
+      ...authorizationRequest,
+      status: 'approved' as const,
+      reviewedById: 'user-approver',
+      reviewedByName: '审批管理员',
+      reviewedAt: timestamp,
+      version: 1,
+    };
+    await expect(
+      repository.reviewAuthorizationRequest(reviewed, 1, {
+        id: 'user-1',
+        username: 'unit',
+        passwordHash: 'scrypt$salt$hash',
+        passwordChangeRequired: false,
+        name: '装置负责人',
+        title: '负责人',
+        organizationId: 'org-1',
+        roleCodes: ['unit_manager'],
+        areaIds: ['area-1'],
+        status: 'enabled',
+      }),
+    ).resolves.toEqual({ requestVersion: 2, userVersion: 4 });
+    expect(transaction.iamAuthorizationRequest.updateMany).toHaveBeenCalledWith({
+      where: { id: 'request-1', status: 'pending', version: 1 },
+      data: expect.objectContaining({
+        status: 'approved',
+        reviewedById: 'user-approver',
+        version: { increment: 1 },
+      }),
     });
   });
 

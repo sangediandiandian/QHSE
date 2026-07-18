@@ -176,7 +176,8 @@ export interface TelemetryStreamEvent {
   clockDriftMs: number;
 }
 
-export type TelemetryRealtimeStatus = 'disabled' | 'connecting' | 'connected' | 'disconnected' | 'unauthorized';
+export type TelemetryRealtimeStatus =
+  'disabled' | 'connecting' | 'connected' | 'disconnected' | 'unauthorized';
 
 export type CommunicationChannel = 'App消息' | '电话语音' | '短信' | 'IP广播';
 
@@ -395,7 +396,10 @@ export interface EmergencyDrill {
   issues?: string[];
 }
 
-export type EmergencyDrillInput = Omit<EmergencyDrill, 'id' | 'status' | 'startedAt' | 'completedAt' | 'score' | 'summary' | 'issues'>;
+export type EmergencyDrillInput = Omit<
+  EmergencyDrill,
+  'id' | 'status' | 'startedAt' | 'completedAt' | 'score' | 'summary' | 'issues'
+>;
 
 export interface EmergencyDrillRecordInput {
   score: number;
@@ -480,7 +484,12 @@ export interface EventReview {
   lesson: string;
   controlledAt: string;
   closedAt?: string;
-  timeline: Array<{ time: string; title: string; detail: string; status: 'done' | 'active' | 'pending' }>;
+  timeline: Array<{
+    time: string;
+    title: string;
+    detail: string;
+    status: 'done' | 'active' | 'pending';
+  }>;
   actions: ReviewAction[];
   evidence?: EventReviewEvidence[];
   version?: number;
@@ -518,7 +527,8 @@ export interface KnowledgeSearchResult {
 
 export type EmergencyEventStatus = '待研判' | '响应中' | '监控中' | '待关闭' | '已关闭';
 export type EmergencyResponseLevel = 'IV级' | 'III级' | 'II级' | 'I级';
-export type EmergencyEventAction = '研判启动' | '升级响应' | '降级响应' | '终止响应' | '申请关闭' | '审批关闭';
+export type EmergencyEventAction =
+  '研判启动' | '升级响应' | '降级响应' | '终止响应' | '申请关闭' | '审批关闭';
 
 export interface EmergencyEventOperation {
   id: string;
@@ -695,7 +705,12 @@ export interface SystemDiagnostics {
     total: number;
     enabled: number;
     unhealthy: number;
-    items: Array<Pick<IntegrationConfig, 'code' | 'name' | 'type' | 'enabled' | 'healthStatus' | 'lastCheckedAt' | 'owner'>>;
+    items: Array<
+      Pick<
+        IntegrationConfig,
+        'code' | 'name' | 'type' | 'enabled' | 'healthStatus' | 'lastCheckedAt' | 'owner'
+      >
+    >;
   };
   requests: {
     startedAt: string;
@@ -975,11 +990,7 @@ export interface WorkPermitInput {
 export type WorkPermitApplyInput = Omit<WorkPermitInput, 'areaName' | 'applicant'>;
 
 export type WarningRuleScenario =
-  | 'gds-level2'
-  | 'voc-overlimit'
-  | 'joint-leak'
-  | 'gds-trend'
-  | 'permit-linkage';
+  'gds-level2' | 'voc-overlimit' | 'joint-leak' | 'gds-trend' | 'permit-linkage';
 
 export interface WarningRuleConfig {
   name: string;
@@ -1167,4 +1178,28 @@ export interface IamUser {
   version: number;
   organization?: Omit<IamOrganization, 'areas'>;
   roles: IamRole[];
+}
+
+export interface IamAuthorizationRequest {
+  id: string;
+  targetUserId: string;
+  targetUser?: IamUser;
+  requestedById: string;
+  requestedByName: string;
+  proposedAuthorization: {
+    status: IamUser['status'];
+    organizationId: string;
+    roleCodes: string[];
+    areaIds: string[];
+  };
+  expectedUserVersion: number;
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected';
+  reviewedById?: string;
+  reviewedByName?: string;
+  opinion?: string;
+  reviewedAt?: string;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
 }

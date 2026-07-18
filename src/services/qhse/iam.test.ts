@@ -6,6 +6,8 @@ import {
   createIamRole,
   getIamOverview,
   resetIamUserPassword,
+  reviewIamAuthorizationRequest,
+  submitUserAuthorizationRequest,
   updateIamRole,
   updateUserAuthorization,
 } from './iam';
@@ -15,17 +17,46 @@ jest.mock('@umijs/max', () => ({ request: jest.fn() }));
 const requestMock = request as jest.Mock;
 
 describe('iam service', () => {
-  test('并行读取组织、角色和用户', async () => {
+  test('并行读取组织、角色、用户和授权审批台账', async () => {
     requestMock
       .mockResolvedValueOnce({ data: [{ id: 'org-1' }] })
       .mockResolvedValueOnce({ data: [{ id: 'role-1' }] })
-      .mockResolvedValueOnce({ data: [{ id: 'user-1' }] });
+      .mockResolvedValueOnce({ data: [{ id: 'user-1' }] })
+      .mockResolvedValueOnce({ data: [{ id: 'request-1' }] });
 
     await expect(getIamOverview()).resolves.toEqual({
       organizations: [{ id: 'org-1' }],
       roles: [{ id: 'role-1' }],
       users: [{ id: 'user-1' }],
+      authorizationRequests: [{ id: 'request-1' }],
     });
+  });
+
+  test('提交授权申请并按申请版本审批', async () => {
+    const user = { id: 'user-1', version: 3 };
+    const input = {
+      status: 'enabled' as const,
+      organizationId: 'org-1',
+      roleCodes: ['operator'],
+      areaIds: ['area-1'],
+      reason: '岗位职责调整',
+    };
+    requestMock.mockResolvedValue({ data: { id: 'request-1', version: 1 } });
+
+    await submitUserAuthorizationRequest(user as never, input);
+    expect(requestMock).toHaveBeenCalledWith('/api/v1/iam/users/user-1/authorization-requests', {
+      method: 'POST',
+      data: { ...input, expectedVersion: 3 },
+    });
+
+    await reviewIamAuthorizationRequest('request-1', 'approve', '同意', 1);
+    expect(requestMock).toHaveBeenCalledWith(
+      '/api/v1/iam/authorization-requests/request-1/review',
+      {
+        method: 'PUT',
+        data: { decision: 'approve', opinion: '同意', expectedVersion: 1 },
+      },
+    );
   });
 
   test('更新授权携带当前版本', async () => {

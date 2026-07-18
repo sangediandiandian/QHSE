@@ -10,12 +10,17 @@ import { hashPassword, requiresPasswordChange } from '../auth/password';
 import type {
   CreateRoleDto,
   CreateUserDto,
+  ReviewAuthorizationRequestDto,
+  SubmitAuthorizationRequestDto,
   UpdateRoleDto,
   UpdateUserAuthorizationDto,
 } from './iam.dto';
 import { InMemoryIamRepository } from './in-memory-iam.repository';
 import {
   type IamRepository,
+  IamAuthorizationRequestConflictError,
+  IamAuthorizationRequestNotFoundError,
+  IamAuthorizationRequestVersionConflictError,
   IamRoleCodeConflictError,
   IamRoleNotFoundError,
   IamUserNotFoundError,
@@ -26,6 +31,7 @@ import { areas, organizations, roles, users } from './iam.seed';
 import type {
   AreaAssignment,
   AuthPrincipal,
+  IamAuthorizationRequest,
   Organization,
   Permission,
   Role,
@@ -39,11 +45,14 @@ export class IamService implements OnModuleInit {
   private roles: Role[] = [];
   private accounts: UserAccount[] = [];
   private readonly versions = new Map<string, number>();
+  private readonly now: () => Date;
 
   constructor(
     private readonly repository: IamRepository = new InMemoryIamRepository(),
     private readonly createId: () => string = randomUUID,
+    now: () => Date = () => new Date(),
   ) {
+    this.now = now;
     this.replaceSnapshot({
       organizations,
       areas,
@@ -182,15 +191,7 @@ export class IamService implements OnModuleInit {
       this.versionConflict(input.expectedVersion, actualVersion);
     }
     const areaIds = this.validateAssignment(input.organizationId, input.roleCodes, input.areaIds);
-    if (
-      actorId === id &&
-      (input.status === 'disabled' || !input.roleCodes.includes('system_admin'))
-    ) {
-      throw new BadRequestException({
-        code: 'IAM_SELF_LOCKOUT',
-        message: '不能停用当前账号或移除自己的系统管理员角色',
-      });
-    }
+    this.ensureNoSelfLockout(id, input, actorId);
 
     const updated: UserAccount = {
       ...user,
@@ -207,6 +208,164 @@ export class IamService implements OnModuleInit {
     } catch (error) {
       if (error instanceof IamUserNotFoundError) {
         throw new NotFoundException({ code: 'IAM_USER_NOT_FOUND', message: '用户不存在' });
+      }
+      if (error instanceof IamVersionConflictError) {
+        this.versionConflict(error.expectedVersion, error.actualVersion);
+      }
+      throw error;
+    }
+  }
+
+  async listAuthorizationRequests() {
+    const requests = await this.repository.listAuthorizationRequests();
+    return requests.map((request) => this.toManagedAuthorizationRequest(request));
+  }
+
+  async submitAuthorizationRequest(
+    id: string,
+    input: SubmitAuthorizationRequestDto,
+    actor: AuthPrincipal,
+  ) {
+    const user = this.findUserById(id);
+    if (!user) {
+      throw new NotFoundException({ code: 'IAM_USER_NOT_FOUND', message: '用户不存在' });
+    }
+    const actualVersion = this.versions.get(id) ?? 1;
+    if (input.expectedVersion !== actualVersion) {
+      this.versionConflict(input.expectedVersion, actualVersion);
+    }
+    const areaIds = this.validateAssignment(input.organizationId, input.roleCodes, input.areaIds);
+    this.ensureNoSelfLockout(id, input, actor.userId);
+    const existing = (await this.repository.listAuthorizationRequests()).find(
+      (request) => request.targetUserId === id && request.status === 'pending',
+    );
+    if (existing) {
+      throw new ConflictException({
+        code: 'IAM_AUTH_REQUEST_ACTIVE',
+        message: '该用户已有待审批的授权变更',
+      });
+    }
+    const timestamp = this.now().toISOString();
+    const request: IamAuthorizationRequest = {
+      id: `iam-request-${this.createId()}`,
+      targetUserId: id,
+      requestedById: actor.userId,
+      requestedByName: actor.name,
+      proposedAuthorization: {
+        status: input.status,
+        organizationId: input.organizationId,
+        roleCodes: [...input.roleCodes],
+        areaIds,
+      },
+      expectedUserVersion: input.expectedVersion,
+      reason: input.reason.trim(),
+      status: 'pending',
+      version: 1,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    try {
+      await this.repository.createAuthorizationRequest(request);
+      return this.toManagedAuthorizationRequest(request);
+    } catch (error) {
+      if (error instanceof IamAuthorizationRequestConflictError) {
+        throw new ConflictException({
+          code: 'IAM_AUTH_REQUEST_ACTIVE',
+          message: '该用户已有待审批的授权变更',
+        });
+      }
+      throw error;
+    }
+  }
+
+  async reviewAuthorizationRequest(
+    id: string,
+    input: ReviewAuthorizationRequestDto,
+    actor: AuthPrincipal,
+  ) {
+    const request = (await this.repository.listAuthorizationRequests()).find(
+      (item) => item.id === id,
+    );
+    if (!request) {
+      throw new NotFoundException({ code: 'IAM_AUTH_REQUEST_NOT_FOUND', message: '申请不存在' });
+    }
+    if (request.status !== 'pending' || request.version !== input.expectedVersion) {
+      throw new ConflictException({
+        code: 'IAM_AUTH_REQUEST_CONFLICT',
+        message: '申请状态或版本已变化，请刷新后重试',
+      });
+    }
+    if (request.requestedById === actor.userId) {
+      throw new BadRequestException({
+        code: 'IAM_DUAL_CONTROL_REQUIRED',
+        message: '申请人与审批人必须为不同账号',
+      });
+    }
+    if (input.decision === 'reject' && !input.opinion.trim()) {
+      throw new BadRequestException({
+        code: 'IAM_REVIEW_OPINION_REQUIRED',
+        message: '驳回时必须填写审批意见',
+      });
+    }
+    const reviewedAt = this.now().toISOString();
+    const reviewed: IamAuthorizationRequest = {
+      ...request,
+      status: input.decision === 'approve' ? 'approved' : 'rejected',
+      reviewedById: actor.userId,
+      reviewedByName: actor.name,
+      opinion: input.opinion.trim() || undefined,
+      reviewedAt,
+      updatedAt: reviewedAt,
+    };
+    const user = this.findUserById(request.targetUserId);
+    if (!user) {
+      throw new NotFoundException({ code: 'IAM_USER_NOT_FOUND', message: '用户不存在' });
+    }
+    let updatedUser: UserAccount | undefined;
+    if (input.decision === 'approve') {
+      const actualVersion = this.versions.get(user.id) ?? 1;
+      if (request.expectedUserVersion !== actualVersion) {
+        this.versionConflict(request.expectedUserVersion, actualVersion);
+      }
+      const proposal = request.proposedAuthorization;
+      const areaIds = this.validateAssignment(
+        proposal.organizationId,
+        proposal.roleCodes,
+        proposal.areaIds,
+      );
+      this.ensureNoSelfLockout(user.id, proposal, actor.userId);
+      updatedUser = {
+        ...user,
+        status: proposal.status,
+        organizationId: proposal.organizationId,
+        roleCodes: [...proposal.roleCodes],
+        areaIds,
+      };
+    }
+    try {
+      const result = await this.repository.reviewAuthorizationRequest(
+        reviewed,
+        input.expectedVersion,
+        updatedUser,
+      );
+      reviewed.version = result.requestVersion;
+      if (updatedUser && result.userVersion) {
+        Object.assign(user, updatedUser);
+        this.versions.set(user.id, result.userVersion);
+      }
+      return this.toManagedAuthorizationRequest(reviewed);
+    } catch (error) {
+      if (error instanceof IamAuthorizationRequestNotFoundError) {
+        throw new NotFoundException({
+          code: 'IAM_AUTH_REQUEST_NOT_FOUND',
+          message: '申请不存在',
+        });
+      }
+      if (error instanceof IamAuthorizationRequestVersionConflictError) {
+        throw new ConflictException({
+          code: 'IAM_AUTH_REQUEST_CONFLICT',
+          message: '申请状态或版本已变化，请刷新后重试',
+        });
       }
       if (error instanceof IamVersionConflictError) {
         this.versionConflict(error.expectedVersion, error.actualVersion);
@@ -279,8 +438,38 @@ export class IamService implements OnModuleInit {
     };
   }
 
+  private toManagedAuthorizationRequest(request: IamAuthorizationRequest) {
+    return {
+      ...request,
+      proposedAuthorization: {
+        ...request.proposedAuthorization,
+        roleCodes: [...request.proposedAuthorization.roleCodes],
+        areaIds: [...request.proposedAuthorization.areaIds],
+      },
+      targetUser: this.accounts
+        .filter((user) => user.id === request.targetUserId)
+        .map((user) => this.toManagedUser(user))[0],
+    };
+  }
+
   private isCustomRole(role: Role) {
     return role.id.startsWith('role-custom-');
+  }
+
+  private ensureNoSelfLockout(
+    targetUserId: string,
+    input: Pick<UpdateUserAuthorizationDto, 'status' | 'roleCodes'>,
+    actorId: string,
+  ) {
+    if (
+      actorId === targetUserId &&
+      (input.status === 'disabled' || !input.roleCodes.includes('system_admin'))
+    ) {
+      throw new BadRequestException({
+        code: 'IAM_SELF_LOCKOUT',
+        message: '不能停用当前账号或移除自己的系统管理员角色',
+      });
+    }
   }
 
   private validateAssignment(organizationId: string, roleCodes: string[], areaIds: string[]) {

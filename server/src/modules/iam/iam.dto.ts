@@ -136,3 +136,28 @@ export class UpdateUserAuthorizationDto {
   @Min(1)
   expectedVersion!: number;
 }
+
+export class SubmitAuthorizationRequestDto extends UpdateUserAuthorizationDto {
+  @ApiProperty()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(300)
+  reason!: string;
+}
+
+export class ReviewAuthorizationRequestDto {
+  @ApiProperty({ enum: ['approve', 'reject'] })
+  @IsIn(['approve', 'reject'])
+  decision!: 'approve' | 'reject';
+
+  @ApiProperty()
+  @IsString()
+  @MaxLength(300)
+  opinion!: string;
+
+  @ApiProperty()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  expectedVersion!: number;
+}

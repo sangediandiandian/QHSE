@@ -3,7 +3,14 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '../audit/audit.decorator';
 import { CurrentPrincipal } from '../auth/current-principal.decorator';
 import { RequirePermissions } from '../auth/permissions.decorator';
-import { CreateRoleDto, CreateUserDto, UpdateRoleDto, UpdateUserAuthorizationDto } from './iam.dto';
+import {
+  CreateRoleDto,
+  CreateUserDto,
+  ReviewAuthorizationRequestDto,
+  SubmitAuthorizationRequestDto,
+  UpdateRoleDto,
+  UpdateUserAuthorizationDto,
+} from './iam.dto';
 import { IamService } from './iam.service';
 import type { AuthPrincipal } from './iam.types';
 
@@ -50,6 +57,45 @@ export class IamController {
   @ApiOperation({ summary: '查询用户及授权信息' })
   listUsers() {
     return this.iamService.listUsers();
+  }
+
+  @Get('authorization-requests')
+  @RequirePermissions('iam:manage')
+  @ApiOperation({ summary: '查询用户授权变更审批台账' })
+  listAuthorizationRequests() {
+    return this.iamService.listAuthorizationRequests();
+  }
+
+  @Post('users/:id/authorization-requests')
+  @RequirePermissions('iam:manage')
+  @AuditAction({
+    action: 'iam.authorization.request',
+    resourceType: 'iam_user',
+    resourceIdParam: 'id',
+  })
+  @ApiOperation({ summary: '提交用户授权变更申请' })
+  submitAuthorizationRequest(
+    @Param('id') id: string,
+    @Body() input: SubmitAuthorizationRequestDto,
+    @CurrentPrincipal() principal: AuthPrincipal,
+  ) {
+    return this.iamService.submitAuthorizationRequest(id, input, principal);
+  }
+
+  @Put('authorization-requests/:id/review')
+  @RequirePermissions('iam:manage')
+  @AuditAction({
+    action: 'iam.authorization.review',
+    resourceType: 'iam_authorization_request',
+    resourceIdParam: 'id',
+  })
+  @ApiOperation({ summary: '异人审批用户授权变更并原子应用授权' })
+  reviewAuthorizationRequest(
+    @Param('id') id: string,
+    @Body() input: ReviewAuthorizationRequestDto,
+    @CurrentPrincipal() principal: AuthPrincipal,
+  ) {
+    return this.iamService.reviewAuthorizationRequest(id, input, principal);
   }
 
   @Post('users')

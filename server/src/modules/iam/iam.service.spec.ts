@@ -13,6 +13,111 @@ const operatorUpdate = {
 };
 
 describe('IamService', () => {
+  test('用户授权申请必须异人审批并在通过后应用授权', async () => {
+    const service = new IamService(undefined, () => 'request-id');
+    const requester = service.createPrincipal(service.findUserById('user-admin')!);
+    const approver = { ...requester, userId: 'user-approver', name: '审批管理员' };
+    const request = await service.submitAuthorizationRequest(
+      'user-operator',
+      { ...operatorUpdate, reason: '岗位调整至储运部' },
+      requester,
+    );
+    expect(request).toMatchObject({
+      id: 'iam-request-request-id',
+      status: 'pending',
+      expectedUserVersion: 1,
+      targetUser: { id: 'user-operator' },
+    });
+    await expect(
+      service.reviewAuthorizationRequest(
+        request.id,
+        { decision: 'approve', opinion: '同意', expectedVersion: 1 },
+        requester,
+      ),
+    ).rejects.toThrow(BadRequestException);
+
+    const approved = await service.reviewAuthorizationRequest(
+      request.id,
+      { decision: 'approve', opinion: '同意', expectedVersion: 1 },
+      approver,
+    );
+    expect(approved).toMatchObject({
+      status: 'approved',
+      reviewedById: 'user-approver',
+      version: 2,
+      targetUser: { organizationId: 'org-storage', areaIds: ['area-05'], version: 2 },
+    });
+  });
+
+  test('审批期间用户授权变化时拒绝覆盖且申请保持待审批', async () => {
+    const service = new IamService(undefined, () => 'request-stale');
+    const requester = service.createPrincipal(service.findUserById('user-admin')!);
+    const approver = { ...requester, userId: 'user-approver', name: '审批管理员' };
+    const request = await service.submitAuthorizationRequest(
+      'user-operator',
+      { ...operatorUpdate, reason: '岗位调整' },
+      requester,
+    );
+    await service.updateUserAuthorization(
+      'user-operator',
+      {
+        ...operatorUpdate,
+        organizationId: 'org-fcc',
+        areaIds: ['area-02'],
+      },
+      'user-approver',
+    );
+
+    await expect(
+      service.reviewAuthorizationRequest(
+        request.id,
+        { decision: 'approve', opinion: '', expectedVersion: 1 },
+        approver,
+      ),
+    ).rejects.toThrow(ConflictException);
+    await expect(service.listAuthorizationRequests()).resolves.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: request.id, status: 'pending' })]),
+    );
+  });
+
+  test('同一用户只允许一条待审批申请且驳回必须填写意见', async () => {
+    const service = new IamService(undefined, () => 'request-reject');
+    const requester = service.createPrincipal(service.findUserById('user-admin')!);
+    const approver = { ...requester, userId: 'user-approver', name: '审批管理员' };
+    const request = await service.submitAuthorizationRequest(
+      'user-operator',
+      { ...operatorUpdate, reason: '岗位调整' },
+      requester,
+    );
+
+    await expect(
+      service.submitAuthorizationRequest(
+        'user-operator',
+        { ...operatorUpdate, reason: '重复申请' },
+        requester,
+      ),
+    ).rejects.toThrow(ConflictException);
+    await expect(
+      service.reviewAuthorizationRequest(
+        request.id,
+        { decision: 'reject', opinion: '  ', expectedVersion: 1 },
+        approver,
+      ),
+    ).rejects.toThrow(BadRequestException);
+
+    await expect(
+      service.reviewAuthorizationRequest(
+        request.id,
+        { decision: 'reject', opinion: '职责依据不足', expectedVersion: 1 },
+        approver,
+      ),
+    ).resolves.toMatchObject({
+      status: 'rejected',
+      opinion: '职责依据不足',
+      version: 2,
+    });
+  });
+
   test('创建并维护自定义角色，权限变化立即作用于已授权用户', async () => {
     const service = new IamService(undefined, () => 'role-id');
     const created = await service.createRole({

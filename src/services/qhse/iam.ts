@@ -1,4 +1,4 @@
-import type { IamOrganization, IamRole, IamUser } from '@/types/qhse';
+import type { IamAuthorizationRequest, IamOrganization, IamRole, IamUser } from '@/types/qhse';
 import { request } from '@umijs/max';
 
 interface ApiResponse<T> {
@@ -13,6 +13,10 @@ export interface UserAuthorizationInput {
   organizationId: string;
   roleCodes: string[];
   areaIds: string[];
+}
+
+export interface SubmitAuthorizationRequestInput extends UserAuthorizationInput {
+  reason: string;
 }
 
 export interface CreateIamUserInput {
@@ -36,15 +40,19 @@ export interface CreateIamRoleInput extends IamRoleInput {
 }
 
 export async function getIamOverview() {
-  const [organizations, roles, users] = await Promise.all([
+  const [organizations, roles, users, authorizationRequests] = await Promise.all([
     request<ApiResponse<IamOrganization[]>>('/api/v1/iam/organizations', { method: 'GET' }),
     request<ApiResponse<IamRole[]>>('/api/v1/iam/roles', { method: 'GET' }),
     request<ApiResponse<IamUser[]>>('/api/v1/iam/users', { method: 'GET' }),
+    request<ApiResponse<IamAuthorizationRequest[]>>('/api/v1/iam/authorization-requests', {
+      method: 'GET',
+    }),
   ]);
   return {
     organizations: organizations.data,
     roles: roles.data,
     users: users.data,
+    authorizationRequests: authorizationRequests.data,
   };
 }
 
@@ -54,6 +62,36 @@ export async function updateUserAuthorization(user: IamUser, input: UserAuthoriz
     {
       method: 'PUT',
       data: { ...input, expectedVersion: user.version },
+    },
+  );
+  return response.data;
+}
+
+export async function submitUserAuthorizationRequest(
+  user: IamUser,
+  input: SubmitAuthorizationRequestInput,
+) {
+  const response = await request<ApiResponse<IamAuthorizationRequest>>(
+    `/api/v1/iam/users/${user.id}/authorization-requests`,
+    {
+      method: 'POST',
+      data: { ...input, expectedVersion: user.version },
+    },
+  );
+  return response.data;
+}
+
+export async function reviewIamAuthorizationRequest(
+  requestId: string,
+  decision: 'approve' | 'reject',
+  opinion: string,
+  expectedVersion: number,
+) {
+  const response = await request<ApiResponse<IamAuthorizationRequest>>(
+    `/api/v1/iam/authorization-requests/${requestId}/review`,
+    {
+      method: 'PUT',
+      data: { decision, opinion, expectedVersion },
     },
   );
   return response.data;

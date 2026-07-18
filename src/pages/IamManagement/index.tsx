@@ -4,12 +4,15 @@ import {
   createIamUser,
   getIamOverview,
   resetIamUserPassword,
+  reviewIamAuthorizationRequest,
+  submitUserAuthorizationRequest,
   updateIamRole,
-  updateUserAuthorization,
 } from '@/services/qhse/iam';
-import type { IamOrganization, IamRole, IamUser } from '@/types/qhse';
+import type { IamAuthorizationRequest, IamOrganization, IamRole, IamUser } from '@/types/qhse';
 import {
   ApartmentOutlined,
+  CheckOutlined,
+  CloseOutlined,
   EditOutlined,
   KeyOutlined,
   PlusOutlined,
@@ -29,10 +32,16 @@ interface UserForm extends UserAuthorizationInput {
   name?: string;
   title?: string;
   initialPassword?: string;
+  reason?: string;
 }
 
 interface RoleForm extends IamRoleInput {
   code?: string;
+}
+
+interface ReviewForm {
+  decision: 'approve' | 'reject';
+  opinion: string;
 }
 
 const domainLabels: Record<string, string> = {
@@ -94,11 +103,13 @@ export default function IamManagement() {
   const [organizations, setOrganizations] = useState<IamOrganization[]>([]);
   const [roles, setRoles] = useState<IamRole[]>([]);
   const [users, setUsers] = useState<IamUser[]>([]);
+  const [authorizationRequests, setAuthorizationRequests] = useState<IamAuthorizationRequest[]>([]);
   const [editing, setEditing] = useState<IamUser>();
   const [creating, setCreating] = useState(false);
   const [resetting, setResetting] = useState<IamUser>();
   const [editingRole, setEditingRole] = useState<IamRole>();
   const [creatingRole, setCreatingRole] = useState(false);
+  const [reviewing, setReviewing] = useState<IamAuthorizationRequest>();
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<'all' | IamUser['status']>('all');
   const [loading, setLoading] = useState(true);
@@ -106,6 +117,7 @@ export default function IamManagement() {
   const [form] = Form.useForm<UserForm>();
   const [resetForm] = Form.useForm<{ temporaryPassword: string }>();
   const [roleForm] = Form.useForm<RoleForm>();
+  const [reviewForm] = Form.useForm<ReviewForm>();
   const selectedRoleCodes = Form.useWatch('roleCodes', form) ?? [];
   const allScope = roles.some(
     (role) => selectedRoleCodes.includes(role.code) && role.dataScope === 'all',
@@ -118,6 +130,7 @@ export default function IamManagement() {
       setOrganizations(data.organizations);
       setRoles(data.roles);
       setUsers(data.users);
+      setAuthorizationRequests(data.authorizationRequests);
     } finally {
       setLoading(false);
     }
@@ -157,6 +170,7 @@ export default function IamManagement() {
       organizationId: user.organizationId,
       roleCodes: user.roleCodes,
       areaIds: user.areaIds,
+      reason: undefined,
     });
   };
 
@@ -190,17 +204,50 @@ export default function IamManagement() {
         setUsers((current) => [...current, created]);
         message.success('用户已创建，可使用初始密码登录');
       } else if (editing) {
-        const updated = await updateUserAuthorization(editing, {
+        const request = await submitUserAuthorizationRequest(editing, {
           status: values.status,
           organizationId: values.organizationId,
           roleCodes: values.roleCodes,
           areaIds: allScope ? [] : values.areaIds,
+          reason: values.reason!,
         });
-        setUsers((current) => current.map((user) => (user.id === updated.id ? updated : user)));
-        message.success('用户授权已更新，现有会话将立即使用新权限');
+        setAuthorizationRequests((current) => [request, ...current]);
+        message.success('授权变更已提交，需由另一名管理员审批后生效');
       }
       setCreating(false);
       setEditing(undefined);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openReview = (request: IamAuthorizationRequest, decision: ReviewForm['decision']) => {
+    setReviewing(request);
+    reviewForm.setFieldsValue({ decision, opinion: decision === 'approve' ? '同意' : '' });
+  };
+
+  const reviewAuthorization = async () => {
+    if (!reviewing) return;
+    const values = await reviewForm.validateFields();
+    setSaving(true);
+    try {
+      const reviewed = await reviewIamAuthorizationRequest(
+        reviewing.id,
+        values.decision,
+        values.opinion,
+        reviewing.version,
+      );
+      setAuthorizationRequests((current) =>
+        current.map((item) => (item.id === reviewed.id ? reviewed : item)),
+      );
+      if (reviewed.status === 'approved' && reviewed.targetUser) {
+        setUsers((current) =>
+          current.map((user) => (user.id === reviewed.targetUser?.id ? reviewed.targetUser : user)),
+        );
+      }
+      setReviewing(undefined);
+      reviewForm.resetFields();
+      message.success(reviewed.status === 'approved' ? '授权变更已批准并生效' : '授权变更已驳回');
     } finally {
       setSaving(false);
     }
@@ -419,9 +466,107 @@ export default function IamManagement() {
     },
   ];
 
+  const authorizationRequestColumns: ColumnsType<IamAuthorizationRequest> = [
+    {
+      title: '申请对象',
+      render: (_, request) => (
+        <span className={styles.user}>
+          <strong>{request.targetUser?.name ?? request.targetUserId}</strong>
+          <small>
+            {request.targetUser?.username ?? request.targetUserId} · 用户版本 v
+            {request.expectedUserVersion}
+          </small>
+        </span>
+      ),
+    },
+    {
+      title: '拟变更授权',
+      render: (_, request) => (
+        <Space size={[4, 4]} wrap>
+          <Tag color={request.proposedAuthorization.status === 'enabled' ? 'success' : 'default'}>
+            {request.proposedAuthorization.status === 'enabled' ? '启用' : '停用'}
+          </Tag>
+          {request.proposedAuthorization.roleCodes.map((code) => (
+            <Tag key={code}>{roles.find((role) => role.code === code)?.name ?? code}</Tag>
+          ))}
+          {request.proposedAuthorization.areaIds.map((id) => (
+            <Tag key={id} color="cyan">
+              {areas.find((area) => area.id === id)?.name ?? id}
+            </Tag>
+          ))}
+        </Space>
+      ),
+    },
+    {
+      title: '申请信息',
+      render: (_, request) => (
+        <span className={styles.user}>
+          <strong>{request.requestedByName}</strong>
+          <small>{request.reason}</small>
+        </span>
+      ),
+    },
+    {
+      title: '状态',
+      width: 100,
+      render: (_, request) => {
+        const statusMap = {
+          pending: { color: 'processing', label: '待审批' },
+          approved: { color: 'success', label: '已批准' },
+          rejected: { color: 'error', label: '已驳回' },
+        } as const;
+        const status = statusMap[request.status];
+        return <Tag color={status.color}>{status.label}</Tag>;
+      },
+    },
+    {
+      title: '审批结果',
+      render: (_, request) =>
+        request.reviewedByName ? (
+          <span className={styles.user}>
+            <strong>{request.reviewedByName}</strong>
+            <small>{request.opinion ?? '—'}</small>
+          </span>
+        ) : (
+          '—'
+        ),
+    },
+    {
+      title: '操作',
+      width: 150,
+      render: (_, request) =>
+        request.status === 'pending' ? (
+          <Space size={0}>
+            <Button
+              type="link"
+              icon={<CheckOutlined />}
+              disabled={!access.canAdmin}
+              onClick={() => openReview(request, 'approve')}
+            >
+              批准
+            </Button>
+            <Button
+              type="link"
+              danger
+              icon={<CloseOutlined />}
+              disabled={!access.canAdmin}
+              onClick={() => openReview(request, 'reject')}
+            >
+              驳回
+            </Button>
+          </Space>
+        ) : (
+          `v${request.version}`
+        ),
+    },
+  ];
+
   const enabled = users.filter((user) => user.status === 'enabled').length;
   const assigned = users.filter((user) =>
     user.roles.every((role) => role.dataScope === 'assigned_areas'),
+  ).length;
+  const pendingAuthorizationRequests = authorizationRequests.filter(
+    (request) => request.status === 'pending',
   ).length;
 
   return (
@@ -461,9 +606,29 @@ export default function IamManagement() {
           <SafetyCertificateOutlined />
           <span>
             区域账号<strong>{assigned}</strong>
-            <small>按分配区域裁剪数据</small>
+            <small>{pendingAuthorizationRequests} 条授权待审批</small>
           </span>
         </article>
+      </section>
+
+      <section className={styles.panel}>
+        <header>
+          <div>
+            <h2>授权变更审批</h2>
+            <p>申请人与审批人必须为不同账号；批准时校验用户版本并原子应用角色和区域权限。</p>
+          </div>
+          <Tag color={pendingAuthorizationRequests ? 'processing' : 'default'}>
+            {pendingAuthorizationRequests} 条待审批
+          </Tag>
+        </header>
+        <Table
+          rowKey="id"
+          loading={loading}
+          columns={authorizationRequestColumns}
+          dataSource={authorizationRequests}
+          pagination={{ pageSize: 5, hideOnSinglePage: true }}
+          size="small"
+        />
       </section>
 
       <section className={styles.panel}>
@@ -536,7 +701,7 @@ export default function IamManagement() {
         title={creating ? '新增用户' : `用户授权 · ${editing?.name ?? ''}`}
         open={creating || Boolean(editing)}
         confirmLoading={saving}
-        okText={creating ? '创建用户' : '保存授权'}
+        okText={creating ? '创建用户' : '提交审批'}
         cancelText="取消"
         onOk={() => void save()}
         onCancel={() => {
@@ -642,6 +807,19 @@ export default function IamManagement() {
               }))}
             />
           </Form.Item>
+          {!creating && (
+            <Form.Item
+              name="reason"
+              label="变更原因"
+              rules={[
+                { required: true, whitespace: true, message: '请填写授权变更原因' },
+                { min: 2, max: 300 },
+              ]}
+              extra="提交后由另一名系统管理员审批，批准前不会改变当前权限。"
+            >
+              <Input.TextArea rows={3} maxLength={300} showCount />
+            </Form.Item>
+          )}
         </Form>
       </Modal>
 
@@ -710,6 +888,49 @@ export default function IamManagement() {
               } 个用户；权限调整立即生效，数据范围类型需先移除用户授权后才能修改。`}
             />
           )}
+        </Form>
+      </Modal>
+
+      <Modal
+        title={`${reviewForm.getFieldValue('decision') === 'reject' ? '驳回' : '批准'}授权变更 · ${
+          reviewing?.targetUser?.name ?? ''
+        }`}
+        open={Boolean(reviewing)}
+        confirmLoading={saving}
+        okText="确认审批"
+        cancelText="取消"
+        onOk={() => void reviewAuthorization()}
+        onCancel={() => !saving && setReviewing(undefined)}
+      >
+        <Alert
+          type="info"
+          showIcon
+          message={`申请人：${reviewing?.requestedByName ?? '—'}；申请原因：${
+            reviewing?.reason ?? '—'
+          }`}
+          style={{ marginBottom: 16 }}
+        />
+        <Form form={reviewForm} layout="vertical">
+          <Form.Item name="decision" hidden>
+            <Input />
+          </Form.Item>
+          <Form.Item
+            name="opinion"
+            label="审批意见"
+            rules={[
+              {
+                validator: async (_, value) => {
+                  if (reviewForm.getFieldValue('decision') === 'reject' && !value?.trim()) {
+                    throw new Error('驳回时必须填写审批意见');
+                  }
+                },
+              },
+              { max: 300 },
+            ]}
+          >
+            <Input.TextArea rows={3} maxLength={300} showCount />
+          </Form.Item>
+          <Alert type="warning" showIcon message="申请人不能审批本人提交的授权变更。" />
         </Form>
       </Modal>
 

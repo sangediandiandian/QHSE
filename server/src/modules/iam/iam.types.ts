@@ -100,3 +100,28 @@ export interface AuthPrincipal {
   areaIds: string[];
   passwordChangeRequired: boolean;
 }
+
+export interface ProposedUserAuthorization {
+  status: UserAccount['status'];
+  organizationId: string;
+  roleCodes: string[];
+  areaIds: string[];
+}
+
+export interface IamAuthorizationRequest {
+  id: string;
+  targetUserId: string;
+  requestedById: string;
+  requestedByName: string;
+  proposedAuthorization: ProposedUserAuthorization;
+  expectedUserVersion: number;
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected';
+  reviewedById?: string;
+  reviewedByName?: string;
+  opinion?: string;
+  reviewedAt?: string;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
