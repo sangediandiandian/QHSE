@@ -22,13 +22,15 @@ describe('IAM repositories', () => {
       },
       'user-admin',
     );
+    await first.updatePassword('user-operator', 'ResetPass-2026', true);
 
     const reloaded = new IamService(repository);
     await reloaded.onModuleInit();
     expect(reloaded.listUsers().find((user) => user.id === 'user-operator')).toMatchObject({
       organizationId: 'org-storage',
       areaIds: ['area-05'],
-      version: 2,
+      passwordChangeRequired: true,
+      version: 3,
     });
   });
 
@@ -92,6 +94,7 @@ describe('IAM repositories', () => {
             areaAssignments: [{ areaId: 'area-1' }],
           },
         ]),
+        update: jest.fn().mockResolvedValue({ tokenVersion: 5 }),
       },
       $transaction: jest.fn((callback) => callback(transaction)),
     };
@@ -106,6 +109,7 @@ describe('IAM repositories', () => {
           id: 'user-1',
           username: 'unit',
           passwordHash: 'scrypt$salt$hash',
+          passwordChangeRequired: false,
           name: '装置负责人',
           title: '负责人',
           organizationId: 'org-1',
@@ -135,6 +139,7 @@ describe('IAM repositories', () => {
         id: 'user-2',
         username: 'new-user',
         passwordHash: 'scrypt$new-salt$new-hash',
+        passwordChangeRequired: false,
         name: '新用户',
         title: '操作员',
         organizationId: 'org-1',
@@ -154,6 +159,17 @@ describe('IAM repositories', () => {
         status: 'enabled',
         tokenVersion: 1,
       },
+    });
+    await expect(
+      repository.updatePassword('user-1', 'scrypt-change$new-salt$new-hash'),
+    ).resolves.toBe(5);
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: {
+        passwordHash: 'scrypt-change$new-salt$new-hash',
+        tokenVersion: { increment: 1 },
+      },
+      select: { tokenVersion: true },
     });
   });
 
@@ -175,6 +191,7 @@ describe('IAM repositories', () => {
           id: 'user-1',
           username: 'unit',
           passwordHash: 'scrypt$salt$hash',
+          passwordChangeRequired: false,
           name: '装置负责人',
           title: '负责人',
           organizationId: 'org-1',

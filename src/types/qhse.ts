@@ -1161,6 +1161,7 @@ export interface IamUser {
   roleCodes: string[];
   areaIds: string[];
   status: 'enabled' | 'disabled';
+  passwordChangeRequired?: boolean;
   version: number;
   organization?: Omit<IamOrganization, 'areas'>;
   roles: IamRole[];

@@ -1,7 +1,12 @@
 /** @jest-environment node */
 
 import { request } from '@umijs/max';
-import { createIamUser, getIamOverview, updateUserAuthorization } from './iam';
+import {
+  createIamUser,
+  getIamOverview,
+  resetIamUserPassword,
+  updateUserAuthorization,
+} from './iam';
 
 jest.mock('@umijs/max', () => ({ request: jest.fn() }));
 
@@ -54,6 +59,18 @@ describe('iam service', () => {
     expect(requestMock).toHaveBeenCalledWith('/api/v1/iam/users', {
       method: 'POST',
       data: input,
+    });
+  });
+
+  test('管理员重置密码只提交临时密码', async () => {
+    requestMock.mockResolvedValue({
+      data: { passwordReset: true, passwordChangeRequired: true },
+    });
+
+    await resetIamUserPassword('user-1', 'ResetPass-2026');
+    expect(requestMock).toHaveBeenCalledWith('/api/v1/auth/users/user-1/password-reset', {
+      method: 'PUT',
+      data: { temporaryPassword: 'ResetPass-2026' },
     });
   });
 });

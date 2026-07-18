@@ -26,17 +26,30 @@ export async function outLogin(options?: { [key: string]: any }) {
 
 /** 登录接口 POST /api/login/account */
 export async function login(body: API.LoginParams, options?: { [key: string]: any }) {
-  const response = await request<API.LoginResult & { data?: API.LoginResult }>('/api/login/account', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
+  const response = await request<API.LoginResult & { data?: API.LoginResult }>(
+    '/api/login/account',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      data: body,
+      ...(options || {}),
     },
-    data: body,
-    ...(options || {}),
-  });
+  );
   const result = response.data?.status ? response.data : response;
   if (result.accessToken) localStorage.setItem('qhse_access_token', result.accessToken);
   return result;
+}
+
+export async function changePassword(body: { currentPassword: string; newPassword: string }) {
+  return request<{ data: { passwordChanged: boolean; reauthenticationRequired: boolean } }>(
+    '/api/v1/auth/password',
+    {
+      method: 'PUT',
+      data: body,
+    },
+  );
 }
 
 /** 此处后端没有提供注释 GET /api/notices */

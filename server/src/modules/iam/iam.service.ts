@@ -6,7 +6,7 @@ import {
   type OnModuleInit,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { hashPassword } from '../auth/password';
+import { hashPassword, requiresPasswordChange } from '../auth/password';
 import type { CreateUserDto, UpdateUserAuthorizationDto } from './iam.dto';
 import { InMemoryIamRepository } from './in-memory-iam.repository';
 import {
@@ -81,7 +81,8 @@ export class IamService implements OnModuleInit {
     const user: UserAccount = {
       id: this.createId(),
       username,
-      passwordHash: hashPassword(input.initialPassword),
+      passwordHash: hashPassword(input.initialPassword, true),
+      passwordChangeRequired: true,
       name: input.name.trim(),
       title: input.title.trim(),
       organizationId: input.organizationId,
@@ -145,6 +146,26 @@ export class IamService implements OnModuleInit {
     }
   }
 
+  async updatePassword(id: string, password: string, changeRequired: boolean) {
+    const user = this.findUserById(id);
+    if (!user) {
+      throw new NotFoundException({ code: 'IAM_USER_NOT_FOUND', message: '用户不存在' });
+    }
+    try {
+      const passwordHash = hashPassword(password, changeRequired);
+      const version = await this.repository.updatePassword(id, passwordHash);
+      user.passwordHash = passwordHash;
+      user.passwordChangeRequired = changeRequired;
+      this.versions.set(id, version);
+      return this.toManagedUser(user);
+    } catch (error) {
+      if (error instanceof IamUserNotFoundError) {
+        throw new NotFoundException({ code: 'IAM_USER_NOT_FOUND', message: '用户不存在' });
+      }
+      throw error;
+    }
+  }
+
   createPrincipal(user: UserAccount): AuthPrincipal {
     const assignedRoles = this.roles.filter((role) => user.roleCodes.includes(role.code));
     const granted = new Set<Permission>(assignedRoles.flatMap((role) => role.permissions));
@@ -157,6 +178,7 @@ export class IamService implements OnModuleInit {
       permissions: [...granted],
       dataScope: assignedRoles.some((role) => role.dataScope === 'all') ? 'all' : 'assigned_areas',
       areaIds: [...user.areaIds],
+      passwordChangeRequired: user.passwordChangeRequired,
     };
   }
 
@@ -168,6 +190,7 @@ export class IamService implements OnModuleInit {
       title: user.title,
       organizationId: user.organizationId,
       status: user.status,
+      passwordChangeRequired: user.passwordChangeRequired,
       roleCodes: [...user.roleCodes],
       areaIds: [...user.areaIds],
       version: this.versions.get(user.id) ?? 1,
@@ -213,6 +236,8 @@ export class IamService implements OnModuleInit {
       id: user.id,
       username: user.username,
       passwordHash: user.passwordHash,
+      passwordChangeRequired:
+        user.passwordChangeRequired ?? requiresPasswordChange(user.passwordHash),
       name: user.name,
       title: user.title,
       organizationId: user.organizationId,

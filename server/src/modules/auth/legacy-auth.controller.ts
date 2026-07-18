@@ -8,6 +8,7 @@ import { CurrentPrincipal } from './current-principal.decorator';
 import { CurrentRequest } from './current-request.decorator';
 import { LoginDto } from './dto/login.dto';
 import { Public } from './public.decorator';
+import { AllowPasswordChange } from './password-change.decorator';
 
 @ApiExcludeController()
 @Controller()
@@ -33,6 +34,7 @@ export class LegacyAuthController {
   }
 
   @Get('currentUser')
+  @AllowPasswordChange()
   getCurrentUser(@CurrentPrincipal() principal: AuthPrincipal) {
     return {
       userid: principal.userId,
@@ -43,11 +45,13 @@ export class LegacyAuthController {
       permissions: principal.permissions,
       dataScope: principal.dataScope,
       areaIds: principal.areaIds,
+      passwordChangeRequired: principal.passwordChangeRequired,
     };
   }
 
   @Post('login/outLogin')
   @HttpCode(200)
+  @AllowPasswordChange()
   @AuditAction({ action: 'auth.logout', resourceType: 'session' })
   async logout(@CurrentRequest() request: RequestWithId) {
     await this.authService.logout(request.accessToken || '');

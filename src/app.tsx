@@ -8,6 +8,7 @@ import defaultSettings from '../config/defaultSettings';
 import { errorConfig } from './requestErrorConfig';
 
 const loginPath = '/user/login';
+const changePasswordPath = '/user/change-password';
 
 /**
  * @see  https://umijs.org/zh-CN/plugins/plugin-initial-state
@@ -33,6 +34,15 @@ export async function getInitialState(): Promise<{
   const { location } = history;
   if (location.pathname !== loginPath) {
     const currentUser = await fetchUserInfo();
+    if (currentUser?.passwordChangeRequired && location.pathname !== changePasswordPath) {
+      history.replace(changePasswordPath);
+    } else if (
+      currentUser &&
+      !currentUser.passwordChangeRequired &&
+      location.pathname === changePasswordPath
+    ) {
+      history.replace('/dashboard');
+    }
     return {
       fetchUserInfo,
       currentUser,

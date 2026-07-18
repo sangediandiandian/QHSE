@@ -1,7 +1,7 @@
 /** @jest-environment node */
 
 import { scryptSync } from 'node:crypto';
-import { hashPassword, verifyPassword } from './password';
+import { hashPassword, requiresPasswordChange, verifyPassword } from './password';
 
 describe('password hashing', () => {
   test('同一密码使用独立随机盐并可安全校验', () => {
@@ -19,5 +19,12 @@ describe('password hashing', () => {
 
     expect(verifyPassword('ant.design', legacy)).toBe(true);
     expect(verifyPassword('wrong-pass', legacy)).toBe(false);
+  });
+
+  test('初始密码摘要可标记首次登录必须改密', () => {
+    const encoded = hashPassword('TempPass-2026', true);
+    expect(requiresPasswordChange(encoded)).toBe(true);
+    expect(verifyPassword('TempPass-2026', encoded)).toBe(true);
+    expect(requiresPasswordChange(hashPassword('NewPass-2026'))).toBe(false);
   });
 });

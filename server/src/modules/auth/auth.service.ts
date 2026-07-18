@@ -1,5 +1,11 @@
-import { Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
-import { randomBytes } from 'node:crypto';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { createHash, randomBytes } from 'node:crypto';
 import { IamService } from '../iam/iam.service';
 import { LoginAttemptLimiterService } from './login-attempt-limiter.service';
 import { SessionStoreService } from '../../infrastructure/session/session-store.service';
@@ -35,7 +41,12 @@ export class AuthService {
     try {
       await this.sessions.create(
         accessToken,
-        { principal, expiresAt: now + this.sessionTtlMs, createdAt: now },
+        {
+          principal,
+          credentialVersion: this.credentialVersion(user.passwordHash),
+          expiresAt: now + this.sessionTtlMs,
+          createdAt: now,
+        },
         this.sessionTtlMs,
         5,
       );
@@ -47,7 +58,36 @@ export class AuthService {
       tokenType: 'Bearer',
       expiresIn: this.sessionTtlMs / 1000,
       user: principal,
+      passwordChangeRequired: principal.passwordChangeRequired,
     };
+  }
+
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    const user = this.iamService.findUserById(userId);
+    if (!user || !verifyPassword(currentPassword, user.passwordHash)) {
+      throw new BadRequestException({
+        code: 'CURRENT_PASSWORD_INVALID',
+        message: '当前密码不正确',
+      });
+    }
+    if (verifyPassword(newPassword, user.passwordHash)) {
+      throw new BadRequestException({
+        code: 'PASSWORD_UNCHANGED',
+        message: '新密码不能与当前密码相同',
+      });
+    }
+    await this.iamService.updatePassword(userId, newPassword, false);
+    await this.sessions.deleteUser(userId).catch(() => undefined);
+    return { passwordChanged: true, reauthenticationRequired: true };
+  }
+
+  async resetPassword(userId: string, temporaryPassword: string) {
+    if (!this.iamService.findUserById(userId)) {
+      throw new NotFoundException({ code: 'IAM_USER_NOT_FOUND', message: '用户不存在' });
+    }
+    const user = await this.iamService.updatePassword(userId, temporaryPassword, true);
+    await this.sessions.deleteUser(userId).catch(() => undefined);
+    return { passwordReset: true, passwordChangeRequired: true, user };
   }
 
   async authenticate(accessToken: string) {
@@ -65,7 +105,11 @@ export class AuthService {
       });
     }
     const user = this.iamService.findUserById(session.principal.userId);
-    if (!user || user.status !== 'enabled') {
+    if (
+      !user ||
+      user.status !== 'enabled' ||
+      session.credentialVersion !== this.credentialVersion(user.passwordHash)
+    ) {
       await this.sessions.delete(accessToken).catch(() => undefined);
       throw new UnauthorizedException({
         code: 'SESSION_INVALID',
@@ -88,5 +132,9 @@ export class AuthService {
       code: 'SESSION_STORE_UNAVAILABLE',
       message: '登录服务暂不可用，请稍后重试',
     });
+  }
+
+  private credentialVersion(passwordHash: string) {
+    return createHash('sha256').update(passwordHash).digest('hex');
   }
 }

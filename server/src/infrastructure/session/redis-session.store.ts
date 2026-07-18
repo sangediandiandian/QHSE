@@ -61,6 +61,18 @@ export class RedisSessionStore implements SessionStore {
     await transaction.exec();
   }
 
+  async deleteUser(userId: string, exceptToken?: string) {
+    await this.connect();
+    const userKey = this.userKey(userId);
+    const tokens = await this.client.zRange(userKey, 0, -1);
+    const revoked = tokens.filter((token) => token !== exceptToken);
+    if (!revoked.length) return;
+    const transaction = this.client.multi();
+    revoked.forEach((token) => transaction.del(this.key(token)));
+    transaction.zRem(userKey, revoked);
+    await transaction.exec();
+  }
+
   async ping() {
     await this.connect();
     await this.client.ping();

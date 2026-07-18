@@ -19,6 +19,7 @@ declare namespace API {
     permissions?: string[];
     dataScope?: 'all' | 'assigned_areas';
     areaIds?: string[];
+    passwordChangeRequired?: boolean;
     geographic?: {
       province?: { label?: string; key?: string };
       city?: { label?: string; key?: string };
@@ -32,6 +33,7 @@ declare namespace API {
     type?: string;
     currentAuthority?: string;
     accessToken?: string;
+    passwordChangeRequired?: boolean;
   };
 
   type PageParams = {

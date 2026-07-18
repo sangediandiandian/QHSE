@@ -56,3 +56,13 @@ export async function createIamUser(input: CreateIamUserInput) {
   });
   return response.data;
 }
+
+export async function resetIamUserPassword(userId: string, temporaryPassword: string) {
+  const response = await request<
+    ApiResponse<{ passwordReset: boolean; passwordChangeRequired: boolean; user: IamUser }>
+  >(`/api/v1/auth/users/${userId}/password-reset`, {
+    method: 'PUT',
+    data: { temporaryPassword },
+  });
+  return response.data;
+}

@@ -26,5 +26,6 @@ export class IamVersionConflictError extends Error {
 export interface IamRepository {
   loadSnapshot(): Promise<IamSnapshot>;
   createUser(user: UserAccount): Promise<number>;
+  updatePassword(userId: string, passwordHash: string): Promise<number>;
   updateUserAuthorization(user: UserAccount, expectedVersion: number): Promise<number>;
 }

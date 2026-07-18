@@ -120,6 +120,11 @@ const Login: React.FC = () => {
       // 登录
       const msg = await login({ ...values, type });
       if (msg.status === 'ok') {
+        if (msg.passwordChangeRequired) {
+          message.warning('首次登录或密码已重置，请先设置新密码');
+          history.push('/user/change-password');
+          return;
+        }
         const defaultLoginSuccessMessage = intl.formatMessage({
           id: 'pages.login.success',
           defaultMessage: '登录成功！',

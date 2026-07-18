@@ -29,6 +29,14 @@ export class MemorySessionStore implements SessionStore {
     this.sessions.delete(token);
   }
 
+  async deleteUser(userId: string, exceptToken?: string) {
+    for (const [token, session] of this.sessions) {
+      if (session.principal.userId === userId && token !== exceptToken) {
+        this.sessions.delete(token);
+      }
+    }
+  }
+
   async ping() {}
 
   async close() {

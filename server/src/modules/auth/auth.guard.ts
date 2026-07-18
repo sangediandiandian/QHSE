@@ -11,6 +11,7 @@ import type { RequestWithId } from '../../common/request-context.middleware';
 import { AuditService } from '../audit/audit.service';
 import type { Permission } from '../iam/iam.types';
 import { AuthService } from './auth.service';
+import { ALLOW_PASSWORD_CHANGE_KEY } from './password-change.decorator';
 import { IS_PUBLIC_KEY } from './public.decorator';
 import { REQUIRED_PERMISSIONS_KEY } from './permissions.decorator';
 
@@ -49,13 +50,29 @@ export class AuthGuard implements CanActivate {
       );
       throw error;
     }
-    const required = this.reflector.getAllAndOverride<Permission[]>(REQUIRED_PERMISSIONS_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]) ?? [];
-    const missing = required.filter((permission) => !request.principal?.permissions.includes(permission));
+    const allowsPasswordChange = this.reflector.getAllAndOverride<boolean>(
+      ALLOW_PASSWORD_CHANGE_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+    if (request.principal.passwordChangeRequired && !allowsPasswordChange) {
+      this.recordSecurityFailure(request, 'security.password_change_required');
+      throw new ForbiddenException({
+        code: 'PASSWORD_CHANGE_REQUIRED',
+        message: '首次登录或密码重置后必须先修改密码',
+      });
+    }
+    const required =
+      this.reflector.getAllAndOverride<Permission[]>(REQUIRED_PERMISSIONS_KEY, [
+        context.getHandler(),
+        context.getClass(),
+      ]) ?? [];
+    const missing = required.filter(
+      (permission) => !request.principal?.permissions.includes(permission),
+    );
     if (missing.length > 0) {
-      this.recordSecurityFailure(request, 'security.permission_denied', { missingPermissions: missing });
+      this.recordSecurityFailure(request, 'security.permission_denied', {
+        missingPermissions: missing,
+      });
       throw new ForbiddenException({
         code: 'PERMISSION_DENIED',
         message: '当前角色无权执行此操作',

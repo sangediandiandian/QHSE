@@ -1,9 +1,15 @@
 import type { UserAuthorizationInput } from '@/services/qhse/iam';
-import { createIamUser, getIamOverview, updateUserAuthorization } from '@/services/qhse/iam';
+import {
+  createIamUser,
+  getIamOverview,
+  resetIamUserPassword,
+  updateUserAuthorization,
+} from '@/services/qhse/iam';
 import type { IamOrganization, IamRole, IamUser } from '@/types/qhse';
 import {
   ApartmentOutlined,
   EditOutlined,
+  KeyOutlined,
   PlusOutlined,
   SafetyCertificateOutlined,
   TeamOutlined,
@@ -31,11 +37,13 @@ export default function IamManagement() {
   const [users, setUsers] = useState<IamUser[]>([]);
   const [editing, setEditing] = useState<IamUser>();
   const [creating, setCreating] = useState(false);
+  const [resetting, setResetting] = useState<IamUser>();
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<'all' | IamUser['status']>('all');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form] = Form.useForm<UserForm>();
+  const [resetForm] = Form.useForm<{ temporaryPassword: string }>();
   const selectedRoleCodes = Form.useWatch('roleCodes', form) ?? [];
   const allScope = roles.some(
     (role) => selectedRoleCodes.includes(role.code) && role.dataScope === 'all',
@@ -129,6 +137,23 @@ export default function IamManagement() {
     }
   };
 
+  const resetPassword = async () => {
+    if (!resetting) return;
+    const values = await resetForm.validateFields();
+    setSaving(true);
+    try {
+      const result = await resetIamUserPassword(resetting.id, values.temporaryPassword);
+      setUsers((current) =>
+        current.map((user) => (user.id === result.user.id ? result.user : user)),
+      );
+      setResetting(undefined);
+      resetForm.resetFields();
+      message.success('临时密码已重置，该用户的现有会话已失效');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const columns: ColumnsType<IamUser> = [
     {
       title: '用户',
@@ -169,25 +194,41 @@ export default function IamManagement() {
     {
       title: '状态',
       dataIndex: 'status',
-      render: (value) => (
-        <Tag color={value === 'enabled' ? 'success' : 'default'}>
-          {value === 'enabled' ? '启用' : '停用'}
-        </Tag>
+      render: (value, user) => (
+        <Space size={4}>
+          <Tag color={value === 'enabled' ? 'success' : 'default'}>
+            {value === 'enabled' ? '启用' : '停用'}
+          </Tag>
+          {user.passwordChangeRequired && <Tag color="warning">待改密</Tag>}
+        </Space>
       ),
     },
     { title: '版本', dataIndex: 'version', width: 70, render: (value) => `v${value}` },
     {
       title: '操作',
-      width: 100,
+      width: 190,
       render: (_, user) => (
-        <Button
-          type="link"
-          icon={<EditOutlined />}
-          disabled={!access.canAdmin}
-          onClick={() => open(user)}
-        >
-          授权
-        </Button>
+        <Space size={0}>
+          <Button
+            type="link"
+            icon={<EditOutlined />}
+            disabled={!access.canAdmin}
+            onClick={() => open(user)}
+          >
+            授权
+          </Button>
+          <Button
+            type="link"
+            icon={<KeyOutlined />}
+            disabled={!access.canAdmin}
+            onClick={() => {
+              setResetting(user);
+              resetForm.resetFields();
+            }}
+          >
+            重置密码
+          </Button>
+        </Space>
       ),
     },
   ];
@@ -389,6 +430,32 @@ export default function IamManagement() {
                 label: `${area.name} · ${area.code}`,
               }))}
             />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title={`重置密码 · ${resetting?.name ?? ''}`}
+        open={Boolean(resetting)}
+        confirmLoading={saving}
+        okText="确认重置"
+        cancelText="取消"
+        onOk={() => void resetPassword()}
+        onCancel={() => !saving && setResetting(undefined)}
+      >
+        <Alert
+          type="warning"
+          showIcon
+          message="重置后该用户的所有现有会话立即失效，下次登录必须修改临时密码。"
+          style={{ marginBottom: 16 }}
+        />
+        <Form form={resetForm} layout="vertical">
+          <Form.Item
+            name="temporaryPassword"
+            label="临时密码"
+            rules={[{ required: true, min: 8, max: 72 }]}
+          >
+            <Input.Password autoComplete="new-password" />
           </Form.Item>
         </Form>
       </Modal>

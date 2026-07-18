@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, type UserStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import { requiresPasswordChange } from '../auth/password';
 import {
   type IamRepository,
   IamUserNotFoundError,
@@ -51,6 +52,7 @@ export class PrismaIamRepository implements IamRepository {
         id: item.id,
         username: item.username,
         passwordHash: item.passwordHash,
+        passwordChangeRequired: requiresPasswordChange(item.passwordHash),
         name: item.name,
         title: item.title,
         organizationId: item.organizationId,
@@ -135,6 +137,22 @@ export class PrismaIamRepository implements IamRepository {
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new IamUsernameConflictError();
+      }
+      throw error;
+    }
+  }
+
+  async updatePassword(userId: string, passwordHash: string) {
+    try {
+      const updated = await this.prisma.user.update({
+        where: { id: userId },
+        data: { passwordHash, tokenVersion: { increment: 1 } },
+        select: { tokenVersion: true },
+      });
+      return updated.tokenVersion;
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        throw new IamUserNotFoundError();
       }
       throw error;
     }

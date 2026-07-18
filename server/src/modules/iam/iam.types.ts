@@ -80,6 +80,7 @@ export interface UserAccount {
   id: string;
   username: string;
   passwordHash: string;
+  passwordChangeRequired: boolean;
   name: string;
   title: string;
   organizationId: string;
@@ -97,4 +98,5 @@ export interface AuthPrincipal {
   permissions: Permission[];
   dataScope: DataScope;
   areaIds: string[];
+  passwordChangeRequired: boolean;
 }

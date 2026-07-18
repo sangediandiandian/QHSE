@@ -48,4 +48,17 @@ export class InMemoryIamRepository implements IamRepository {
     this.accounts.set(user.id, { ...clone(user), version: 1 });
     return 1;
   }
+
+  async updatePassword(userId: string, passwordHash: string) {
+    const current = this.accounts.get(userId);
+    if (!current) throw new IamUserNotFoundError();
+    const version = current.version + 1;
+    this.accounts.set(userId, {
+      ...current,
+      passwordHash,
+      passwordChangeRequired: passwordHash.startsWith('scrypt-change$'),
+      version,
+    });
+    return version;
+  }
 }

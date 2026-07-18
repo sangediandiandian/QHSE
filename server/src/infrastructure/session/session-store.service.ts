@@ -22,6 +22,10 @@ export class SessionStoreService implements OnModuleDestroy {
     return this.execute(() => this.store.delete(token));
   }
 
+  async deleteUser(userId: string, exceptToken?: string) {
+    return this.execute(() => this.store.deleteUser(userId, exceptToken));
+  }
+
   async check() {
     await this.execute(() => this.store.ping());
   }

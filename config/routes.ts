@@ -20,6 +20,10 @@ export default [
         path: '/user/login',
         component: './User/Login',
       },
+      {
+        path: '/user/change-password',
+        component: './User/ChangePassword',
+      },
     ],
   },
   {

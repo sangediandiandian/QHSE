@@ -52,10 +52,56 @@ describe('AuthService', () => {
 
     await expect(service.login('new_operator', 'TempPass-2026')).resolves.toMatchObject({
       user: { userId: 'user-created', roles: ['operator'] },
+      passwordChangeRequired: true,
     });
     await expect(service.login('new_operator', 'ant.design')).rejects.toThrow(
       UnauthorizedException,
     );
+  });
+
+  test('首次登录修改密码后撤销全部旧会话并要求重新登录', async () => {
+    const iam = new IamService(undefined, () => 'user-created');
+    await iam.createUser({
+      username: 'new_operator',
+      name: '新操作员',
+      title: '岗位操作员',
+      initialPassword: 'TempPass-2026',
+      organizationId: 'org-fcc',
+      roleCodes: ['operator'],
+      areaIds: ['area-02'],
+    });
+    const service = new AuthService(iam);
+    const first = await service.login('new_operator', 'TempPass-2026');
+    const second = await service.login('new_operator', 'TempPass-2026');
+
+    await expect(
+      service.changePassword('user-created', 'TempPass-2026', 'PrivatePass-2026'),
+    ).resolves.toEqual({ passwordChanged: true, reauthenticationRequired: true });
+    await expect(service.authenticate(first.accessToken)).rejects.toThrow(UnauthorizedException);
+    await expect(service.authenticate(second.accessToken)).rejects.toThrow(UnauthorizedException);
+    await expect(service.login('new_operator', 'TempPass-2026')).rejects.toThrow(
+      UnauthorizedException,
+    );
+    await expect(service.login('new_operator', 'PrivatePass-2026')).resolves.toMatchObject({
+      passwordChangeRequired: false,
+    });
+  });
+
+  test('管理员重置密码后撤销全部会话并恢复强制改密', async () => {
+    const iam = new IamService();
+    const service = new AuthService(iam);
+    const session = await service.login('operator', 'ant.design');
+
+    await expect(service.resetPassword('user-operator', 'ResetPass-2026')).resolves.toMatchObject({
+      passwordReset: true,
+      passwordChangeRequired: true,
+      user: { id: 'user-operator', passwordChangeRequired: true },
+    });
+    await expect(service.authenticate(session.accessToken)).rejects.toThrow(UnauthorizedException);
+    await expect(service.login('operator', 'ant.design')).rejects.toThrow(UnauthorizedException);
+    await expect(service.login('operator', 'ResetPass-2026')).resolves.toMatchObject({
+      passwordChangeRequired: true,
+    });
   });
 
   test('错误密码被拒绝且不会返回用户信息', async () => {

@@ -54,4 +54,31 @@ describe('SessionStoreService', () => {
     await service.delete('logout');
     await expect(service.get('logout')).resolves.toBeUndefined();
   });
+
+  test('可按用户撤销会话并保留当前改密会话', async () => {
+    const service = new SessionStoreService(new MemorySessionStore(() => 0));
+    await service.create(
+      'current',
+      { principal: principal('user-a'), createdAt: 1, expiresAt: 100 },
+      100,
+      5,
+    );
+    await service.create(
+      'other',
+      { principal: principal('user-a'), createdAt: 2, expiresAt: 100 },
+      100,
+      5,
+    );
+    await service.create(
+      'unrelated',
+      { principal: principal('user-b'), createdAt: 3, expiresAt: 100 },
+      100,
+      5,
+    );
+
+    await service.deleteUser('user-a', 'current');
+    await expect(service.get('current')).resolves.toBeDefined();
+    await expect(service.get('other')).resolves.toBeUndefined();
+    await expect(service.get('unrelated')).resolves.toBeDefined();
+  });
 });
