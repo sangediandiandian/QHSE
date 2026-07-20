@@ -1,10 +1,11 @@
 import type { Hazard, HazardEvidenceInput, HazardReportInput, HazardStatus } from '@/types/qhse';
-import { CheckCircleFilled, ClockCircleFilled, DownloadOutlined, ExclamationCircleFilled, FileAddOutlined, SearchOutlined, SyncOutlined, UploadOutlined, WarningFilled } from '@ant-design/icons';
+import { CameraOutlined, CheckCircleFilled, ClockCircleFilled, DownloadOutlined, ExclamationCircleFilled, FileAddOutlined, SearchOutlined, SyncOutlined, UploadOutlined, WarningFilled } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
 import { useAccess, useModel } from '@umijs/max';
-import { Button, Descriptions, Empty, Form, Input, Modal, Segmented, Select, Skeleton, Space, Tag, Timeline, Upload, message } from 'antd';
+import { Button, Descriptions, Empty, Form, Image, Input, Modal, Segmented, Select, Skeleton, Space, Tag, Timeline, Upload, message } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
 import { downloadAttachment, uploadAttachment } from '@/services/qhse/attachments';
+import { cameraAccept, getCapturedEvidenceDefaults, getEvidenceCategory } from '@/utils/evidenceCapture';
 import styles from './index.less';
 
 const statusColor: Record<HazardStatus, string> = { 待整改: 'error', 整改中: 'processing', 待验收: 'warning', 已关闭: 'success' };
@@ -33,11 +34,18 @@ export default function HazardManagement() {
   const [acceptOpen, setAcceptOpen] = useState(false);
   const [mutating, setMutating] = useState(false);
   const [evidenceFile, setEvidenceFile] = useState<File>();
+  const [evidencePreviewUrl, setEvidencePreviewUrl] = useState<string>();
   const [createForm] = Form.useForm<HazardReportInput>();
   const [evidenceForm] = Form.useForm<HazardEvidenceInput>();
   const [acceptForm] = Form.useForm<{ opinion: string }>();
 
   useEffect(() => { void loadHazards(); }, [loadHazards]);
+  useEffect(() => () => { if (evidencePreviewUrl) URL.revokeObjectURL(evidencePreviewUrl); }, [evidencePreviewUrl]);
+
+  const selectEvidenceFile = (file?: File) => {
+    setEvidenceFile(file);
+    setEvidencePreviewUrl(file?.type.startsWith('image/') ? URL.createObjectURL(file) : undefined);
+  };
 
   const hazards = useMemo(() => hazardRecords.filter((hazard) => {
     const keyword = query.trim().toLowerCase();
@@ -121,8 +129,8 @@ export default function HazardManagement() {
         <Form form={createForm} layout="vertical"><Form.Item name="title" label="隐患标题" rules={[{ required: true }]}><Input /></Form.Item><div className={styles.formGrid}><Form.Item name="riskUnitId" label="风险单元" rules={[{ required: true }]}><Select showSearch optionFilterProp="label" options={hazardRiskUnits.map((item) => ({ value: item.id, label: `${item.areaName} / ${item.name}` }))} /></Form.Item><Form.Item name="level" label="隐患等级" rules={[{ required: true }]}><Select options={['一般', '较大', '重大'].map((value) => ({ value }))} /></Form.Item><Form.Item name="source" label="排查来源" rules={[{ required: true }]}><Select options={['现场检查', '预警转化', '专项检查', '复盘整改'].map((value) => ({ value }))} /></Form.Item><Form.Item name="category" label="隐患类别" rules={[{ required: true }]}><Input placeholder="设备设施 / 作业环境" /></Form.Item><Form.Item name="ownerDepartment" label="责任部门" rules={[{ required: true }]}><Input /></Form.Item><Form.Item name="owner" label="责任人" rules={[{ required: true }]}><Input /></Form.Item><Form.Item name="discoveredAt" label="发现日期" rules={[{ required: true }]}><Input placeholder="YYYY-MM-DD" /></Form.Item><Form.Item name="deadline" label="整改期限" rules={[{ required: true }]}><Input placeholder="YYYY-MM-DD" /></Form.Item></div><Form.Item name="description" label="问题描述" rules={[{ required: true }]}><Input.TextArea rows={3} /></Form.Item><Form.Item name="measures" label="整改措施" rules={[{ required: true }]}><Select mode="tags" placeholder="输入措施后回车" /></Form.Item></Form>
       </Modal>
 
-      <Modal title={`添加整改证据 · ${selected?.code ?? ''}`} open={evidenceOpen} confirmLoading={mutating} onCancel={() => { setEvidenceOpen(false); setEvidenceFile(undefined); }} onOk={() => evidenceForm.validateFields().then(async (values) => { if (!selected) return; if (hazardApiMode && !evidenceFile) { message.warning('请选择证据文件'); return; } setMutating(true); try { const attachment = hazardApiMode && evidenceFile ? await uploadAttachment(evidenceFile, selected.areaId) : undefined; await addHazardEvidence(selected.id, { ...values, objectId: attachment?.id }); setEvidenceOpen(false); setEvidenceFile(undefined); evidenceForm.resetFields(); message.success('整改证据已归档'); } finally { setMutating(false); } })} okText="归档证据">
-        <Form form={evidenceForm} layout="vertical">{hazardApiMode && <Form.Item label="证据文件" required><Upload maxCount={1} fileList={evidenceFile ? [{ uid: 'evidence', name: evidenceFile.name, status: 'done' }] : []} beforeUpload={(file) => { setEvidenceFile(file); evidenceForm.setFieldValue('name', file.name); return false; }} onRemove={() => { setEvidenceFile(undefined); return true; }}><Button icon={<UploadOutlined />} disabled={!access.canUploadAttachment}>选择文件</Button></Upload></Form.Item>}<Form.Item name="name" label="证据名称" rules={[{ required: true }]}><Input placeholder="例：整改后现场照片-01" /></Form.Item><Form.Item name="category" label="证据阶段" rules={[{ required: true }]}><Select options={['整改前', '整改过程', '整改完成'].map((value) => ({ value }))} /></Form.Item><Form.Item name="note" label="证据说明" rules={[{ required: true }]}><Input.TextArea rows={3} /></Form.Item><p className={styles.formHint}>{hazardApiMode ? '文件经服务端校验并计算 SHA-256，按当前账号区域权限归档。' : '当前原型仅记录附件元数据和本地指纹。'}</p></Form>
+      <Modal title={`添加整改证据 · ${selected?.code ?? ''}`} open={evidenceOpen} confirmLoading={mutating} onCancel={() => { setEvidenceOpen(false); selectEvidenceFile(); }} onOk={() => evidenceForm.validateFields().then(async (values) => { if (!selected) return; if (hazardApiMode && !evidenceFile) { message.warning('请选择证据文件'); return; } setMutating(true); try { const attachment = hazardApiMode && evidenceFile ? await uploadAttachment(evidenceFile, selected.areaId) : undefined; await addHazardEvidence(selected.id, { ...values, objectId: attachment?.id }); setEvidenceOpen(false); selectEvidenceFile(); evidenceForm.resetFields(); message.success('整改证据已归档'); } finally { setMutating(false); } })} okText="归档证据">
+        <Form form={evidenceForm} layout="vertical">{hazardApiMode && <Form.Item label="证据文件" required><div className={styles.captureActions}><Upload accept={cameraAccept} capture="environment" maxCount={1} showUploadList={false} beforeUpload={(file) => { const defaults = getCapturedEvidenceDefaults(file, new Date()); selectEvidenceFile(file); evidenceForm.setFieldsValue({ ...defaults, category: getEvidenceCategory(selected?.status ?? '') }); return false; }}><Button type="primary" icon={<CameraOutlined />} disabled={!access.canUploadAttachment}>拍摄现场照片</Button></Upload><Upload maxCount={1} showUploadList={false} beforeUpload={(file) => { selectEvidenceFile(file); evidenceForm.setFieldValue('name', file.name); if (!evidenceForm.getFieldValue('category')) evidenceForm.setFieldValue('category', getEvidenceCategory(selected?.status ?? '')); return false; }}><Button icon={<UploadOutlined />} disabled={!access.canUploadAttachment}>选择已有文件</Button></Upload></div>{evidenceFile && <div className={styles.selectedFile}>{evidencePreviewUrl && <Image src={evidencePreviewUrl} width={64} height={48} preview={false} />}<span><strong>{evidenceFile.name}</strong><small>{evidenceFile.type || '未知类型'} · {(evidenceFile.size / 1024).toFixed(1)} KB</small></span><Button type="link" size="small" onClick={() => selectEvidenceFile()}>移除</Button></div>}</Form.Item>}<Form.Item name="name" label="证据名称" rules={[{ required: true }]}><Input placeholder="例：整改后现场照片-01" /></Form.Item><Form.Item name="category" label="证据阶段" rules={[{ required: true }]}><Select options={['整改前', '整改过程', '整改完成'].map((value) => ({ value }))} /></Form.Item><Form.Item name="note" label="证据说明" rules={[{ required: true }]}><Input.TextArea rows={3} /></Form.Item><p className={styles.formHint}>{hazardApiMode ? '移动端可调用后置摄像头；照片经服务端校验并计算 SHA-256，按当前账号区域权限归档。' : '当前原型仅记录附件元数据和本地指纹。'}</p></Form>
       </Modal>
 
       <Modal title={`验收隐患 · ${selected?.code ?? ''}`} open={acceptOpen} confirmLoading={mutating} onCancel={() => setAcceptOpen(false)} onOk={() => acceptForm.validateFields().then(async ({ opinion }) => { if (!selected) return; setMutating(true); try { await acceptHazard(selected.id, opinion); setAcceptOpen(false); message.success('隐患已验收关闭'); } finally { setMutating(false); } })} okText="验收关闭"><Form form={acceptForm} layout="vertical"><Form.Item name="opinion" label="验收意见" rules={[{ required: true }]}><Input.TextArea rows={4} /></Form.Item></Form></Modal>
