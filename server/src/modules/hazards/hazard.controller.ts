@@ -11,6 +11,7 @@ import { CurrentPrincipal } from '../auth/current-principal.decorator';
 import { RequirePermissions } from '../auth/permissions.decorator';
 import type { AuthPrincipal } from '../iam/iam.types';
 import { AddHazardEvidenceDto } from './dto/add-hazard-evidence.dto';
+import { CheckHazardDuplicatesDto } from './dto/check-hazard-duplicates.dto';
 import { CloseHazardDto } from './dto/close-hazard.dto';
 import { CreateHazardDto } from './dto/create-hazard.dto';
 import { HazardQueryDto } from './dto/hazard-query.dto';
@@ -58,6 +59,17 @@ export class HazardController {
   @ApiCreatedResponse({ description: '已生成整改任务的隐患' })
   create(@Body() input: CreateHazardDto, @CurrentPrincipal() principal: AuthPrincipal) {
     return this.hazardService.create(input, getAccess(principal));
+  }
+
+  @Post('duplicates/check')
+  @RequirePermissions('hazard:read')
+  @HttpCode(200)
+  @ApiOperation({ summary: '检查同风险单元、同类别的历史重复隐患' })
+  findDuplicates(
+    @Body() input: CheckHazardDuplicatesDto,
+    @CurrentPrincipal() principal: AuthPrincipal,
+  ) {
+    return this.hazardService.findDuplicates(input, getAllowedAreaIds(principal));
   }
 
   @Post('reminders/run')

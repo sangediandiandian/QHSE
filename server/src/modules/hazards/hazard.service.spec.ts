@@ -64,6 +64,50 @@ describe('HazardService', () => {
     });
   });
 
+  test('按风险单元、类别和标题相似度识别历史同类隐患', async () => {
+    const service = createService();
+    const candidates = await service.findDuplicates({
+      title: 'P-208 高温泵法兰垫片选型需要复核',
+      riskUnitId: 'risk-001',
+      category: '设备完整性',
+    });
+
+    expect(candidates).toEqual([
+      expect.objectContaining({
+        id: 'hazard-001',
+        code: 'YH20260711001',
+        similarity: expect.any(Number),
+      }),
+    ]);
+
+    const created = await service.create(
+      {
+        title: 'P-208 高温泵法兰垫片选型需要复核',
+        riskUnitId: 'risk-001',
+        level: '较大',
+        source: '现场检查',
+        category: '设备完整性',
+        ownerDepartment: '设备管理部',
+        owner: '孙工',
+        discoveredAt: '2026-07-15',
+        deadline: '2026-07-18',
+        description: '现场复查发现同类问题',
+        measures: ['复核垫片选型'],
+      },
+      qhseAccess,
+    );
+
+    expect(created.recurrenceCount).toBe(1);
+    expect(created.operations[0].detail).toContain('识别 1 条历史同类隐患');
+    await expect(
+      service.findDuplicates({
+        title: 'P-208 高温泵法兰垫片选型需要复核',
+        riskUnitId: 'risk-001',
+        category: '消防安全',
+      }),
+    ).resolves.toEqual([]);
+  });
+
   test('完成整改、证据、提交验收和关闭全流程', async () => {
     const service = createService();
     const started = await service.start('hazard-003', { expectedVersion: 1 }, qhseAccess);

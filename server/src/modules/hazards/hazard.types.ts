@@ -90,3 +90,13 @@ export interface HazardReminderResult {
   failed: number;
   runAt: string;
 }
+
+export interface HazardDuplicateCandidate {
+  id: string;
+  code: string;
+  title: string;
+  status: HazardStatus;
+  areaName: string;
+  deadline: string;
+  similarity: number;
+}

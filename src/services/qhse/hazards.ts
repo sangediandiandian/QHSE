@@ -1,5 +1,6 @@
 import type {
   Hazard,
+  HazardDuplicateCandidate,
   HazardEvidenceInput,
   HazardQuery,
   HazardReminderResult,
@@ -27,6 +28,16 @@ export async function getHazardRiskUnits() {
 
 export async function reportHazard(input: HazardReportInput) {
   const response = await request<ApiResponse<Hazard>>('/api/v1/hazards', { method: 'POST', data: input });
+  return response.data;
+}
+
+export async function checkHazardDuplicates(
+  input: Pick<HazardReportInput, 'title' | 'riskUnitId' | 'category'>,
+) {
+  const response = await request<ApiResponse<HazardDuplicateCandidate[]>>(
+    '/api/v1/hazards/duplicates/check',
+    { method: 'POST', data: input },
+  );
   return response.data;
 }
 

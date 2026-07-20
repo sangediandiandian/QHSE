@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { RiskService } from '../risks/risk.service';
 import type { AttachmentService } from '../attachments/attachment.service';
 import type { AddHazardEvidenceDto } from './dto/add-hazard-evidence.dto';
+import type { CheckHazardDuplicatesDto } from './dto/check-hazard-duplicates.dto';
 import type { CloseHazardDto } from './dto/close-hazard.dto';
 import type { CreateHazardDto } from './dto/create-hazard.dto';
 import type { UpdateHazardSupervisionDto } from './dto/update-hazard-supervision.dto';
@@ -15,6 +16,7 @@ import {
 import type {
   Hazard,
   HazardAction,
+  HazardDuplicateCandidate,
   HazardQuery,
   HazardReminderResult,
   HazardStatus,
@@ -46,6 +48,36 @@ function dateDistance(from: string, to: string) {
     (new Date(`${to}T00:00:00.000Z`).getTime() - new Date(`${from}T00:00:00.000Z`).getTime()) /
       86_400_000,
   );
+}
+
+function normalizeMatchText(value: string) {
+  return value
+    .normalize('NFKC')
+    .toLocaleLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, '');
+}
+
+function titleSimilarity(left: string, right: string) {
+  const normalizedLeft = normalizeMatchText(left);
+  const normalizedRight = normalizeMatchText(right);
+  if (!normalizedLeft || !normalizedRight) return 0;
+  if (normalizedLeft === normalizedRight) return 1;
+  if (normalizedLeft.length < 2 || normalizedRight.length < 2) return 0;
+  const rightPairs = new Map<string, number>();
+  for (let index = 0; index < normalizedRight.length - 1; index += 1) {
+    const pair = normalizedRight.slice(index, index + 2);
+    rightPairs.set(pair, (rightPairs.get(pair) ?? 0) + 1);
+  }
+  let intersection = 0;
+  for (let index = 0; index < normalizedLeft.length - 1; index += 1) {
+    const pair = normalizedLeft.slice(index, index + 2);
+    const count = rightPairs.get(pair) ?? 0;
+    if (count > 0) {
+      intersection += 1;
+      rightPairs.set(pair, count - 1);
+    }
+  }
+  return (2 * intersection) / (normalizedLeft.length + normalizedRight.length - 2);
 }
 
 export class HazardService {
@@ -85,6 +117,11 @@ export class HazardService {
         message: '风险单元与复盘事件所属区域不一致',
       });
     }
+    const duplicates = await this.findDuplicateCandidates(
+      input,
+      risk.areaId,
+      access.allowedAreaIds,
+    );
     const now = this.now();
     const timestamp = now.toISOString();
     const id = this.createId();
@@ -104,12 +141,21 @@ export class HazardService {
       status: '待整改',
       riskUnitId: input.riskUnitId,
       overdue: input.deadline < formatDate(now),
-      recurrenceCount: 0,
+      recurrenceCount: duplicates.length,
       description: input.description.trim(),
       measures: input.measures.map((item) => item.trim()).filter(Boolean),
       supervised: input.level === '重大',
       evidence: [],
-      operations: [this.operation('上报', access, timestamp, '隐患已上报并生成整改任务')],
+      operations: [
+        this.operation(
+          '上报',
+          access,
+          timestamp,
+          duplicates.length
+            ? `隐患已上报并生成整改任务；识别 ${duplicates.length} 条历史同类隐患`
+            : '隐患已上报并生成整改任务；未识别到历史同类隐患',
+        ),
+      ],
       version: 1,
       createdAt: timestamp,
       updatedAt: timestamp,
@@ -121,6 +167,11 @@ export class HazardService {
       });
     }
     return this.repository.create(hazard);
+  }
+
+  async findDuplicates(input: CheckHazardDuplicatesDto, allowedAreaIds?: string[]) {
+    const risk = await this.riskService.get(input.riskUnitId, allowedAreaIds);
+    return this.findDuplicateCandidates(input, risk.areaId, allowedAreaIds);
   }
 
   async addEvidence(id: string, input: AddHazardEvidenceDto, access: HazardAccessContext) {
@@ -354,6 +405,37 @@ export class HazardService {
       operatedAt,
       detail,
     };
+  }
+
+  private async findDuplicateCandidates(
+    input: CheckHazardDuplicatesDto,
+    areaId: string,
+    allowedAreaIds?: string[],
+  ): Promise<HazardDuplicateCandidate[]> {
+    const category = normalizeMatchText(input.category);
+    const hazards = await this.repository.findAll({ areaId, areaIds: allowedAreaIds });
+    return hazards
+      .filter(
+        (hazard) =>
+          hazard.riskUnitId === input.riskUnitId &&
+          normalizeMatchText(hazard.category) === category,
+      )
+      .map((hazard) => ({ hazard, score: titleSimilarity(input.title, hazard.title) }))
+      .filter(({ score }) => score >= 0.35)
+      .sort(
+        (left, right) =>
+          right.score - left.score || left.hazard.code.localeCompare(right.hazard.code),
+      )
+      .slice(0, 10)
+      .map(({ hazard, score }) => ({
+        id: hazard.id,
+        code: hazard.code,
+        title: hazard.title,
+        status: hazard.status,
+        areaName: hazard.areaName,
+        deadline: hazard.deadline,
+        similarity: Math.round(score * 100),
+      }));
   }
 
   private validateDates(discoveredAt: string, deadline: string) {

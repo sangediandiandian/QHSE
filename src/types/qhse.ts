@@ -933,6 +933,16 @@ export interface HazardReminderResult {
   runAt: string;
 }
 
+export interface HazardDuplicateCandidate {
+  id: string;
+  code: string;
+  title: string;
+  status: HazardStatus;
+  areaName: string;
+  deadline: string;
+  similarity: number;
+}
+
 export interface HazardInput {
   title: string;
   areaId: string;
